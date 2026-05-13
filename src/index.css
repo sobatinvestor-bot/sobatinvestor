@@ -1,0 +1,53 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  background: #F4EFE6;
+  color: #1A2A20;
+}
+
+.serif {
+  font-family: 'Fraunces', serif;
+}
+
+.mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+@keyframes scroll-x {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(196, 155, 60, 0.25); }
+  50% { box-shadow: 0 0 0 8px rgba(196, 155, 60, 0.05); }
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.fade-up { animation: fadeUp 0.5s ease forwards; }
+.ticker-track { animation: scroll-x 30s linear infinite; }
+.pulse-dot { animation: pulse-dot 2s infinite; }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(26, 42, 32, 0.2); border-radius: 3px; }
+
+button { font-family: inherit; }
+input { font-family: inherit; }
