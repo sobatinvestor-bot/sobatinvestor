@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
-import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Loader2 } from 'lucide-react';
+import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Loader2, Lock } from 'lucide-react';
 
 const C = {
   cream: '#F4EFE6',
@@ -324,162 +324,153 @@ function StatCard({ label, value, sub, positive, highlight }) {
   );
 }
 
+// ============================================
+// AI Chat - DISABLED (Member Premium placeholder)
+// To re-enable: restore the original ChatTab function from git history
+// ============================================
 function ChatTab({ stocks }) {
-  const [messages, setMessages] = useState([
-    { role: 'assistant', content: 'Halo sobat! 👋 Aku Sobat AI, asisten investasi saham Indonesia kamu. Mau tanya apa hari ini?\n\nBisa nanya soal:\n• Analisis saham IDX (BBCA, BBRI, TLKM, dll)\n• Strategi portofolio\n• Konsep investasi (fundamental, teknikal)\n• Kondisi pasar terkini' }
-  ]);
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const scrollRef = useRef(null);
-
-  useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages, loading]);
-
-  const portfolioContext = stocks.map(s => `${s.symbol} (${s.name}): ${s.qty} lot @ avg ${Math.round(s.avg)}, harga skrg ${Math.round(s.price)}, P/L ${(((s.price - s.avg) / s.avg) * 100).toFixed(2)}%`).join('\n');
-
-  const systemPrompt = `Kamu adalah "Sobat AI", asisten investasi saham Indonesia yang ramah, ahli, dan to-the-point.
-
-KARAKTER:
-- Panggil pengguna "sobat" atau "kamu", santai tapi profesional
-- Pakai bahasa Indonesia, boleh selipkan istilah saham (cuan, fundamental, teknikal, bluechip, dll)
-- Jawaban SINGKAT (3-6 kalimat untuk pertanyaan biasa), pakai bullet kalau perlu
-- Hindari basa-basi panjang
-
-YANG KAMU KUASAI:
-- Saham IDX (LQ45, IDX30, perbankan, telco, consumer, dll)
-- Fundamental analysis (ROE, P/E, P/B, DER, dividend)
-- Technical analysis (MA, RSI, support resistance, candlestick)
-- Makro Indonesia (BI Rate, IHSG, sektor)
-- Portfolio management & risk
-
-PORTOFOLIO PENGGUNA SAAT INI:
-${portfolioContext}
-
-ATURAN PENTING:
-- JANGAN kasih rekomendasi beli/jual yang pasti — selalu bingkai sebagai "kerangka berpikir" atau "yang perlu dipertimbangkan"
-- Selalu tutup dengan reminder singkat bahwa ini bukan saran finansial profesional
-- Kalau ditanya soal harga real-time atau berita terkini yang kamu tidak tahu pasti, bilang dengan jujur dan suggest untuk cek sumber resmi (IDX, Stockbit, dll)`;
-
-  async function sendMessage() {
-    if (!input.trim() || loading) return;
-    const userMsg = { role: 'user', content: input };
-    const newMessages = [...messages, userMsg];
-    setMessages(newMessages);
-    setInput('');
-    setLoading(true);
-
-    try {
-      // Call our own Cloudflare Pages Function — NOT Anthropic directly (so API key stays secret)
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
-          system: systemPrompt,
-          messages: newMessages.map(m => ({ role: m.role, content: m.content })),
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim() || 'Maaf sobat, ada masalah teknis. Coba lagi ya.';
-      setMessages([...newMessages, { role: 'assistant', content: text }]);
-    } catch (err) {
-      console.error(err);
-      setMessages([...newMessages, { role: 'assistant', content: 'Maaf sobat, aku gak bisa connect ke server. Coba lagi nanti ya 🙏' }]);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const suggestions = [
-    'Analisis singkat portofolio aku',
-    'Saham bank mana yang paling kuat fundamental?',
-    'Jelasin RSI dong',
-    'Strategi rebalancing untuk pemula?',
-  ];
-
   return (
-    <div className="fade-up" style={{ maxWidth: 800, margin: '0 auto', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 60px - 80px)' }}>
-      <div style={{ padding: '20px 20px 8px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 12, background: C.forest, color: C.cuanBright, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Sparkles size={18} />
-          </div>
-          <div>
-            <h2 className="serif" style={{ fontSize: 22, fontWeight: 600, lineHeight: 1 }}>Sobat AI</h2>
-            <div style={{ fontSize: 12, color: C.green, fontWeight: 500 }}>● Online</div>
-          </div>
-        </div>
+    <div className="fade-up" style={{ maxWidth: 800, margin: '0 auto', padding: '40px 20px 60px', minHeight: 'calc(100vh - 60px - 80px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+      
+      {/* Lock Icon Badge */}
+      <div style={{
+        width: 80,
+        height: 80,
+        borderRadius: 24,
+        background: C.forest,
+        color: C.cuanBright,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 24,
+        boxShadow: '0 8px 24px rgba(31,59,45,0.2)'
+      }}>
+        <Lock size={36} />
       </div>
 
-      <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '12px 20px' }}>
-        {messages.map((m, i) => (
-          <div key={i} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start', marginBottom: 12 }}>
-            <div
-              style={{
-                maxWidth: '85%',
-                padding: '12px 16px',
-                borderRadius: 16,
-                background: m.role === 'user' ? C.forest : C.cream2,
-                color: m.role === 'user' ? C.cream : C.ink,
-                fontSize: 14,
-                lineHeight: 1.55,
-                whiteSpace: 'pre-wrap',
-              }}
-            >
-              {m.content}
-            </div>
+      {/* Premium Badge */}
+      <div style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+        background: C.cuan,
+        color: C.ink,
+        padding: '6px 14px',
+        borderRadius: 100,
+        fontSize: 11,
+        fontWeight: 700,
+        letterSpacing: '0.1em',
+        textTransform: 'uppercase',
+        marginBottom: 16
+      }}>
+        <Sparkles size={12} /> Member Premium
+      </div>
+
+      {/* Heading */}
+      <h2 className="serif" style={{
+        fontSize: 'clamp(28px, 6vw, 42px)',
+        fontWeight: 500,
+        letterSpacing: '-0.02em',
+        textAlign: 'center',
+        marginBottom: 16,
+        lineHeight: 1.1
+      }}>
+        Sobat AI{' '}
+        <em style={{ color: C.forest }}>Premium</em>
+      </h2>
+
+      {/* Description */}
+      <p style={{
+        fontSize: 16,
+        color: C.inkSoft,
+        lineHeight: 1.6,
+        textAlign: 'center',
+        maxWidth: 480,
+        marginBottom: 32
+      }}>
+        Asisten AI eksklusif untuk member premium. Dapatkan analisis saham mendalam, 
+        rekomendasi portofolio, dan insight pasar real-time yang dipersonalisasi.
+      </p>
+
+      {/* Features List */}
+      <div style={{
+        background: C.cream2,
+        borderRadius: 20,
+        padding: 24,
+        maxWidth: 480,
+        width: '100%',
+        marginBottom: 24
+      }}>
+        <div className="mono" style={{
+          fontSize: 11,
+          textTransform: 'uppercase',
+          letterSpacing: '0.15em',
+          color: C.rust,
+          marginBottom: 14,
+          fontWeight: 500
+        }}>
+          // Yang akan kamu dapat
+        </div>
+        {[
+          'Analisis fundamental & teknikal mendalam',
+          'Rekomendasi portofolio personal',
+          'Insight makro & sektor real-time',
+          'Strategi rebalancing otomatis',
+        ].map((feature, i) => (
+          <div key={i} style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            padding: '8px 0',
+            fontSize: 14,
+            color: C.ink
+          }}>
+            <span style={{
+              width: 20,
+              height: 20,
+              borderRadius: '50%',
+              background: C.forest,
+              color: C.cuanBright,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 11,
+              fontWeight: 700,
+              flexShrink: 0
+            }}>✓</span>
+            {feature}
           </div>
         ))}
-        {loading && (
-          <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 12 }}>
-            <div style={{ padding: '12px 16px', borderRadius: 16, background: C.cream2, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Loader2 size={14} style={{ animation: 'spin 1s linear infinite', color: C.inkSoft }} />
-              <span style={{ fontSize: 13, color: C.inkSoft }}>Sobat lagi mikir...</span>
-            </div>
-          </div>
-        )}
       </div>
 
-      {messages.length <= 1 && (
-        <div style={{ padding: '0 20px 8px', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {suggestions.map((s) => (
-            <button
-              key={s}
-              onClick={() => setInput(s)}
-              style={{ background: C.cream2, color: C.ink, border: 'none', padding: '8px 12px', borderRadius: 100, fontSize: 12, fontWeight: 500, cursor: 'pointer' }}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-      )}
+      {/* CTA */}
+      <button
+        style={{
+          background: C.forest,
+          color: C.cream,
+          padding: '14px 28px',
+          borderRadius: 100,
+          border: 'none',
+          fontSize: 14,
+          fontWeight: 600,
+          cursor: 'pointer',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 8,
+          marginBottom: 12
+        }}
+        onClick={() => alert('Fitur premium akan tersedia segera. Stay tuned, sobat! 🌱')}
+      >
+        <Sparkles size={16} /> Coming Soon
+      </button>
 
-      <div style={{ padding: '12px 20px 20px', borderTop: `1px solid rgba(26,42,32,0.06)`, background: C.cream }}>
-        <div style={{ display: 'flex', gap: 8, background: C.cream2, borderRadius: 100, padding: '6px 6px 6px 18px', alignItems: 'center' }}>
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-            placeholder="Tanya apa aja ke Sobat..."
-            style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: 14, color: C.ink }}
-            disabled={loading}
-          />
-          <button
-            onClick={sendMessage}
-            disabled={!input.trim() || loading}
-            style={{ background: input.trim() && !loading ? C.forest : 'rgba(26,42,32,0.2)', color: C.cream, border: 'none', width: 38, height: 38, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: input.trim() && !loading ? 'pointer' : 'not-allowed' }}
-          >
-            <Send size={16} />
-          </button>
-        </div>
-      </div>
+      <p style={{
+        fontSize: 12,
+        color: C.inkSoft,
+        textAlign: 'center'
+      }}>
+        Fitur ini sedang kami siapkan. Pantau update kami ya, sobat. 🌱
+      </p>
     </div>
   );
 }
