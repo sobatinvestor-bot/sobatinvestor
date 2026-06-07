@@ -35,19 +35,40 @@ export default function App() {
   const [ihsg, setIhsg] = useState(7842.31);
   const [ihsgChange, setIhsgChange] = useState(0.84);
 
+  // Ambil harga REAL (delayed) dari /api/quotes — refresh tiap 60 detik.
+  // qty & avg tetap dari initialStocks; hanya price & change yang live.
   useEffect(() => {
-    const id = setInterval(() => {
-      setStocks((prev) =>
-        prev.map((s) => {
-          const drift = (Math.random() - 0.5) * 0.008;
-          const newPrice = Math.max(1, s.price * (1 + drift));
-          return { ...s, price: newPrice, change: s.change + drift * 100 };
-        })
-      );
-      setIhsg((v) => v * (1 + (Math.random() - 0.5) * 0.002));
-      setIhsgChange((v) => v + (Math.random() - 0.5) * 0.1);
-    }, 2500);
-    return () => clearInterval(id);
+    let active = true;
+    async function load() {
+      try {
+        const res = await fetch('/api/quotes');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!active) return;
+        if (Array.isArray(data.quotes) && data.quotes.length) {
+          setStocks((prev) =>
+            prev.map((s) => {
+              const live = data.quotes.find((q) => q.symbol === s.symbol);
+              return live
+                ? { ...s, price: live.price, change: live.change }
+                : s;
+            })
+          );
+        }
+        if (data.ihsg && typeof data.ihsg.value === 'number') {
+          setIhsg(data.ihsg.value);
+          setIhsgChange(data.ihsg.change);
+        }
+      } catch (e) {
+        console.error('Gagal memuat harga:', e);
+      }
+    }
+    load();
+    const id = setInterval(load, 60000);
+    return () => {
+      active = false;
+      clearInterval(id);
+    };
   }, []);
 
   return (
