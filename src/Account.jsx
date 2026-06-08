@@ -103,7 +103,7 @@ export function usePortfolio(userId) {
 // ============================================================
 // Layar Login / Daftar
 // ============================================================
-export function Auth() {
+export function Auth({ inline }) {
   const [mode, setMode] = useState('login');
   const [email, setEmail] = useState('');
   const [pw, setPw] = useState('');
@@ -119,17 +119,19 @@ export function Auth() {
       } else {
         const { error } = await supabase.auth.signUp({ email, password: pw });
         if (error) setMsg(error.message);
-        else setMsg('Cek email kamu untuk konfirmasi, lalu Masuk.');
+        else setMsg('Akun dibuat. Silakan Masuk.');
       }
     } finally { setBusy(false); }
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: C.cream, color: C.ink, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
-      <div className="serif" style={{ fontSize: 24, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, marginBottom: 26 }}>
-        <span style={{ width: 10, height: 10, borderRadius: '50%', background: C.cuan }} />
-        sobat<span style={{ color: C.cuan }}>.</span>investor
-      </div>
+    <div style={{ minHeight: inline ? 'calc(100vh - 180px)' : '100vh', background: C.cream, color: C.ink, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
+      {!inline && (
+        <div className="serif" style={{ fontSize: 24, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, marginBottom: 26 }}>
+          <span style={{ width: 10, height: 10, borderRadius: '50%', background: C.cuan }} />
+          sobat<span style={{ color: C.cuan }}>.</span>investor
+        </div>
+      )}
       <div style={{ background: C.cream2, borderRadius: 24, padding: 28, width: '100%', maxWidth: 380 }}>
         <h1 className="serif" style={{ fontSize: 28, fontWeight: 600, marginBottom: 6 }}>{mode === 'login' ? 'Masuk' : 'Daftar'}</h1>
         <p style={{ fontSize: 14, color: C.inkSoft, marginBottom: 22 }}>

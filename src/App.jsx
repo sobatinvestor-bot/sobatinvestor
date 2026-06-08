@@ -33,11 +33,29 @@ const fmtPct = (n) => (n >= 0 ? '+' : '') + n.toFixed(2) + '%';
 
 export default function App() {
   const [session, setSession] = useState(undefined); // undefined = masih cek
+  const [tab, setTab] = useState('home');
+  const [market, setMarket] = useState({ quotes: [], ihsg: null });
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
     return () => sub.subscription.unsubscribe();
+  }, []);
+
+  // Data pasar publik (ticker Beranda + IHSG di header) — tanpa login
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      try {
+        const res = await fetch('/api/quotes');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (active) setMarket({ quotes: data.quotes || [], ihsg: data.ihsg || null });
+      } catch (e) { console.error(e); }
+    }
+    load();
+    const id = setInterval(load, 60000);
+    return () => { active = false; clearInterval(id); };
   }, []);
 
   if (session === undefined) {
@@ -47,14 +65,28 @@ export default function App() {
       </div>
     );
   }
-  if (!session) return <Auth />;
-  return <Main session={session} />;
+
+  const ihsg = market.ihsg ? market.ihsg.value : 7800;
+  const ihsgChange = market.ihsg ? market.ihsg.change : 0;
+  const isPrivateTab = tab !== 'home';
+
+  return (
+    <div style={{ background: C.cream, minHeight: '100vh', color: C.ink }}>
+      <Nav ihsg={ihsg} ihsgChange={ihsgChange} session={session} setTab={setTab} />
+      <div style={{ paddingBottom: 100 }}>
+        {tab === 'home' && <HomeTab stocks={market.quotes} setTab={setTab} />}
+        {isPrivateTab && !session && <Auth inline />}
+        {isPrivateTab && session && <PrivateArea tab={tab} userId={session.user.id} />}
+      </div>
+      <BottomNav tab={tab} setTab={setTab} />
+    </div>
+  );
 }
 
-function Main({ session }) {
-  const [tab, setTab] = useState('home');
-  const { stocks, ihsg, ihsgChange, addHolding, updateHolding, deleteHolding } = usePortfolio(session.user.id);
-  const [editing, setEditing] = useState(null); // holding object, {} untuk baru, atau null
+// Area privat (hanya saat sudah login): Dashboard, Sobat AI, Portfolio
+function PrivateArea({ tab, userId }) {
+  const { stocks, addHolding, updateHolding, deleteHolding } = usePortfolio(userId);
+  const [editing, setEditing] = useState(null);
 
   function handleSave(h) {
     if (h.id) updateHolding(h); else addHolding(h);
@@ -62,28 +94,23 @@ function Main({ session }) {
   }
 
   return (
-    <div style={{ background: C.cream, minHeight: '100vh', color: C.ink }}>
-      <Nav ihsg={ihsg} ihsgChange={ihsgChange} onLogout={logout} />
-      <div style={{ paddingBottom: 100 }}>
-        {tab === 'home' && <HomeTab stocks={stocks} setTab={setTab} />}
-        {tab === 'dashboard' && <DashboardTab stocks={stocks} />}
-        {tab === 'chat' && <ChatTab stocks={stocks} />}
-        {tab === 'portfolio' && (
-          <PortfolioTab
-            stocks={stocks}
-            onAdd={() => setEditing({})}
-            onEdit={(s) => setEditing(s)}
-            onDelete={deleteHolding}
-          />
-        )}
-      </div>
-      <BottomNav tab={tab} setTab={setTab} />
+    <>
+      {tab === 'dashboard' && <DashboardTab stocks={stocks} />}
+      {tab === 'chat' && <ChatTab stocks={stocks} />}
+      {tab === 'portfolio' && (
+        <PortfolioTab
+          stocks={stocks}
+          onAdd={() => setEditing({})}
+          onEdit={(s) => setEditing(s)}
+          onDelete={deleteHolding}
+        />
+      )}
       {editing && <Editor holding={editing} onSave={handleSave} onClose={() => setEditing(null)} />}
-    </div>
+    </>
   );
 }
 
-function Nav({ ihsg, ihsgChange, onLogout }) {
+function Nav({ ihsg, ihsgChange, session, setTab }) {
   return (
     <div style={{ borderBottom: `1px solid rgba(26,42,32,0.08)`, background: 'rgba(244,239,230,0.9)', backdropFilter: 'blur(12px)', position: 'sticky', top: 0, zIndex: 50 }}>
       <div style={{ padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', maxWidth: 1280, margin: '0 auto' }}>
@@ -96,10 +123,15 @@ function Nav({ ihsg, ihsgChange, onLogout }) {
             <span style={{ fontWeight: 600, color: C.ink }}>{ihsg.toFixed(2)}</span>
             <span style={{ color: ihsgChange >= 0 ? C.green : C.red, fontWeight: 600 }}>{fmtPct(ihsgChange)}</span>
           </div>
-          {onLogout && (
-            <button onClick={onLogout} title="Keluar"
+          {session ? (
+            <button onClick={logout} title="Keluar"
               style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: C.inkSoft, display: 'flex', alignItems: 'center' }}>
               <LogOut size={16} />
+            </button>
+          ) : (
+            <button onClick={() => setTab('portfolio')}
+              style={{ background: C.forest, color: C.cream, border: 'none', padding: '7px 16px', borderRadius: 100, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+              Masuk
             </button>
           )}
         </div>
