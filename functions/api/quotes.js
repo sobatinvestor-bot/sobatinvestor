@@ -19,8 +19,15 @@ const STOCKS = {
 
 const INDEX_SYMBOL = "^JKSE"; // IHSG
 
-export async function onRequestGet() {
-  const symbols = Object.keys(STOCKS);
+export async function onRequestGet(context) {
+  // Bisa dipanggil /api/quotes?symbols=BBCA,ANTM untuk simbol milik user.
+  // Tanpa param → pakai daftar default STOCKS.
+  const url = new URL(context.request.url);
+  const param = url.searchParams.get("symbols");
+  const symbols = param
+    ? param.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean)
+        .map((s) => (s.endsWith(".JK") ? s : s + ".JK"))
+    : Object.keys(STOCKS);
 
   const [stockResults, indexResult] = await Promise.all([
     Promise.allSettled(symbols.map(fetchQuote)),

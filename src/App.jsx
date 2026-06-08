@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
-import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Loader2, Lock } from 'lucide-react';
+import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Loader2, Lock, LogOut, Plus, Pencil, Trash2 } from 'lucide-react';
+import { supabase } from './lib/supabase';
+import { Auth, usePortfolio, Editor, logout } from './Account.jsx';
 
 const C = {
   cream: '#F4EFE6',
@@ -30,62 +32,58 @@ const fmtRp = (n) => 'Rp ' + Math.round(n).toLocaleString('id-ID');
 const fmtPct = (n) => (n >= 0 ? '+' : '') + n.toFixed(2) + '%';
 
 export default function App() {
-  const [tab, setTab] = useState('home');
-  const [stocks, setStocks] = useState(initialStocks);
-  const [ihsg, setIhsg] = useState(7842.31);
-  const [ihsgChange, setIhsgChange] = useState(0.84);
+  const [session, setSession] = useState(undefined); // undefined = masih cek
 
-  // Ambil harga REAL (delayed) dari /api/quotes — refresh tiap 60 detik.
-  // qty & avg tetap dari initialStocks; hanya price & change yang live.
   useEffect(() => {
-    let active = true;
-    async function load() {
-      try {
-        const res = await fetch('/api/quotes');
-        if (!res.ok) return;
-        const data = await res.json();
-        if (!active) return;
-        if (Array.isArray(data.quotes) && data.quotes.length) {
-          setStocks((prev) =>
-            prev.map((s) => {
-              const live = data.quotes.find((q) => q.symbol === s.symbol);
-              return live
-                ? { ...s, price: live.price, change: live.change }
-                : s;
-            })
-          );
-        }
-        if (data.ihsg && typeof data.ihsg.value === 'number') {
-          setIhsg(data.ihsg.value);
-          setIhsgChange(data.ihsg.change);
-        }
-      } catch (e) {
-        console.error('Gagal memuat harga:', e);
-      }
-    }
-    load();
-    const id = setInterval(load, 60000);
-    return () => {
-      active = false;
-      clearInterval(id);
-    };
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    return () => sub.subscription.unsubscribe();
   }, []);
+
+  if (session === undefined) {
+    return (
+      <div style={{ background: C.cream, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.inkSoft }}>
+        <Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} />
+      </div>
+    );
+  }
+  if (!session) return <Auth />;
+  return <Main session={session} />;
+}
+
+function Main({ session }) {
+  const [tab, setTab] = useState('home');
+  const { stocks, ihsg, ihsgChange, addHolding, updateHolding, deleteHolding } = usePortfolio(session.user.id);
+  const [editing, setEditing] = useState(null); // holding object, {} untuk baru, atau null
+
+  function handleSave(h) {
+    if (h.id) updateHolding(h); else addHolding(h);
+    setEditing(null);
+  }
 
   return (
     <div style={{ background: C.cream, minHeight: '100vh', color: C.ink }}>
-      <Nav ihsg={ihsg} ihsgChange={ihsgChange} />
+      <Nav ihsg={ihsg} ihsgChange={ihsgChange} onLogout={logout} />
       <div style={{ paddingBottom: 100 }}>
         {tab === 'home' && <HomeTab stocks={stocks} setTab={setTab} />}
         {tab === 'dashboard' && <DashboardTab stocks={stocks} />}
         {tab === 'chat' && <ChatTab stocks={stocks} />}
-        {tab === 'portfolio' && <PortfolioTab stocks={stocks} />}
+        {tab === 'portfolio' && (
+          <PortfolioTab
+            stocks={stocks}
+            onAdd={() => setEditing({})}
+            onEdit={(s) => setEditing(s)}
+            onDelete={deleteHolding}
+          />
+        )}
       </div>
       <BottomNav tab={tab} setTab={setTab} />
+      {editing && <Editor holding={editing} onSave={handleSave} onClose={() => setEditing(null)} />}
     </div>
   );
 }
 
-function Nav({ ihsg, ihsgChange }) {
+function Nav({ ihsg, ihsgChange, onLogout }) {
   return (
     <div style={{ borderBottom: `1px solid rgba(26,42,32,0.08)`, background: 'rgba(244,239,230,0.9)', backdropFilter: 'blur(12px)', position: 'sticky', top: 0, zIndex: 50 }}>
       <div style={{ padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', maxWidth: 1280, margin: '0 auto' }}>
@@ -93,9 +91,17 @@ function Nav({ ihsg, ihsgChange }) {
           <span className="pulse-dot" style={{ width: 9, height: 9, borderRadius: '50%', background: C.cuan, display: 'inline-block' }} />
           sobat<span style={{ color: C.cuan, fontWeight: 700 }}>.</span>investor
         </div>
-        <div className="mono" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: C.inkSoft }}>
-          <span style={{ fontWeight: 600, color: C.ink }}>{ihsg.toFixed(2)}</span>
-          <span style={{ color: ihsgChange >= 0 ? C.green : C.red, fontWeight: 600 }}>{fmtPct(ihsgChange)}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div className="mono" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: C.inkSoft }}>
+            <span style={{ fontWeight: 600, color: C.ink }}>{ihsg.toFixed(2)}</span>
+            <span style={{ color: ihsgChange >= 0 ? C.green : C.red, fontWeight: 600 }}>{fmtPct(ihsgChange)}</span>
+          </div>
+          {onLogout && (
+            <button onClick={onLogout} title="Keluar"
+              style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: C.inkSoft, display: 'flex', alignItems: 'center' }}>
+              <LogOut size={16} />
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -226,7 +232,7 @@ function DashboardTab({ stocks }) {
   const totalValue = stocks.reduce((sum, s) => sum + s.price * s.qty, 0);
   const totalCost = stocks.reduce((sum, s) => sum + s.avg * s.qty, 0);
   const totalPL = totalValue - totalCost;
-  const totalPLPct = (totalPL / totalCost) * 100;
+  const totalPLPct = totalCost ? (totalPL / totalCost) * 100 : 0;
 
   const perfData = Array.from({ length: 30 }, (_, i) => ({
     day: i + 1,
@@ -496,7 +502,7 @@ function ChatTab({ stocks }) {
   );
 }
 
-function PortfolioTab({ stocks }) {
+function PortfolioTab({ stocks, onAdd, onEdit, onDelete }) {
   function exportCSV() {
     const headers = ['Symbol', 'Nama', 'Qty', 'Avg Price', 'Current Price', 'Market Value', 'P/L', 'P/L %', 'Sector'];
     const rows = stocks.map(s => {
@@ -519,39 +525,64 @@ function PortfolioTab({ stocks }) {
     <div className="fade-up" style={{ padding: '24px 20px', maxWidth: 1100, margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <h2 className="serif" style={{ fontSize: 32, fontWeight: 500, letterSpacing: '-0.02em' }}>Portfolio</h2>
-        <button
-          onClick={exportCSV}
-          style={{ background: C.cuan, color: C.ink, border: 'none', padding: '10px 16px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-        >
-          <Download size={14} /> Export ke Excel
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            onClick={onAdd}
+            style={{ background: C.forest, color: C.cream, border: 'none', padding: '10px 16px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <Plus size={14} /> Tambah Saham
+          </button>
+          {stocks.length > 0 && (
+            <button
+              onClick={exportCSV}
+              style={{ background: C.cuan, color: C.ink, border: 'none', padding: '10px 16px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              <Download size={14} /> Export
+            </button>
+          )}
+        </div>
       </div>
 
-      <div style={{ background: C.cream2, borderRadius: 20, overflow: 'hidden' }}>
-        <div className="mono" style={{ display: 'grid', gridTemplateColumns: '1fr 80px 100px 100px', padding: '14px 16px', fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', color: C.inkSoft, textTransform: 'uppercase', borderBottom: `1px solid rgba(26,42,32,0.08)` }}>
-          <span>SAHAM</span>
-          <span style={{ textAlign: 'right' }}>QTY</span>
-          <span style={{ textAlign: 'right' }}>HARGA</span>
-          <span style={{ textAlign: 'right' }}>P/L</span>
+      {stocks.length === 0 ? (
+        <div style={{ background: C.cream2, borderRadius: 20, padding: '48px 24px', textAlign: 'center', color: C.inkSoft }}>
+          <div className="serif" style={{ fontSize: 20, color: C.ink, marginBottom: 8 }}>Portofolio masih kosong</div>
+          <p style={{ fontSize: 14, marginBottom: 18 }}>Mulai bangun portofoliomu — tambahkan saham pertamamu.</p>
+          <button onClick={onAdd} style={{ background: C.forest, color: C.cream, border: 'none', padding: '12px 20px', borderRadius: 100, fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Plus size={15} /> Tambah Saham
+          </button>
         </div>
-        {stocks.map((s) => {
-          const pl = (s.price - s.avg) / s.avg * 100;
-          return (
-            <div key={s.symbol} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 100px 100px', padding: '14px 16px', borderBottom: `1px solid rgba(26,42,32,0.06)`, alignItems: 'center' }}>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>{s.symbol}</div>
-                <div style={{ fontSize: 11, color: C.inkSoft, marginTop: 2 }}>{s.name}</div>
+      ) : (
+        <div style={{ background: C.cream2, borderRadius: 20, overflow: 'hidden' }}>
+          <div className="mono" style={{ display: 'grid', gridTemplateColumns: '1fr 70px 90px 80px 64px', padding: '14px 16px', fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', color: C.inkSoft, textTransform: 'uppercase', borderBottom: `1px solid rgba(26,42,32,0.08)` }}>
+            <span>SAHAM</span>
+            <span style={{ textAlign: 'right' }}>QTY</span>
+            <span style={{ textAlign: 'right' }}>HARGA</span>
+            <span style={{ textAlign: 'right' }}>P/L</span>
+            <span></span>
+          </div>
+          {stocks.map((s) => {
+            const pl = s.avg ? (s.price - s.avg) / s.avg * 100 : 0;
+            return (
+              <div key={s.id || s.symbol} style={{ display: 'grid', gridTemplateColumns: '1fr 70px 90px 80px 64px', padding: '14px 16px', borderBottom: `1px solid rgba(26,42,32,0.06)`, alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{s.symbol}</div>
+                  <div style={{ fontSize: 11, color: C.inkSoft, marginTop: 2 }}>{s.name}</div>
+                </div>
+                <div className="mono" style={{ fontSize: 13, textAlign: 'right' }}>{s.qty.toLocaleString('id-ID')}</div>
+                <div className="mono" style={{ fontSize: 13, textAlign: 'right', fontWeight: 600 }}>{Math.round(s.price).toLocaleString('id-ID')}</div>
+                <div className="mono" style={{ fontSize: 13, textAlign: 'right', fontWeight: 600, color: pl >= 0 ? C.green : C.red }}>{fmtPct(pl)}</div>
+                <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                  <button onClick={() => onEdit(s)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 4 }}><Pencil size={14} color={C.inkSoft} /></button>
+                  <button onClick={() => onDelete(s.id)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 4 }}><Trash2 size={14} color={C.rust} /></button>
+                </div>
               </div>
-              <div className="mono" style={{ fontSize: 13, textAlign: 'right' }}>{s.qty.toLocaleString('id-ID')}</div>
-              <div className="mono" style={{ fontSize: 13, textAlign: 'right', fontWeight: 600 }}>{Math.round(s.price).toLocaleString('id-ID')}</div>
-              <div className="mono" style={{ fontSize: 13, textAlign: 'right', fontWeight: 600, color: pl >= 0 ? C.green : C.red }}>{fmtPct(pl)}</div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       <div style={{ marginTop: 16, padding: 14, background: 'rgba(196,155,60,0.1)', borderRadius: 12, fontSize: 12, color: C.inkSoft, lineHeight: 1.5 }}>
-        💡 <strong style={{ color: C.ink }}>Tips:</strong> Data ini adalah simulasi demo. Versi production akan auto-sync dari Stockbit/Ajaib/IPOT kamu (read-only, aman).
+        💡 <strong style={{ color: C.ink }}>Privat:</strong> Hanya kamu yang bisa melihat portofolio ini. Tersimpan di akunmu &amp; sinkron lintas perangkat. Harga live (delayed) dari pasar.
       </div>
     </div>
   );
