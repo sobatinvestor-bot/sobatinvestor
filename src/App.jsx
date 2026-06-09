@@ -260,6 +260,27 @@ function HomeTab({ stocks, setTab }) {
   );
 }
 
+function PerfTooltip({ active, payload }) {
+  if (!active || !payload || !payload.length) return null;
+  const p = payload[0].payload;
+  return (
+    <div style={{ background: C.ink, borderRadius: 8, padding: '8px 11px', fontSize: 12 }}>
+      <div style={{ color: C.cream, marginBottom: 3 }}>{p.label}</div>
+      <div style={{ color: C.cuanBright, fontWeight: 600 }}>{fmtRp(p.value)}</div>
+      {p.pct != null && (
+        <div style={{ color: p.pct >= 0 ? '#6BCF8F' : '#F47766', fontWeight: 600, marginTop: 2 }}>
+          Porto {fmtPct(p.pct)}
+        </div>
+      )}
+      {p.ihsgPct != null && (
+        <div style={{ color: 'rgba(244,239,230,0.7)', marginTop: 2 }}>
+          IHSG {fmtPct(p.ihsgPct)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DashboardTab({ stocks }) {
   const totalValue = stocks.reduce((sum, s) => sum + s.price * s.qty, 0);
   const totalCost = stocks.reduce((sum, s) => sum + s.avg * s.qty, 0);
@@ -281,7 +302,7 @@ function DashboardTab({ stocks }) {
       .then((r) => (r.ok ? r.json() : { dividends: [] }))
       .then((d) => { if (active) setRawDiv(d.dividends || []); })
       .catch(() => {});
-    fetch(`/api/history?symbols=${encodeURIComponent(symKey)}&range=${histRange}`)
+    fetch(`/api/history?symbols=${encodeURIComponent(symKey + ',^JKSE')}&range=${histRange}`)
       .then((r) => (r.ok ? r.json() : { history: {} }))
       .then((d) => { if (active) setHist(d.history || {}); })
       .catch(() => {});
@@ -294,7 +315,12 @@ function DashboardTab({ stocks }) {
   const FUTURE_DAYS = 30;
   const qtyMap = {};
   const priceMap = {};
-  stocks.forEach((s) => { qtyMap[s.symbol] = s.qty; priceMap[s.symbol] = s.price; });
+  const buyMap = {};
+  stocks.forEach((s) => {
+    qtyMap[s.symbol] = s.qty;
+    priceMap[s.symbol] = s.price;
+    buyMap[s.symbol] = s.buyDate ? new Date(s.buyDate).getTime() : 0;
+  });
 
   const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
   const todayTime = midnight.getTime();
@@ -315,25 +341,60 @@ function DashboardTab({ stocks }) {
   }
 
   const divEvents = rawDiv
-    .map((d) => ({
-      payTime: new Date(d.exDate).getTime() + OFFSET_DAYS * DAY,
-      cash: d.amount * (qtyMap[d.symbol] || 0),
-    }))
+    .map((d) => {
+      const exTime = new Date(d.exDate).getTime();
+      const owned = exTime >= (buyMap[d.symbol] || 0); // dividen hanya jika sudah dipegang saat ex-date
+      return {
+        payTime: exTime + OFFSET_DAYS * DAY,
+        cash: owned ? d.amount * (qtyMap[d.symbol] || 0) : 0,
+      };
+    })
     .filter((e) => e.cash > 0 && e.payTime >= startTime && e.payTime <= endTime);
 
   const fmtShort = (t) => new Date(t).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
   const totalDays = Math.round((endTime - startTime) / DAY) + 1;
+
+  // Baseline untuk perbandingan periode: titik pertama yang sudah punya nilai (>0)
+  const hasIhsg = !!(hist['^JKSE'] && hist['^JKSE'].length);
+  let valueStart = 0, ihsgStart = 0, baseSet = false;
+  for (let i = 0; i < totalDays; i++) {
+    const t = startTime + i * DAY;
+    let v = 0;
+    stocks.forEach((s) => {
+      if (t < (buyMap[s.symbol] || 0)) return;
+      const px = t <= todayTime ? closeAt(s.symbol, t) : (priceMap[s.symbol] || 0);
+      v += px * s.qty;
+    });
+    if (v > 0) { valueStart = v; ihsgStart = hasIhsg ? closeAt('^JKSE', t) : 0; baseSet = true; break; }
+  }
+
   const perfData = Array.from({ length: totalDays }, (_, i) => {
     const t = startTime + i * DAY;
-    const base = stocks.reduce((sum, s) => {
+    let base = 0;
+    stocks.forEach((s) => {
+      if (t < (buyMap[s.symbol] || 0)) return; // belum dibeli pada tanggal ini
       const px = t <= todayTime ? closeAt(s.symbol, t) : (priceMap[s.symbol] || 0);
-      return sum + px * s.qty;
-    }, 0);
+      base += px * s.qty;
+    });
     const cumDiv = divEvents.filter((e) => e.payTime <= t).reduce((s, e) => s + e.cash, 0);
-    return { label: fmtShort(t), value: base + cumDiv };
+    const value = base + cumDiv;
+    // % portofolio = perubahan sejak awal periode (apple-to-apple dgn IHSG), bukan vs modal
+    const pct = (baseSet && valueStart > 0 && value > 0) ? ((value / valueStart) - 1) * 100 : null;
+
+    // IHSG disetarakan ke nilai awal portofolio + % periode IHSG
+    let ihsg = null, ihsgPct = null;
+    if (hasIhsg && ihsgStart > 0 && baseSet) {
+      const idx = closeAt('^JKSE', t);
+      ihsg = valueStart * (idx / ihsgStart);
+      ihsgPct = (idx / ihsgStart - 1) * 100;
+    }
+    return { label: fmtShort(t), value: value || null, pct, ihsg, ihsgPct };
   });
   const todayIdx = Math.round((todayTime - startTime) / DAY);
   const todayLabel = perfData[todayIdx] ? perfData[todayIdx].label : fmtShort(todayTime);
+  const todayPoint = perfData[todayIdx] || perfData[perfData.length - 1];
+  const curPct = todayPoint ? todayPoint.pct : null;        // portofolio (periode)
+  const ihsgPeriodPct = todayPoint ? todayPoint.ihsgPct : null;
   const totalDivWindow = divEvents.reduce((s, e) => s + e.cash, 0);
 
   const sectorMap = {};
@@ -360,7 +421,16 @@ function DashboardTab({ stocks }) {
 
       <div style={{ background: C.cream2, borderRadius: 20, padding: 20, marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <h3 className="serif" style={{ fontSize: 18, fontWeight: 600 }}>Nilai Portofolio</h3>
+          <div>
+            <h3 className="serif" style={{ fontSize: 18, fontWeight: 600 }}>Nilai Portofolio</h3>
+            {curPct != null && (
+              <div style={{ fontSize: 13, marginTop: 2 }}>
+                <span style={{ fontWeight: 600, color: curPct >= 0 ? C.green : C.red }}>Porto {fmtPct(curPct)}</span>
+                {ihsgPeriodPct != null && <>{' · '}<span style={{ fontWeight: 600, color: ihsgPeriodPct >= 0 ? C.green : C.red }}>IHSG {fmtPct(ihsgPeriodPct)}</span></>}
+                <span style={{ color: C.inkSoft, fontWeight: 500 }}> · periode</span>
+              </div>
+            )}
+          </div>
           <div style={{ display: 'flex', gap: 4, background: C.cream, borderRadius: 100, padding: 3 }}>
             {[['30d', '30 Hari'], ['ytd', 'YTD']].map(([k, lbl]) => (
               <button key={k} onClick={() => setRange(k)}
@@ -380,18 +450,14 @@ function DashboardTab({ stocks }) {
             </defs>
             <XAxis dataKey="label" hide />
             <YAxis hide domain={[(min) => min * 0.999, (max) => max * 1.001]} />
-            <Tooltip
-              contentStyle={{ background: C.ink, border: 'none', borderRadius: 8, fontSize: 12 }}
-              labelStyle={{ color: C.cream }}
-              itemStyle={{ color: C.cuanBright }}
-              formatter={(v) => [fmtRp(v), 'Nilai']}
-            />
+            <Tooltip content={<PerfTooltip />} />
             <ReferenceLine x={todayLabel} stroke={C.inkSoft} strokeDasharray="3 3" label={{ value: 'Hari ini', position: 'insideTopRight', fontSize: 10, fill: C.inkSoft }} />
             <Area type="linear" dataKey="value" stroke={C.cuan} strokeWidth={2.5} fill="url(#cuanGrad)" />
+            {hasIhsg && <Area type="linear" dataKey="ihsg" stroke={C.inkSoft} strokeWidth={1.5} strokeDasharray="4 3" fill="none" dot={false} />}
           </AreaChart>
         </ResponsiveContainer>
         <div style={{ fontSize: 11, color: C.inkSoft, marginTop: 8, lineHeight: 1.5 }}>
-          Kiri "Hari ini" = harga historis asli tiap saham. Kanan = proyeksi datar di harga terakhir. Lonjakan = dividen masuk (perkiraan tgl bayar).{totalDivWindow > 0 ? ` Total dividen di jendela ini: ${fmtRp(totalDivWindow)}.` : ''}
+          Kiri "Hari ini" = harga historis asli tiap saham. Kanan = proyeksi datar di harga terakhir. Garis putus-putus = IHSG (disetarakan ke nilai awal). Lonjakan = dividen masuk (perkiraan tgl bayar).{totalDivWindow > 0 ? ` Total dividen di jendela ini: ${fmtRp(totalDivWindow)}.` : ''}
         </div>
       </div>
 
@@ -675,6 +741,7 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete }) {
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 14 }}>{s.symbol}</div>
                   <div style={{ fontSize: 11, color: C.inkSoft, marginTop: 2 }}>{s.name}</div>
+                  {s.buyDate && <div className="mono" style={{ fontSize: 10, color: C.inkSoft, marginTop: 2 }}>beli {new Date(s.buyDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</div>}
                 </div>
                 <div className="mono" style={{ fontSize: 13, textAlign: 'right' }}>{s.qty.toLocaleString('id-ID')}</div>
                 <div className="mono" style={{ fontSize: 13, textAlign: 'right', fontWeight: 600 }}>{Math.round(s.price).toLocaleString('id-ID')}</div>
@@ -717,13 +784,19 @@ function DividendCard({ stocks }) {
   }, [symKey]);
 
   const qtyMap = {};
-  stocks.forEach((s) => { qtyMap[s.symbol] = s.qty; });
+  const buyMap = {};
+  stocks.forEach((s) => {
+    qtyMap[s.symbol] = s.qty;
+    buyMap[s.symbol] = s.buyDate ? new Date(s.buyDate).getTime() : 0;
+  });
 
   const rows = raw
     .map((d) => {
       const qty = qtyMap[d.symbol] || 0;
-      const pay = new Date(new Date(d.exDate).getTime() + OFFSET_DAYS * 86400000);
-      return { ...d, qty, cash: d.amount * qty, payDate: pay };
+      const exTime = new Date(d.exDate).getTime();
+      const owned = exTime >= (buyMap[d.symbol] || 0); // hanya hitung jika sudah dipegang saat ex-date
+      const pay = new Date(exTime + OFFSET_DAYS * 86400000);
+      return { ...d, qty, cash: owned ? d.amount * qty : 0, payDate: pay };
     })
     .filter((r) => r.cash > 0)
     .sort((a, b) => b.payDate - a.payDate);

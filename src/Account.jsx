@@ -62,6 +62,7 @@ export function usePortfolio(userId) {
       sector: h.sector || 'Lainnya',
       qty: Number(h.qty),
       avg: Number(h.avg_price),
+      buyDate: h.buy_date || null,
       price: live ? live.price : Number(h.avg_price),
       change: live ? live.change : 0,
     };
@@ -71,7 +72,7 @@ export function usePortfolio(userId) {
     const { error } = await supabase.from('holdings').insert({
       user_id: userId,
       symbol: h.symbol, name: h.name, sector: h.sector,
-      qty: h.qty, avg_price: h.avg,
+      qty: h.qty, avg_price: h.avg, buy_date: h.buyDate || null,
     });
     if (error) alert('Gagal menyimpan: ' + error.message);
     await loadHoldings();
@@ -80,7 +81,7 @@ export function usePortfolio(userId) {
   async function updateHolding(h) {
     const { error } = await supabase.from('holdings').update({
       symbol: h.symbol, name: h.name, sector: h.sector,
-      qty: h.qty, avg_price: h.avg,
+      qty: h.qty, avg_price: h.avg, buy_date: h.buyDate || null,
     }).eq('id', h.id);
     if (error) alert('Gagal update: ' + error.message);
     await loadHoldings();
@@ -175,7 +176,7 @@ export function Editor({ holding, onSave, onClose }) {
   const isNew = !holding.id;
   const [f, setF] = useState({
     symbol: holding.symbol || '', name: holding.name || '', sector: holding.sector || 'Lainnya',
-    qty: holding.qty || '', avg: holding.avg || '', id: holding.id,
+    qty: holding.qty || '', avg: holding.avg || '', buyDate: holding.buyDate || '', id: holding.id,
   });
   const valid = f.symbol.trim() && Number(f.qty) > 0 && Number(f.avg) > 0;
   const Lbl = ({ t }) => <div className="mono" style={{ fontSize: 10, letterSpacing: '0.08em', color: C.inkSoft, margin: '10px 0 5px', textTransform: 'uppercase' }}>{t}</div>;
@@ -196,6 +197,8 @@ export function Editor({ holding, onSave, onClose }) {
           <div style={{ flex: 1 }}><Lbl t="Jumlah (lembar)" /><input type="number" value={f.qty} onChange={(e) => setF({ ...f, qty: e.target.value })} placeholder="100" style={inp} /></div>
           <div style={{ flex: 1 }}><Lbl t="Harga rata-rata" /><input type="number" value={f.avg} onChange={(e) => setF({ ...f, avg: e.target.value })} placeholder="9800" style={inp} /></div>
         </div>
+        <Lbl t="Tanggal beli (opsional)" />
+        <input type="date" value={f.buyDate || ''} onChange={(e) => setF({ ...f, buyDate: e.target.value })} style={inp} />
         <button disabled={!valid} onClick={() => onSave({ ...f, qty: Number(f.qty), avg: Number(f.avg) })}
           style={{ width: '100%', background: valid ? C.forest : 'rgba(26,42,32,0.2)', color: C.cream, border: 'none', padding: 14, borderRadius: 100, fontSize: 14, fontWeight: 600, cursor: valid ? 'pointer' : 'not-allowed', marginTop: 14 }}>
           {isNew ? 'Simpan ke Portofolio' : 'Update'}

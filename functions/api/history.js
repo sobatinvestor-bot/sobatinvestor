@@ -10,7 +10,7 @@ export async function onRequestGet(context) {
 
   const symbols = param
     .split(",").map((s) => s.trim().toUpperCase()).filter(Boolean)
-    .map((s) => (s.endsWith(".JK") ? s : s + ".JK"));
+    .map((s) => (s.startsWith("^") || s.endsWith(".JK") ? s : s + ".JK"));
 
   const results = await Promise.allSettled(symbols.map((s) => fetchHist(s, range)));
   const history = {};
