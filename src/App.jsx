@@ -337,7 +337,9 @@ function DashboardTab({ stocks }) {
   const todayTime = midnight.getTime();
   const startTime = range === 'ytd'
     ? new Date(midnight.getFullYear(), 0, 1).getTime()
-    : todayTime - 30 * DAY;
+    : range === '1d'
+      ? todayTime - 7 * DAY
+      : todayTime - 30 * DAY;
   const endTime = todayTime + FUTURE_DAYS * DAY;
 
   // harga penutupan historis terdekat (<= t) per simbol; fallback ke harga live
@@ -408,6 +410,25 @@ function DashboardTab({ stocks }) {
   const ihsgPeriodPct = todayPoint ? todayPoint.ihsgPct : null;
   const totalDivWindow = divEvents.reduce((s, e) => s + e.cash, 0);
 
+  // Perubahan 1 hari: penutupan terakhir vs hari kerja (trading day) sebelumnya
+  let pvPrev = 0, pvLast = 0, dayOk = false;
+  stocks.forEach((s) => {
+    const series = hist[s.symbol];
+    if (series && series.length >= 2) {
+      pvPrev += series[series.length - 2].close * s.qty;
+      pvLast += series[series.length - 1].close * s.qty;
+      dayOk = true;
+    }
+  });
+  const portOneDay = dayOk && pvPrev > 0 ? (pvLast / pvPrev - 1) * 100 : null;
+  const ihD = hist['^JKSE'];
+  const ihsgOneDay = ihD && ihD.length >= 2 ? (ihD[ihD.length - 1].close / ihD[ihD.length - 2].close - 1) * 100 : null;
+
+  const isDay = range === '1d';
+  const portShown = isDay ? portOneDay : curPct;
+  const ihsgShown = isDay ? ihsgOneDay : ihsgPeriodPct;
+  const periodLabel = isDay ? '1 hari' : 'periode';
+
   const sectorMap = {};
   stocks.forEach((s) => {
     const val = s.price * s.qty;
@@ -434,16 +455,16 @@ function DashboardTab({ stocks }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <div>
             <h3 className="serif" style={{ fontSize: 18, fontWeight: 600 }}>Nilai Portofolio</h3>
-            {curPct != null && (
+            {portShown != null && (
               <div style={{ fontSize: 13, marginTop: 2 }}>
-                <span style={{ fontWeight: 600, color: curPct >= 0 ? C.green : C.red }}>Porto {fmtPct(curPct)}</span>
-                {ihsgPeriodPct != null && <>{' · '}<span style={{ fontWeight: 600, color: ihsgPeriodPct >= 0 ? C.green : C.red }}>IHSG {fmtPct(ihsgPeriodPct)}</span></>}
-                <span style={{ color: C.inkSoft, fontWeight: 500 }}> · periode</span>
+                <span style={{ fontWeight: 600, color: portShown >= 0 ? C.green : C.red }}>Porto {fmtPct(portShown)}</span>
+                {ihsgShown != null && <>{' · '}<span style={{ fontWeight: 600, color: ihsgShown >= 0 ? C.green : C.red }}>IHSG {fmtPct(ihsgShown)}</span></>}
+                <span style={{ color: C.inkSoft, fontWeight: 500 }}> · {periodLabel}</span>
               </div>
             )}
           </div>
           <div style={{ display: 'flex', gap: 4, background: C.cream, borderRadius: 100, padding: 3 }}>
-            {[['30d', '30 Hari'], ['ytd', 'YTD']].map(([k, lbl]) => (
+            {[['1d', '1 Hari'], ['30d', '30 Hari'], ['ytd', 'YTD']].map(([k, lbl]) => (
               <button key={k} onClick={() => setRange(k)}
                 style={{ border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 600, padding: '5px 12px', borderRadius: 100, background: range === k ? C.forest : 'transparent', color: range === k ? C.cream : C.inkSoft }}>
                 {lbl}
