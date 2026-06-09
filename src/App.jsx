@@ -266,28 +266,54 @@ function DashboardTab({ stocks }) {
   const totalPL = totalValue - totalCost;
   const totalPLPct = totalCost ? (totalPL / totalCost) * 100 : 0;
 
-  // Dividen untuk grafik (jumlah real Yahoo)
+  // Pilihan rentang grafik
+  const [range, setRange] = useState('30d'); // '30d' | 'ytd'
+
+  // Data dividen + harga historis untuk grafik
   const symKey = stocks.map((s) => s.symbol).join(',');
   const [rawDiv, setRawDiv] = useState([]);
+  const [hist, setHist] = useState({});
   useEffect(() => {
-    if (!symKey) { setRawDiv([]); return; }
+    if (!symKey) { setRawDiv([]); setHist({}); return; }
     let active = true;
+    const histRange = range === 'ytd' ? 'ytd' : '2mo';
     fetch(`/api/dividends?symbols=${encodeURIComponent(symKey)}&range=1y`)
       .then((r) => (r.ok ? r.json() : { dividends: [] }))
       .then((d) => { if (active) setRawDiv(d.dividends || []); })
       .catch(() => {});
+    fetch(`/api/history?symbols=${encodeURIComponent(symKey)}&range=${histRange}`)
+      .then((r) => (r.ok ? r.json() : { history: {} }))
+      .then((d) => { if (active) setHist(d.history || {}); })
+      .catch(() => {});
     return () => { active = false; };
-  }, [symKey]);
+  }, [symKey, range]);
 
-  // Grafik: 30 hari lalu + 30 hari ke depan. Garis datar = harga terakhir,
-  // melonjak saat ada dividen (perkiraan tgl bayar = ex-date + 21 hari).
-  const OFFSET_DAYS = 21;
+  // Masa lalu = harga historis asli; masa depan (30 hari) = harga terakhir (datar) + dividen.
   const DAY = 86400000;
+  const OFFSET_DAYS = 21;
+  const FUTURE_DAYS = 30;
   const qtyMap = {};
-  stocks.forEach((s) => { qtyMap[s.symbol] = s.qty; });
+  const priceMap = {};
+  stocks.forEach((s) => { qtyMap[s.symbol] = s.qty; priceMap[s.symbol] = s.price; });
+
   const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
-  const startTime = midnight.getTime() - 30 * DAY;
-  const endTime = midnight.getTime() + 30 * DAY;
+  const todayTime = midnight.getTime();
+  const startTime = range === 'ytd'
+    ? new Date(midnight.getFullYear(), 0, 1).getTime()
+    : todayTime - 30 * DAY;
+  const endTime = todayTime + FUTURE_DAYS * DAY;
+
+  // harga penutupan historis terdekat (<= t) per simbol; fallback ke harga live
+  function closeAt(sym, t) {
+    const series = hist[sym];
+    if (!series || !series.length) return priceMap[sym] || 0;
+    let c = series[0].close;
+    for (let k = 0; k < series.length; k++) {
+      if (series[k].t <= t) c = series[k].close; else break;
+    }
+    return c;
+  }
+
   const divEvents = rawDiv
     .map((d) => ({
       payTime: new Date(d.exDate).getTime() + OFFSET_DAYS * DAY,
@@ -296,12 +322,18 @@ function DashboardTab({ stocks }) {
     .filter((e) => e.cash > 0 && e.payTime >= startTime && e.payTime <= endTime);
 
   const fmtShort = (t) => new Date(t).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
-  const perfData = Array.from({ length: 61 }, (_, i) => {
+  const totalDays = Math.round((endTime - startTime) / DAY) + 1;
+  const perfData = Array.from({ length: totalDays }, (_, i) => {
     const t = startTime + i * DAY;
+    const base = stocks.reduce((sum, s) => {
+      const px = t <= todayTime ? closeAt(s.symbol, t) : (priceMap[s.symbol] || 0);
+      return sum + px * s.qty;
+    }, 0);
     const cumDiv = divEvents.filter((e) => e.payTime <= t).reduce((s, e) => s + e.cash, 0);
-    return { label: fmtShort(t), value: totalValue + cumDiv };
+    return { label: fmtShort(t), value: base + cumDiv };
   });
-  const todayLabel = perfData[30].label;
+  const todayIdx = Math.round((todayTime - startTime) / DAY);
+  const todayLabel = perfData[todayIdx] ? perfData[todayIdx].label : fmtShort(todayTime);
   const totalDivWindow = divEvents.reduce((s, e) => s + e.cash, 0);
 
   const sectorMap = {};
@@ -328,8 +360,15 @@ function DashboardTab({ stocks }) {
 
       <div style={{ background: C.cream2, borderRadius: 20, padding: 20, marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <h3 className="serif" style={{ fontSize: 18, fontWeight: 600 }}>Nilai Portofolio · ±30 Hari</h3>
-          <span className="mono" style={{ fontSize: 11, color: C.inkSoft }}>HARGA TERAKHIR</span>
+          <h3 className="serif" style={{ fontSize: 18, fontWeight: 600 }}>Nilai Portofolio</h3>
+          <div style={{ display: 'flex', gap: 4, background: C.cream, borderRadius: 100, padding: 3 }}>
+            {[['30d', '30 Hari'], ['ytd', 'YTD']].map(([k, lbl]) => (
+              <button key={k} onClick={() => setRange(k)}
+                style={{ border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 600, padding: '5px 12px', borderRadius: 100, background: range === k ? C.forest : 'transparent', color: range === k ? C.cream : C.inkSoft }}>
+                {lbl}
+              </button>
+            ))}
+          </div>
         </div>
         <ResponsiveContainer width="100%" height={180}>
           <AreaChart data={perfData}>
@@ -348,11 +387,11 @@ function DashboardTab({ stocks }) {
               formatter={(v) => [fmtRp(v), 'Nilai']}
             />
             <ReferenceLine x={todayLabel} stroke={C.inkSoft} strokeDasharray="3 3" label={{ value: 'Hari ini', position: 'insideTopRight', fontSize: 10, fill: C.inkSoft }} />
-            <Area type="stepAfter" dataKey="value" stroke={C.cuan} strokeWidth={2.5} fill="url(#cuanGrad)" />
+            <Area type="linear" dataKey="value" stroke={C.cuan} strokeWidth={2.5} fill="url(#cuanGrad)" />
           </AreaChart>
         </ResponsiveContainer>
         <div style={{ fontSize: 11, color: C.inkSoft, marginTop: 8, lineHeight: 1.5 }}>
-          Garis datar = nilai pada harga terakhir. Lonjakan = dividen masuk (perkiraan tgl bayar).{totalDivWindow > 0 ? ` Total dividen di jendela ini: ${fmtRp(totalDivWindow)}.` : ''}
+          Kiri "Hari ini" = harga historis asli tiap saham. Kanan = proyeksi datar di harga terakhir. Lonjakan = dividen masuk (perkiraan tgl bayar).{totalDivWindow > 0 ? ` Total dividen di jendela ini: ${fmtRp(totalDivWindow)}.` : ''}
         </div>
       </div>
 
