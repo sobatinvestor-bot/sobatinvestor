@@ -85,7 +85,7 @@ export default function App() {
           />
         )}
         {isPrivateTab && !session && <Auth inline />}
-        {isPrivateTab && session && <PrivateArea tab={tab} userId={session.user.id} />}
+        {isPrivateTab && session && <PrivateArea tab={tab} userId={session.user.id} ihsgChange={ihsgChange} />}
       </div>
       <BottomNav tab={tab} setTab={setTab} />
     </div>
@@ -93,7 +93,7 @@ export default function App() {
 }
 
 // Area privat (hanya saat sudah login): Dashboard, Sobat AI, Portfolio
-function PrivateArea({ tab, userId }) {
+function PrivateArea({ tab, userId, ihsgChange }) {
   const { stocks, addHolding, updateHolding, deleteHolding } = usePortfolio(userId);
   const [editing, setEditing] = useState(null);
 
