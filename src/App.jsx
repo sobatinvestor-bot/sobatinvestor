@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine } from 'recharts';
-import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Loader2, Lock, LogOut, Plus, Pencil, Trash2 } from 'lucide-react';
+import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import { Auth, usePortfolio, Editor, logout } from './Account.jsx';
+import AnalisisTab from './Analisis.jsx';
 
 const C = {
   cream: '#F4EFE6',
@@ -68,15 +69,23 @@ export default function App() {
 
   const ihsg = market.ihsg ? market.ihsg.value : 7800;
   const ihsgChange = market.ihsg ? market.ihsg.change : 0;
-  const isPrivateTab = tab !== 'home';
+  const publicTabs = ['home', 'analisis'];
+  const isPrivateTab = !publicTabs.includes(tab);
 
   return (
     <div style={{ background: C.cream, minHeight: '100vh', color: C.ink }}>
       <Nav ihsg={ihsg} ihsgChange={ihsgChange} session={session} setTab={setTab} />
       <div style={{ paddingBottom: 100 }}>
         {tab === 'home' && <HomeTab stocks={market.quotes} setTab={setTab} />}
+        {tab === 'analisis' && (
+          <AnalisisTab
+            userId={session ? session.user.id : null}
+            userEmail={session ? session.user.email : null}
+            onRequireLogin={() => setTab('portfolio')}
+          />
+        )}
         {isPrivateTab && !session && <Auth inline />}
-        {isPrivateTab && session && <PrivateArea tab={tab} userId={session.user.id} />}
+        {isPrivateTab && session && <PrivateArea tab={tab} userId={session.user.id} userEmail={session.user.email} />}
       </div>
       <BottomNav tab={tab} setTab={setTab} />
     </div>
@@ -84,7 +93,7 @@ export default function App() {
 }
 
 // Area privat (hanya saat sudah login): Dashboard, Sobat AI, Portfolio
-function PrivateArea({ tab, userId }) {
+function PrivateArea({ tab, userId, userEmail }) {
   const { stocks, addHolding, updateHolding, deleteHolding } = usePortfolio(userId);
   const [editing, setEditing] = useState(null);
 
@@ -95,16 +104,19 @@ function PrivateArea({ tab, userId }) {
 
   return (
     <>
-      {tab === 'dashboard' && <DashboardTab stocks={stocks} />}
-      {tab === 'chat' && <ChatTab stocks={stocks} />}
       {tab === 'portfolio' && (
-        <PortfolioTab
-          stocks={stocks}
-          onAdd={() => setEditing({})}
-          onEdit={(s) => setEditing(s)}
-          onDelete={deleteHolding}
-        />
+        <>
+          <DashboardTab stocks={stocks} />
+          <PortfolioTab
+            stocks={stocks}
+            onAdd={() => setEditing({})}
+            onEdit={(s) => setEditing(s)}
+            onDelete={deleteHolding}
+          />
+        </>
       )}
+      {tab === 'chat' && <ChatTab stocks={stocks} />}
+      {tab === 'analisis' && <AnalisisTab userId={userId} userEmail={userEmail} />}
       {editing && <Editor holding={editing} onSave={handleSave} onClose={() => setEditing(null)} />}
     </>
   );
@@ -143,9 +155,9 @@ function Nav({ ihsg, ihsgChange, session, setTab }) {
 function BottomNav({ tab, setTab }) {
   const items = [
     { id: 'home', label: 'Beranda', icon: Home },
-    { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
+    { id: 'analisis', label: 'Analisis', icon: FileText },
+    { id: 'portfolio', label: 'Portofolio', icon: Briefcase },
     { id: 'chat', label: 'Sobat AI', icon: Sparkles },
-    { id: 'portfolio', label: 'Portfolio', icon: Briefcase },
   ];
   return (
     <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'rgba(244,239,230,0.95)', backdropFilter: 'blur(12px)', borderTop: `1px solid rgba(26,42,32,0.1)`, zIndex: 50 }}>
@@ -210,10 +222,10 @@ function HomeTab({ stocks, setTab }) {
             <Sparkles size={16} /> Ngobrol sama Sobat
           </button>
           <button
-            onClick={() => setTab('dashboard')}
+            onClick={() => setTab('portfolio')}
             style={{ background: 'transparent', color: C.ink, padding: '14px 24px', borderRadius: 100, border: `1.5px solid rgba(26,42,32,0.15)`, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
           >
-            Lihat Dashboard →
+            Lihat Portofolio →
           </button>
         </div>
       </div>
@@ -411,7 +423,7 @@ function DashboardTab({ stocks }) {
 
   return (
     <div className="fade-up" style={{ padding: '24px 20px', maxWidth: 1100, margin: '0 auto' }}>
-      <h2 className="serif" style={{ fontSize: 32, fontWeight: 500, letterSpacing: '-0.02em', marginBottom: 20 }}>Dashboard</h2>
+      <h2 className="serif" style={{ fontSize: 32, fontWeight: 500, letterSpacing: '-0.02em', marginBottom: 20 }}>Ringkasan</h2>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 20 }}>
         <StatCard label="PORTFOLIO" value={fmtRp(totalValue)} sub={fmtPct(totalPLPct)} positive={totalPL >= 0} highlight />
@@ -698,7 +710,7 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete }) {
   return (
     <div className="fade-up" style={{ padding: '24px 20px', maxWidth: 1100, margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-        <h2 className="serif" style={{ fontSize: 32, fontWeight: 500, letterSpacing: '-0.02em' }}>Portfolio</h2>
+        <h2 className="serif" style={{ fontSize: 32, fontWeight: 500, letterSpacing: '-0.02em' }}>Daftar Saham</h2>
         <div style={{ display: 'flex', gap: 8 }}>
           <button
             onClick={onAdd}
