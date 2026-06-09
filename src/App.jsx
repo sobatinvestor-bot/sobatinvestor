@@ -852,7 +852,7 @@ function DividendCard({ stocks }) {
         <div style={{ fontSize: 13, color: C.inkSoft }}>Belum ada dividen 12 bulan terakhir untuk diproyeksikan.</div>
       ) : (
         <div>
-          {rows.slice(0, 12).map((r, i) => (
+          {rows.map((r, i) => (
             <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 8, alignItems: 'center', padding: '10px 0', borderBottom: `1px solid rgba(26,42,32,0.06)` }}>
               <div>
                 <div style={{ fontWeight: 700, fontSize: 13 }}>{r.symbol}</div>
