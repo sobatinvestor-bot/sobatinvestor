@@ -85,7 +85,7 @@ export default function App() {
           />
         )}
         {isPrivateTab && !session && <Auth inline />}
-        {isPrivateTab && session && <PrivateArea tab={tab} userId={session.user.id} ihsgChange={ihsgChange} />}
+        {isPrivateTab && session && <PrivateArea tab={tab} userId={session.user.id} ihsgQuote={market.ihsg} />}
       </div>
       <BottomNav tab={tab} setTab={setTab} />
     </div>
@@ -93,7 +93,7 @@ export default function App() {
 }
 
 // Area privat (hanya saat sudah login): Dashboard, Sobat AI, Portfolio
-function PrivateArea({ tab, userId, ihsgChange }) {
+function PrivateArea({ tab, userId, ihsgQuote }) {
   const { stocks, addHolding, updateHolding, deleteHolding } = usePortfolio(userId);
   const [editing, setEditing] = useState(null);
 
@@ -106,7 +106,7 @@ function PrivateArea({ tab, userId, ihsgChange }) {
     <>
       {tab === 'portfolio' && (
         <>
-          <DashboardTab stocks={stocks} ihsgChange={ihsgChange} />
+          <DashboardTab stocks={stocks} ihsgQuote={ihsgQuote} />
           <PortfolioTab
             stocks={stocks}
             onAdd={() => setEditing({})}
@@ -292,7 +292,9 @@ function PerfTooltip({ active, payload }) {
   );
 }
 
-function DashboardTab({ stocks, ihsgChange }) {
+function DashboardTab({ stocks, ihsgQuote }) {
+  const ihsgChange = ihsgQuote && typeof ihsgQuote.change === 'number' ? ihsgQuote.change : null;
+  const ihsgLive = ihsgQuote && typeof ihsgQuote.value === 'number' ? ihsgQuote.value : null;
   const totalValue = stocks.reduce((sum, s) => sum + s.price * s.qty, 0);
   const totalCost = stocks.reduce((sum, s) => sum + s.avg * s.qty, 0);
   const totalPL = totalValue - totalCost;
@@ -419,7 +421,7 @@ function DashboardTab({ stocks, ihsgChange }) {
       let v = 0;
       stocks.forEach((s) => {
         if (t < (buyMap[s.symbol] || 0)) return;
-        const px = t <= todayTime ? closeAt(s.symbol, t) : (priceMap[s.symbol] || 0);
+        const px = t < todayTime ? closeAt(s.symbol, t) : (priceMap[s.symbol] || 0);
         v += px * s.qty;
       });
       if (v > 0) { valueStart = v; ihsgStart = hasIhsg ? closeAt('^JKSE', t) : 0; baseSet = true; break; }
@@ -429,7 +431,7 @@ function DashboardTab({ stocks, ihsgChange }) {
       let base = 0;
       stocks.forEach((s) => {
         if (t < (buyMap[s.symbol] || 0)) return;
-        const px = t <= todayTime ? closeAt(s.symbol, t) : (priceMap[s.symbol] || 0);
+        const px = t < todayTime ? closeAt(s.symbol, t) : (priceMap[s.symbol] || 0);
         base += px * s.qty;
       });
       const cumDiv = divEvents.filter((e) => e.payTime <= t).reduce((s, e) => s + e.cash, 0);
@@ -437,7 +439,7 @@ function DashboardTab({ stocks, ihsgChange }) {
       const pct = (baseSet && valueStart > 0 && value > 0) ? ((value / valueStart) - 1) * 100 : null;
       let ihsg = null, ihsgPct = null;
       if (hasIhsg && ihsgStart > 0 && baseSet) {
-        const idx = closeAt('^JKSE', t);
+        const idx = (t >= todayTime && ihsgLive != null) ? ihsgLive : closeAt('^JKSE', t);
         ihsg = valueStart * (idx / ihsgStart);
         ihsgPct = (idx / ihsgStart - 1) * 100;
       }
