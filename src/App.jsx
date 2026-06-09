@@ -106,7 +106,7 @@ function PrivateArea({ tab, userId }) {
     <>
       {tab === 'portfolio' && (
         <>
-          <DashboardTab stocks={stocks} />
+          <DashboardTab stocks={stocks} ihsgChange={ihsgChange} />
           <PortfolioTab
             stocks={stocks}
             onAdd={() => setEditing({})}
@@ -292,7 +292,7 @@ function PerfTooltip({ active, payload }) {
   );
 }
 
-function DashboardTab({ stocks }) {
+function DashboardTab({ stocks, ihsgChange }) {
   const totalValue = stocks.reduce((sum, s) => sum + s.price * s.qty, 0);
   const totalCost = stocks.reduce((sum, s) => sum + s.avg * s.qty, 0);
   const totalPL = totalValue - totalCost;
@@ -373,66 +373,84 @@ function DashboardTab({ stocks }) {
     .filter((e) => e.cash > 0 && e.payTime >= startTime && e.payTime <= endTime);
 
   const fmtShort = (t) => new Date(t).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
-  const totalDays = Math.round((endTime - startTime) / DAY) + 1;
+  const isDay = range === '1d';
 
-  // Baseline untuk perbandingan periode: titik pertama yang sudah punya nilai (>0)
-  const hasIhsg = !!(hist['^JKSE'] && hist['^JKSE'].length);
-  let valueStart = 0, ihsgStart = 0, baseSet = false;
-  for (let i = 0; i < totalDays; i++) {
-    const t = startTime + i * DAY;
-    let v = 0;
-    stocks.forEach((s) => {
-      if (t < (buyMap[s.symbol] || 0)) return;
-      const px = t <= todayTime ? closeAt(s.symbol, t) : (priceMap[s.symbol] || 0);
-      v += px * s.qty;
+  // 1 hari: pakai % perubahan harian dari /api/quotes (sumber sama dengan ticker IHSG)
+  let tVal = 0, yVal = 0;
+  stocks.forEach((s) => {
+    const today = s.price * s.qty;
+    const prev = (typeof s.change === 'number' && s.change > -100) ? (s.price / (1 + s.change / 100)) * s.qty : today;
+    tVal += today; yVal += prev;
+  });
+  const portOneDay = yVal > 0 ? (tVal / yVal - 1) * 100 : null;
+  const ihsgOneDay = (typeof ihsgChange === 'number') ? ihsgChange : null;
+
+  let perfData, todayIdx, todayLabel, curPct, ihsgPeriodPct, hasIhsg;
+
+  if (isDay) {
+    // Kemarin → hari ini (dari quotes) + proyeksi 30 hari (datar + dividen)
+    hasIhsg = ihsgOneDay != null;
+    const ihsgEnd = yVal * (1 + (ihsgOneDay || 0) / 100);
+    const pts = [{ label: 'Kemarin', value: yVal || null, pct: 0, ihsg: hasIhsg ? yVal : null, ihsgPct: 0 }];
+    for (let i = 0; i <= FUTURE_DAYS; i++) {
+      const t = todayTime + i * DAY;
+      const cumDiv = divEvents.filter((e) => e.payTime <= t).reduce((s, e) => s + e.cash, 0);
+      const value = tVal + cumDiv;
+      pts.push({
+        label: i === 0 ? 'Hari ini' : fmtShort(t),
+        value: value || null,
+        pct: yVal > 0 ? (value / yVal - 1) * 100 : null,
+        ihsg: hasIhsg ? ihsgEnd : null,
+        ihsgPct: ihsgOneDay,
+      });
+    }
+    perfData = pts;
+    todayIdx = 1;
+    todayLabel = 'Hari ini';
+    curPct = portOneDay;
+    ihsgPeriodPct = ihsgOneDay;
+  } else {
+    // 30 hari / YTD: dari harga penutupan historis harian
+    const totalDays = Math.round((endTime - startTime) / DAY) + 1;
+    hasIhsg = !!(hist['^JKSE'] && hist['^JKSE'].length);
+    let valueStart = 0, ihsgStart = 0, baseSet = false;
+    for (let i = 0; i < totalDays; i++) {
+      const t = startTime + i * DAY;
+      let v = 0;
+      stocks.forEach((s) => {
+        if (t < (buyMap[s.symbol] || 0)) return;
+        const px = t <= todayTime ? closeAt(s.symbol, t) : (priceMap[s.symbol] || 0);
+        v += px * s.qty;
+      });
+      if (v > 0) { valueStart = v; ihsgStart = hasIhsg ? closeAt('^JKSE', t) : 0; baseSet = true; break; }
+    }
+    perfData = Array.from({ length: totalDays }, (_, i) => {
+      const t = startTime + i * DAY;
+      let base = 0;
+      stocks.forEach((s) => {
+        if (t < (buyMap[s.symbol] || 0)) return;
+        const px = t <= todayTime ? closeAt(s.symbol, t) : (priceMap[s.symbol] || 0);
+        base += px * s.qty;
+      });
+      const cumDiv = divEvents.filter((e) => e.payTime <= t).reduce((s, e) => s + e.cash, 0);
+      const value = base + cumDiv;
+      const pct = (baseSet && valueStart > 0 && value > 0) ? ((value / valueStart) - 1) * 100 : null;
+      let ihsg = null, ihsgPct = null;
+      if (hasIhsg && ihsgStart > 0 && baseSet) {
+        const idx = closeAt('^JKSE', t);
+        ihsg = valueStart * (idx / ihsgStart);
+        ihsgPct = (idx / ihsgStart - 1) * 100;
+      }
+      return { label: fmtShort(t), value: value || null, pct, ihsg, ihsgPct };
     });
-    if (v > 0) { valueStart = v; ihsgStart = hasIhsg ? closeAt('^JKSE', t) : 0; baseSet = true; break; }
+    todayIdx = Math.round((todayTime - startTime) / DAY);
+    todayLabel = perfData[todayIdx] ? perfData[todayIdx].label : fmtShort(todayTime);
+    const tp = perfData[todayIdx] || perfData[perfData.length - 1];
+    curPct = tp ? tp.pct : null;
+    ihsgPeriodPct = tp ? tp.ihsgPct : null;
   }
 
-  const perfData = Array.from({ length: totalDays }, (_, i) => {
-    const t = startTime + i * DAY;
-    let base = 0;
-    stocks.forEach((s) => {
-      if (t < (buyMap[s.symbol] || 0)) return; // belum dibeli pada tanggal ini
-      const px = t <= todayTime ? closeAt(s.symbol, t) : (priceMap[s.symbol] || 0);
-      base += px * s.qty;
-    });
-    const cumDiv = divEvents.filter((e) => e.payTime <= t).reduce((s, e) => s + e.cash, 0);
-    const value = base + cumDiv;
-    // % portofolio = perubahan sejak awal periode (apple-to-apple dgn IHSG), bukan vs modal
-    const pct = (baseSet && valueStart > 0 && value > 0) ? ((value / valueStart) - 1) * 100 : null;
-
-    // IHSG disetarakan ke nilai awal portofolio + % periode IHSG
-    let ihsg = null, ihsgPct = null;
-    if (hasIhsg && ihsgStart > 0 && baseSet) {
-      const idx = closeAt('^JKSE', t);
-      ihsg = valueStart * (idx / ihsgStart);
-      ihsgPct = (idx / ihsgStart - 1) * 100;
-    }
-    return { label: fmtShort(t), value: value || null, pct, ihsg, ihsgPct };
-  });
-  const todayIdx = Math.round((todayTime - startTime) / DAY);
-  const todayLabel = perfData[todayIdx] ? perfData[todayIdx].label : fmtShort(todayTime);
-  const todayPoint = perfData[todayIdx] || perfData[perfData.length - 1];
-  const curPct = todayPoint ? todayPoint.pct : null;        // portofolio (periode)
-  const ihsgPeriodPct = todayPoint ? todayPoint.ihsgPct : null;
   const totalDivWindow = divEvents.reduce((s, e) => s + e.cash, 0);
-
-  // Perubahan 1 hari: penutupan terakhir vs hari kerja (trading day) sebelumnya
-  let pvPrev = 0, pvLast = 0, dayOk = false;
-  stocks.forEach((s) => {
-    const series = hist[s.symbol];
-    if (series && series.length >= 2) {
-      pvPrev += series[series.length - 2].close * s.qty;
-      pvLast += series[series.length - 1].close * s.qty;
-      dayOk = true;
-    }
-  });
-  const portOneDay = dayOk && pvPrev > 0 ? (pvLast / pvPrev - 1) * 100 : null;
-  const ihD = hist['^JKSE'];
-  const ihsgOneDay = ihD && ihD.length >= 2 ? (ihD[ihD.length - 1].close / ihD[ihD.length - 2].close - 1) * 100 : null;
-
-  const isDay = range === '1d';
   const portShown = isDay ? portOneDay : curPct;
   const ihsgShown = isDay ? ihsgOneDay : ihsgPeriodPct;
   const periodLabel = isDay ? '1 hari' : 'periode';
