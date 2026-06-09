@@ -784,43 +784,41 @@ function DividendCard({ stocks }) {
   }, [symKey]);
 
   const qtyMap = {};
-  const buyMap = {};
-  stocks.forEach((s) => {
-    qtyMap[s.symbol] = s.qty;
-    buyMap[s.symbol] = s.buyDate ? new Date(s.buyDate).getTime() : 0;
-  });
+  stocks.forEach((s) => { qtyMap[s.symbol] = s.qty; });
 
+  // Proyeksi 12 bulan ke depan: ulang dividen 12 bulan terakhir + ~1 tahun, pakai qty saat ini.
+  const YEAR = 365 * 86400000;
+  const now = Date.now();
+  const oneYearAgo = now - YEAR;
   const rows = raw
     .map((d) => {
       const qty = qtyMap[d.symbol] || 0;
       const exTime = new Date(d.exDate).getTime();
-      const owned = exTime >= (buyMap[d.symbol] || 0); // hanya hitung jika sudah dipegang saat ex-date
-      const pay = new Date(exTime + OFFSET_DAYS * 86400000);
-      return { ...d, qty, cash: owned ? d.amount * qty : 0, payDate: pay };
+      const projPay = new Date(exTime + YEAR + OFFSET_DAYS * 86400000); // ex-date tahun lalu → proyeksi tahun depan
+      return { symbol: d.symbol, amount: d.amount, qty, cash: d.amount * qty, exTime, payDate: projPay };
     })
-    .filter((r) => r.cash > 0)
-    .sort((a, b) => b.payDate - a.payDate);
+    .filter((r) => r.cash > 0 && r.exTime >= oneYearAgo && r.exTime <= now) // hanya dividen 12 bln terakhir
+    .sort((a, b) => a.payDate - b.payDate); // terdekat dulu
 
-  const yearAgo = Date.now() - 365 * 86400000;
-  const total12 = rows.filter((r) => r.payDate.getTime() >= yearAgo).reduce((s, r) => s + r.cash, 0);
+  const total12 = rows.reduce((s, r) => s + r.cash, 0);
   const fmtDate = (d) => d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
 
   return (
     <div style={{ background: C.cream2, borderRadius: 20, padding: 20, marginTop: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14 }}>
         <h3 className="serif" style={{ fontSize: 18, fontWeight: 600 }}>Cash from Dividend</h3>
-        <span className="mono" style={{ fontSize: 10, color: C.inkSoft, letterSpacing: '0.08em' }}>12 BULAN TERAKHIR</span>
+        <span className="mono" style={{ fontSize: 10, color: C.inkSoft, letterSpacing: '0.08em' }}>12 BULAN KE DEPAN</span>
       </div>
 
       <div className="serif" style={{ fontSize: 26, fontWeight: 600, color: C.green, marginBottom: 4 }}>{fmtRp(total12)}</div>
-      <div style={{ fontSize: 12, color: C.inkSoft, marginBottom: 16 }}>estimasi dividen diterima (berdasarkan kepemilikan saat ini)</div>
+      <div style={{ fontSize: 12, color: C.inkSoft, marginBottom: 16 }}>perkiraan dividen 12 bulan ke depan (proyeksi pola tahun lalu, kepemilikan saat ini)</div>
 
       {loading ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: C.inkSoft, fontSize: 13 }}>
           <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Memuat data dividen…
         </div>
       ) : rows.length === 0 ? (
-        <div style={{ fontSize: 13, color: C.inkSoft }}>Belum ada riwayat dividen untuk saham yang kamu pegang (2 tahun terakhir).</div>
+        <div style={{ fontSize: 13, color: C.inkSoft }}>Belum ada dividen 12 bulan terakhir untuk diproyeksikan.</div>
       ) : (
         <div>
           {rows.slice(0, 12).map((r, i) => (
@@ -837,7 +835,7 @@ function DividendCard({ stocks }) {
       )}
 
       <div style={{ marginTop: 12, fontSize: 11, color: C.inkSoft, lineHeight: 1.5 }}>
-        ⓘ Jumlah dividen real (Yahoo). <strong style={{ color: C.ink }}>Tanggal bayar = perkiraan</strong> (ex-date + ~{OFFSET_DAYS} hari) — tanggal pembayaran resmi diumumkan IDX/KSEI.
+        ⓘ Proyeksi: dividen 12 bulan terakhir (real, Yahoo) diulang ~1 tahun ke depan. Jumlah &amp; tanggal sebenarnya bergantung keputusan RUPS emiten — tidak dijamin.
       </div>
     </div>
   );
