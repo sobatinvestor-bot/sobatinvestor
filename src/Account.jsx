@@ -193,6 +193,12 @@ export function Editor({ holding, onSave, onClose }) {
         <input value={f.symbol} onChange={(e) => setF({ ...f, symbol: e.target.value.toUpperCase() })} placeholder="mis. BBCA" style={inp} />
         <Lbl t="Nama (opsional)" />
         <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Bank Central Asia" style={inp} />
+        <Lbl t="Sektor" />
+        <select value={f.sector} onChange={(e) => setF({ ...f, sector: e.target.value })} style={inp}>
+          {['Perbankan & Keuangan', 'Energi', 'Tambang & Barang Baku', 'Industri', 'Barang Konsumer Primer', 'Barang Konsumer Non-Primer', 'Kesehatan', 'Properti & Real Estate', 'Teknologi', 'Infrastruktur', 'Transportasi & Logistik', 'Telekomunikasi', 'Utilitas', 'Lainnya'].map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
         <div style={{ display: 'flex', gap: 10 }}>
           <div style={{ flex: 1 }}><Lbl t="Jumlah (lembar)" /><input type="number" value={f.qty} onChange={(e) => setF({ ...f, qty: e.target.value })} placeholder="100" style={inp} /></div>
           <div style={{ flex: 1 }}><Lbl t="Harga rata-rata" /><input type="number" value={f.avg} onChange={(e) => setF({ ...f, avg: e.target.value })} placeholder="9800" style={inp} /></div>
