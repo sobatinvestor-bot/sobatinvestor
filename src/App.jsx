@@ -335,10 +335,17 @@ function DashboardTab({ stocks }) {
 
   const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
   const todayTime = midnight.getTime();
+  // hari kerja (trading day) sebelumnya dari data harian (untuk mode 1 hari)
+  const refSeries = (hist['^JKSE'] && hist['^JKSE'].length >= 2)
+    ? hist['^JKSE']
+    : stocks.map((s) => hist[s.symbol]).find((se) => se && se.length >= 2);
+  const prevTradingT = (refSeries && refSeries.length >= 2)
+    ? Math.floor(refSeries[refSeries.length - 2].t / DAY) * DAY
+    : todayTime - 3 * DAY;
   const startTime = range === 'ytd'
     ? new Date(midnight.getFullYear(), 0, 1).getTime()
     : range === '1d'
-      ? todayTime - 7 * DAY
+      ? prevTradingT
       : todayTime - 30 * DAY;
   const endTime = todayTime + FUTURE_DAYS * DAY;
 
@@ -346,9 +353,10 @@ function DashboardTab({ stocks }) {
   function closeAt(sym, t) {
     const series = hist[sym];
     if (!series || !series.length) return priceMap[sym] || 0;
+    const tDay = Math.floor(t / DAY);
     let c = series[0].close;
     for (let k = 0; k < series.length; k++) {
-      if (series[k].t <= t) c = series[k].close; else break;
+      if (Math.floor(series[k].t / DAY) <= tDay) c = series[k].close; else break;
     }
     return c;
   }
