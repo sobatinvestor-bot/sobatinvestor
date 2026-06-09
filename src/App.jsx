@@ -797,19 +797,39 @@ function DividendCard({ stocks }) {
   const qtyMap = {};
   stocks.forEach((s) => { qtyMap[s.symbol] = s.qty; });
 
-  // Proyeksi 12 bulan ke depan: ulang dividen 12 bulan terakhir + ~1 tahun, pakai qty saat ini.
-  const YEAR = 365 * 86400000;
+  // 12 bulan ke depan:
+  //  - Dividen yang tanggalnya sudah PASTI (ex-date sudah diumumkan, pembayaran masih akan datang) → pakai tanggal asli (FIX).
+  //  - Selain itu → proyeksi dividen 12 bulan terakhir + ~1 tahun (PERKIRAAN).
+  //  - Anti-double: untuk simbol sama, buang entri yang berdekatan (<45 hari); yang FIX diutamakan.
+  const DAY = 86400000;
+  const YEAR = 365 * DAY;
+  const OFFSET = OFFSET_DAYS * DAY;
+  const NEAR = 45 * DAY;
   const now = Date.now();
-  const oneYearAgo = now - YEAR;
-  const rows = raw
-    .map((d) => {
-      const qty = qtyMap[d.symbol] || 0;
-      const exTime = new Date(d.exDate).getTime();
-      const projPay = new Date(exTime + YEAR + OFFSET_DAYS * 86400000); // ex-date tahun lalu → proyeksi tahun depan
-      return { symbol: d.symbol, amount: d.amount, qty, cash: d.amount * qty, exTime, payDate: projPay };
-    })
-    .filter((r) => r.cash > 0 && r.exTime >= oneYearAgo && r.exTime <= now) // hanya dividen 12 bln terakhir
-    .sort((a, b) => a.payDate - b.payDate); // terdekat dulu
+  const horizon = now + YEAR;
+
+  const real = raw.map((d) => {
+    const exTime = new Date(d.exDate).getTime();
+    const qty = qtyMap[d.symbol] || 0;
+    return { symbol: d.symbol, amount: d.amount, qty, cash: d.amount * qty, payTime: exTime + OFFSET, fix: true };
+  }).filter((r) => r.cash > 0 && r.payTime > now && r.payTime <= horizon);
+
+  const proj = raw.map((d) => {
+    const exTime = new Date(d.exDate).getTime();
+    const qty = qtyMap[d.symbol] || 0;
+    return { symbol: d.symbol, amount: d.amount, qty, cash: d.amount * qty, exTime, payTime: exTime + YEAR + OFFSET, fix: false };
+  }).filter((r) => r.cash > 0 && r.exTime >= now - YEAR && r.exTime <= now && r.payTime <= horizon);
+
+  // FIX diproses lebih dulu supaya menang saat dedupe
+  const merged = [...real, ...proj].sort((a, b) => (a.fix === b.fix ? a.payTime - b.payTime : (a.fix ? -1 : 1)));
+  const kept = [];
+  merged.forEach((r) => {
+    if (kept.some((k) => k.symbol === r.symbol && Math.abs(k.payTime - r.payTime) < NEAR)) return;
+    kept.push(r);
+  });
+  const rows = kept
+    .map((r) => ({ symbol: r.symbol, amount: r.amount, qty: r.qty, cash: r.cash, fix: r.fix, payDate: new Date(r.payTime) }))
+    .sort((a, b) => a.payDate - b.payDate);
 
   const total12 = rows.reduce((s, r) => s + r.cash, 0);
   const fmtDate = (d) => d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -822,7 +842,7 @@ function DividendCard({ stocks }) {
       </div>
 
       <div className="serif" style={{ fontSize: 26, fontWeight: 600, color: C.green, marginBottom: 4 }}>{fmtRp(total12)}</div>
-      <div style={{ fontSize: 12, color: C.inkSoft, marginBottom: 16 }}>perkiraan dividen 12 bulan ke depan (proyeksi pola tahun lalu, kepemilikan saat ini)</div>
+      <div style={{ fontSize: 12, color: C.inkSoft, marginBottom: 16 }}>perkiraan dividen 12 bulan ke depan — tanggal pasti dipakai bila sudah diumumkan, sisanya proyeksi pola tahun lalu</div>
 
       {loading ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: C.inkSoft, fontSize: 13 }}>
@@ -838,7 +858,10 @@ function DividendCard({ stocks }) {
                 <div style={{ fontWeight: 700, fontSize: 13 }}>{r.symbol}</div>
                 <div style={{ fontSize: 11, color: C.inkSoft }}>{fmtRp(r.amount)}/lembar × {r.qty.toLocaleString('id-ID')}</div>
               </div>
-              <div className="mono" style={{ fontSize: 11, color: C.inkSoft, textAlign: 'right' }}>{fmtDate(r.payDate)}</div>
+              <div style={{ textAlign: 'right' }}>
+                <div className="mono" style={{ fontSize: 11, color: C.inkSoft }}>{fmtDate(r.payDate)}</div>
+                <div className="mono" style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.06em', color: r.fix ? C.green : C.inkSoft }}>{r.fix ? 'FIX' : 'PERKIRAAN'}</div>
+              </div>
               <div className="mono" style={{ fontSize: 13, fontWeight: 600, color: C.green, textAlign: 'right', minWidth: 84 }}>{fmtRp(r.cash)}</div>
             </div>
           ))}
@@ -846,7 +869,7 @@ function DividendCard({ stocks }) {
       )}
 
       <div style={{ marginTop: 12, fontSize: 11, color: C.inkSoft, lineHeight: 1.5 }}>
-        ⓘ Proyeksi: dividen 12 bulan terakhir (real, Yahoo) diulang ~1 tahun ke depan. Jumlah &amp; tanggal sebenarnya bergantung keputusan RUPS emiten — tidak dijamin.
+        ⓘ <strong style={{ color: C.ink }}>FIX</strong> = dividen yang tanggalnya sudah diumumkan. <strong style={{ color: C.ink }}>PERKIRAAN</strong> = proyeksi dari pola tahun lalu (+~1 tahun). Jumlah &amp; tanggal final bergantung keputusan RUPS emiten.
       </div>
     </div>
   );
