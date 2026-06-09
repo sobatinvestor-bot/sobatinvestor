@@ -80,12 +80,12 @@ export default function App() {
         {tab === 'analisis' && (
           <AnalisisTab
             userId={session ? session.user.id : null}
-            userEmail={session ? session.user.email : null}
+            userName={session ? (session.user.user_metadata && session.user.user_metadata.display_name ? session.user.user_metadata.display_name : 'Investor-' + session.user.id.slice(0, 4)) : null}
             onRequireLogin={() => setTab('portfolio')}
           />
         )}
         {isPrivateTab && !session && <Auth inline />}
-        {isPrivateTab && session && <PrivateArea tab={tab} userId={session.user.id} userEmail={session.user.email} />}
+        {isPrivateTab && session && <PrivateArea tab={tab} userId={session.user.id} />}
       </div>
       <BottomNav tab={tab} setTab={setTab} />
     </div>
@@ -93,7 +93,7 @@ export default function App() {
 }
 
 // Area privat (hanya saat sudah login): Dashboard, Sobat AI, Portfolio
-function PrivateArea({ tab, userId, userEmail }) {
+function PrivateArea({ tab, userId }) {
   const { stocks, addHolding, updateHolding, deleteHolding } = usePortfolio(userId);
   const [editing, setEditing] = useState(null);
 
@@ -116,7 +116,6 @@ function PrivateArea({ tab, userId, userEmail }) {
         </>
       )}
       {tab === 'chat' && <ChatTab stocks={stocks} />}
-      {tab === 'analisis' && <AnalisisTab userId={userId} userEmail={userEmail} />}
       {editing && <Editor holding={editing} onSave={handleSave} onClose={() => setEditing(null)} />}
     </>
   );
