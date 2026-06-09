@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
+import { AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine } from 'recharts';
 import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Loader2, Lock, LogOut, Plus, Pencil, Trash2 } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import { Auth, usePortfolio, Editor, logout } from './Account.jsx';
@@ -266,10 +266,43 @@ function DashboardTab({ stocks }) {
   const totalPL = totalValue - totalCost;
   const totalPLPct = totalCost ? (totalPL / totalCost) * 100 : 0;
 
-  const perfData = Array.from({ length: 30 }, (_, i) => ({
-    day: i + 1,
-    value: totalCost / 1e6 + Math.sin(i / 3) * 5 + i * 0.4 + (Math.random() - 0.5) * 2,
-  }));
+  // Dividen untuk grafik (jumlah real Yahoo)
+  const symKey = stocks.map((s) => s.symbol).join(',');
+  const [rawDiv, setRawDiv] = useState([]);
+  useEffect(() => {
+    if (!symKey) { setRawDiv([]); return; }
+    let active = true;
+    fetch(`/api/dividends?symbols=${encodeURIComponent(symKey)}&range=1y`)
+      .then((r) => (r.ok ? r.json() : { dividends: [] }))
+      .then((d) => { if (active) setRawDiv(d.dividends || []); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [symKey]);
+
+  // Grafik: 30 hari lalu + 30 hari ke depan. Garis datar = harga terakhir,
+  // melonjak saat ada dividen (perkiraan tgl bayar = ex-date + 21 hari).
+  const OFFSET_DAYS = 21;
+  const DAY = 86400000;
+  const qtyMap = {};
+  stocks.forEach((s) => { qtyMap[s.symbol] = s.qty; });
+  const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
+  const startTime = midnight.getTime() - 30 * DAY;
+  const endTime = midnight.getTime() + 30 * DAY;
+  const divEvents = rawDiv
+    .map((d) => ({
+      payTime: new Date(d.exDate).getTime() + OFFSET_DAYS * DAY,
+      cash: d.amount * (qtyMap[d.symbol] || 0),
+    }))
+    .filter((e) => e.cash > 0 && e.payTime >= startTime && e.payTime <= endTime);
+
+  const fmtShort = (t) => new Date(t).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+  const perfData = Array.from({ length: 61 }, (_, i) => {
+    const t = startTime + i * DAY;
+    const cumDiv = divEvents.filter((e) => e.payTime <= t).reduce((s, e) => s + e.cash, 0);
+    return { label: fmtShort(t), value: totalValue + cumDiv };
+  });
+  const todayLabel = perfData[30].label;
+  const totalDivWindow = divEvents.reduce((s, e) => s + e.cash, 0);
 
   const sectorMap = {};
   stocks.forEach((s) => {
@@ -295,8 +328,8 @@ function DashboardTab({ stocks }) {
 
       <div style={{ background: C.cream2, borderRadius: 20, padding: 20, marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <h3 className="serif" style={{ fontSize: 18, fontWeight: 600 }}>Performa 30 Hari</h3>
-          <span className="mono" style={{ fontSize: 11, color: C.inkSoft }}>UPDATE: LIVE</span>
+          <h3 className="serif" style={{ fontSize: 18, fontWeight: 600 }}>Nilai Portofolio · ±30 Hari</h3>
+          <span className="mono" style={{ fontSize: 11, color: C.inkSoft }}>HARGA TERAKHIR</span>
         </div>
         <ResponsiveContainer width="100%" height={180}>
           <AreaChart data={perfData}>
@@ -306,17 +339,21 @@ function DashboardTab({ stocks }) {
                 <stop offset="100%" stopColor={C.cuan} stopOpacity={0} />
               </linearGradient>
             </defs>
-            <XAxis dataKey="day" hide />
-            <YAxis hide domain={['dataMin - 2', 'dataMax + 2']} />
+            <XAxis dataKey="label" hide />
+            <YAxis hide domain={[(min) => min * 0.999, (max) => max * 1.001]} />
             <Tooltip
               contentStyle={{ background: C.ink, border: 'none', borderRadius: 8, fontSize: 12 }}
               labelStyle={{ color: C.cream }}
               itemStyle={{ color: C.cuanBright }}
-              formatter={(v) => [`Rp ${v.toFixed(1)}jt`, 'Value']}
+              formatter={(v) => [fmtRp(v), 'Nilai']}
             />
-            <Area type="monotone" dataKey="value" stroke={C.cuan} strokeWidth={2.5} fill="url(#cuanGrad)" />
+            <ReferenceLine x={todayLabel} stroke={C.inkSoft} strokeDasharray="3 3" label={{ value: 'Hari ini', position: 'insideTopRight', fontSize: 10, fill: C.inkSoft }} />
+            <Area type="stepAfter" dataKey="value" stroke={C.cuan} strokeWidth={2.5} fill="url(#cuanGrad)" />
           </AreaChart>
         </ResponsiveContainer>
+        <div style={{ fontSize: 11, color: C.inkSoft, marginTop: 8, lineHeight: 1.5 }}>
+          Garis datar = nilai pada harga terakhir. Lonjakan = dividen masuk (perkiraan tgl bayar).{totalDivWindow > 0 ? ` Total dividen di jendela ini: ${fmtRp(totalDivWindow)}.` : ''}
+        </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, marginBottom: 16 }}>
@@ -613,8 +650,82 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete }) {
         </div>
       )}
 
+      {stocks.length > 0 && <DividendCard stocks={stocks} />}
+
       <div style={{ marginTop: 16, padding: 14, background: 'rgba(196,155,60,0.1)', borderRadius: 12, fontSize: 12, color: C.inkSoft, lineHeight: 1.5 }}>
         💡 <strong style={{ color: C.ink }}>Privat:</strong> Hanya kamu yang bisa melihat portofolio ini. Tersimpan di akunmu &amp; sinkron lintas perangkat. Harga live (delayed) dari pasar.
+      </div>
+    </div>
+  );
+}
+
+// Cash from Dividend — jumlah real dari Yahoo, tanggal bayar = perkiraan (ex-date + offset)
+function DividendCard({ stocks }) {
+  const symKey = stocks.map((s) => s.symbol).join(',');
+  const [raw, setRaw] = useState([]);   // [{ symbol, amount, exDate }]
+  const [loading, setLoading] = useState(true);
+  const OFFSET_DAYS = 21; // perkiraan jeda ex-date → tanggal bayar (pola umum IDX)
+
+  useEffect(() => {
+    if (!symKey) { setRaw([]); setLoading(false); return; }
+    let active = true;
+    setLoading(true);
+    fetch(`/api/dividends?symbols=${encodeURIComponent(symKey)}&range=2y`)
+      .then((r) => (r.ok ? r.json() : { dividends: [] }))
+      .then((d) => { if (active) { setRaw(d.dividends || []); setLoading(false); } })
+      .catch(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [symKey]);
+
+  const qtyMap = {};
+  stocks.forEach((s) => { qtyMap[s.symbol] = s.qty; });
+
+  const rows = raw
+    .map((d) => {
+      const qty = qtyMap[d.symbol] || 0;
+      const pay = new Date(new Date(d.exDate).getTime() + OFFSET_DAYS * 86400000);
+      return { ...d, qty, cash: d.amount * qty, payDate: pay };
+    })
+    .filter((r) => r.cash > 0)
+    .sort((a, b) => b.payDate - a.payDate);
+
+  const yearAgo = Date.now() - 365 * 86400000;
+  const total12 = rows.filter((r) => r.payDate.getTime() >= yearAgo).reduce((s, r) => s + r.cash, 0);
+  const fmtDate = (d) => d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+
+  return (
+    <div style={{ background: C.cream2, borderRadius: 20, padding: 20, marginTop: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14 }}>
+        <h3 className="serif" style={{ fontSize: 18, fontWeight: 600 }}>Cash from Dividend</h3>
+        <span className="mono" style={{ fontSize: 10, color: C.inkSoft, letterSpacing: '0.08em' }}>12 BULAN TERAKHIR</span>
+      </div>
+
+      <div className="serif" style={{ fontSize: 26, fontWeight: 600, color: C.green, marginBottom: 4 }}>{fmtRp(total12)}</div>
+      <div style={{ fontSize: 12, color: C.inkSoft, marginBottom: 16 }}>estimasi dividen diterima (berdasarkan kepemilikan saat ini)</div>
+
+      {loading ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: C.inkSoft, fontSize: 13 }}>
+          <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Memuat data dividen…
+        </div>
+      ) : rows.length === 0 ? (
+        <div style={{ fontSize: 13, color: C.inkSoft }}>Belum ada riwayat dividen untuk saham yang kamu pegang (2 tahun terakhir).</div>
+      ) : (
+        <div>
+          {rows.slice(0, 12).map((r, i) => (
+            <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 8, alignItems: 'center', padding: '10px 0', borderBottom: `1px solid rgba(26,42,32,0.06)` }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 13 }}>{r.symbol}</div>
+                <div style={{ fontSize: 11, color: C.inkSoft }}>{fmtRp(r.amount)}/lembar × {r.qty.toLocaleString('id-ID')}</div>
+              </div>
+              <div className="mono" style={{ fontSize: 11, color: C.inkSoft, textAlign: 'right' }}>{fmtDate(r.payDate)}</div>
+              <div className="mono" style={{ fontSize: 13, fontWeight: 600, color: C.green, textAlign: 'right', minWidth: 84 }}>{fmtRp(r.cash)}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={{ marginTop: 12, fontSize: 11, color: C.inkSoft, lineHeight: 1.5 }}>
+        ⓘ Jumlah dividen real (Yahoo). <strong style={{ color: C.ink }}>Tanggal bayar = perkiraan</strong> (ex-date + ~{OFFSET_DAYS} hari) — tanggal pembayaran resmi diumumkan IDX/KSEI.
       </div>
     </div>
   );
