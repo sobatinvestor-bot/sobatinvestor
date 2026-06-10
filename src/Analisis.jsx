@@ -270,6 +270,14 @@ function ThesisCard({ kind, items }) {
   );
 }
 
+// user_id akun admin resmi — komentar dari ID ini tampil dengan badge ADMIN.
+// Cara isi: daftar akun admin di app, lalu di SQL Editor:
+//   select id, email from auth.users where email = 'EMAIL_ADMIN_KAMU';
+// salin id-nya ke daftar di bawah (bisa lebih dari satu).
+const ADMIN_USER_IDS = [
+  'fb34e91b-dde7-42ce-83e9-ff70a2eaf52f', // admin@sobatinvestor.com
+];
+
 function Comments({ symbol, userId, userName, onRequireLogin }) {
   const [list, setList] = useState([]);
   const [body, setBody] = useState('');
@@ -384,10 +392,17 @@ function Comments({ symbol, userId, userName, onRequireLogin }) {
         <div style={{ fontSize: 13, color: C.inkSoft }}>Belum ada komentar. Jadilah yang pertama memulai diskusi.</div>
       ) : (
         <div style={{ display: 'grid', gap: 12 }}>
-          {list.map((c) => (
-            <div key={c.id} style={{ background: C.cream2, borderRadius: 14, padding: '12px 14px' }}>
+          {list.map((c) => {
+            const isAdmin = ADMIN_USER_IDS.includes(c.user_id);
+            return (
+            <div key={c.id} style={{ background: C.cream2, borderRadius: 14, padding: '12px 14px', border: isAdmin ? `1.5px solid ${C.cuan}` : 'none' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
-                <span style={{ fontWeight: 700, fontSize: 13 }}>{c.author || 'anon'}</span>
+                <span style={{ fontWeight: 700, fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  {c.author || 'anon'}
+                  {isAdmin && (
+                    <span className="mono" style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.1em', background: C.cuan, color: C.ink, borderRadius: 100, padding: '2px 8px' }}>ADMIN</span>
+                  )}
+                </span>
                 <span className="mono" style={{ fontSize: 10, color: C.inkSoft }}>{fmtTime(c.created_at)}</span>
               </div>
               <p style={{ fontSize: 14, color: C.ink, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{c.body}</p>
@@ -397,7 +412,8 @@ function Comments({ symbol, userId, userName, onRequireLogin }) {
                 </button>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
