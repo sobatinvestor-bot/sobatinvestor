@@ -26,6 +26,8 @@ export default function AnalisisTab({ userId, userName, onRequireLogin }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(null);
+  const [page, setPage] = useState('umum'); // 'umum' | 'porto'
+  const [mySymbols, setMySymbols] = useState(null); // null = belum dimuat
 
   useEffect(() => {
     let active = true;
@@ -42,27 +44,77 @@ export default function AnalisisTab({ userId, userName, onRequireLogin }) {
     return () => { active = false; };
   }, []);
 
+  // Muat simbol holding user untuk page "Saham Kamu" (RLS: hanya miliknya sendiri)
+  useEffect(() => {
+    if (!userId) { setMySymbols(null); return; }
+    let active = true;
+    supabase
+      .from('holdings')
+      .select('symbol')
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (!error) setMySymbols([...new Set((data || []).map((h) => (h.symbol || '').toUpperCase()))]);
+        else setMySymbols([]);
+      });
+    return () => { active = false; };
+  }, [userId]);
+
   if (open) {
     const a = items.find((x) => x.symbol === open);
     if (a) return <AnalisisDetail a={a} onBack={() => setOpen(null)} userId={userId} userName={userName} onRequireLogin={onRequireLogin} />;
   }
 
+  const isPorto = page === 'porto';
+  const shown = isPorto && Array.isArray(mySymbols)
+    ? items.filter((a) => mySymbols.includes((a.symbol || '').toUpperCase()))
+    : items;
+  const noAnalysis = isPorto && Array.isArray(mySymbols)
+    ? mySymbols.filter((s) => !items.some((a) => (a.symbol || '').toUpperCase() === s)).sort()
+    : [];
+
   return (
     <div className="fade-up" style={{ padding: '24px 20px', maxWidth: 800, margin: '0 auto' }}>
       <h2 className="serif" style={{ fontSize: 32, fontWeight: 500, letterSpacing: '-0.02em', marginBottom: 6 }}>Analisis</h2>
-      <p style={{ fontSize: 14, color: C.inkSoft, lineHeight: 1.55, marginBottom: 20 }}>
+      <p style={{ fontSize: 14, color: C.inkSoft, lineHeight: 1.55, marginBottom: 14 }}>
         Analisis mendalam emiten IDX oleh AI - model bisnis, katalis, dan risiko. Diskusikan di kolom komentar tiap analisis.
       </p>
 
-      {loading ? (
+      {/* Sub-tab: Umum / Saham Kamu */}
+      <div style={{ display: 'inline-flex', gap: 4, background: C.cream2, borderRadius: 100, padding: 3, marginBottom: 18 }}>
+        {[['umum', 'Analisis Umum'], ['porto', 'Saham Kamu']].map(([k, lbl]) => (
+          <button key={k} onClick={() => setPage(k)}
+            style={{ border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, padding: '7px 16px', borderRadius: 100, background: page === k ? C.forest : 'transparent', color: page === k ? C.cream : C.inkSoft }}>
+            {lbl}
+          </button>
+        ))}
+      </div>
+
+      {isPorto && !userId ? (
+        <div style={{ background: C.cream2, borderRadius: 18, padding: 24, textAlign: 'center' }}>
+          <p style={{ fontSize: 14, color: C.inkSoft, marginBottom: 14, lineHeight: 1.55 }}>
+            Masuk untuk melihat analisis khusus saham-saham di portofoliomu.
+          </p>
+          <button onClick={onRequireLogin}
+            style={{ background: C.forest, color: C.cream, border: 'none', padding: '10px 20px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+            Masuk / Daftar
+          </button>
+        </div>
+      ) : loading || (isPorto && mySymbols === null) ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: C.inkSoft, fontSize: 14 }}>
           <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Memuat analisis...
         </div>
-      ) : items.length === 0 ? (
+      ) : isPorto && Array.isArray(mySymbols) && mySymbols.length === 0 ? (
+        <div style={{ fontSize: 14, color: C.inkSoft }}>
+          Portofoliomu masih kosong. Tambahkan saham di tab <strong style={{ color: C.ink }}>Portofolio</strong>, lalu analisis yang relevan akan muncul di sini.
+        </div>
+      ) : shown.length === 0 && !isPorto ? (
         <div style={{ fontSize: 14, color: C.inkSoft }}>Belum ada analisis yang dipublikasikan.</div>
       ) : (
         <div style={{ display: 'grid', gap: 12 }}>
-          {items.map((a) => (
+          {isPorto && shown.length === 0 && (
+            <div style={{ fontSize: 14, color: C.inkSoft }}>Belum ada analisis untuk saham di portofoliomu — daftar emitennya ada di bawah, akan kami prioritaskan.</div>
+          )}
+          {shown.map((a) => (
             <button
               key={a.symbol}
               onClick={() => setOpen(a.symbol)}
@@ -71,6 +123,7 @@ export default function AnalisisTab({ userId, userName, onRequireLogin }) {
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
                 <span className="serif" style={{ fontSize: 20, fontWeight: 600 }}>{a.symbol}</span>
                 <span style={{ fontSize: 12, color: C.inkSoft }}>{a.name}</span>
+                {isPorto && <span className="mono" style={{ fontSize: 9, fontWeight: 700, color: C.cuan, letterSpacing: '0.08em', marginLeft: 'auto' }}>DI PORTOFOLIOMU</span>}
               </div>
               <div className="mono" style={{ fontSize: 10, color: C.rust, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>{a.sector}</div>
               <p style={{ fontSize: 13, color: C.inkSoft, lineHeight: 1.55 }}>{a.ringkasan}</p>
@@ -80,6 +133,19 @@ export default function AnalisisTab({ userId, userName, onRequireLogin }) {
               </div>
             </button>
           ))}
+        </div>
+      )}
+
+      {/* Saham di portofolio yang belum ada analisisnya */}
+      {isPorto && userId && noAnalysis.length > 0 && (
+        <div style={{ marginTop: 16, background: C.cream2, borderRadius: 18, padding: 18 }}>
+          <div className="mono" style={{ fontSize: 10, color: C.inkSoft, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>Belum ada analisis</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {noAnalysis.map((s) => (
+              <span key={s} className="mono" style={{ fontSize: 12, fontWeight: 600, background: C.cream, borderRadius: 100, padding: '6px 12px', color: C.inkSoft }}>{s}</span>
+            ))}
+          </div>
+          <p style={{ fontSize: 12, color: C.inkSoft, marginTop: 10, lineHeight: 1.5 }}>Analisis untuk emiten di atas sedang disiapkan.</p>
         </div>
       )}
 

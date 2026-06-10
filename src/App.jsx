@@ -94,7 +94,7 @@ export default function App() {
 
 // Area privat (hanya saat sudah login): Dashboard, Sobat AI, Portfolio
 function PrivateArea({ tab, userId, ihsgQuote }) {
-  const { stocks, addHolding, updateHolding, deleteHolding } = usePortfolio(userId);
+  const { stocks, addHolding, updateHolding, deleteHolding, deleteAll } = usePortfolio(userId);
   const [editing, setEditing] = useState(null);
 
   function handleSave(h) {
@@ -112,6 +112,7 @@ function PrivateArea({ tab, userId, ihsgQuote }) {
             onAdd={() => setEditing({})}
             onEdit={(s) => setEditing(s)}
             onDelete={deleteHolding}
+            onDeleteAll={deleteAll}
           />
         </>
       )}
@@ -736,7 +737,10 @@ function ChatTab({ stocks }) {
   );
 }
 
-function PortfolioTab({ stocks, onAdd, onEdit, onDelete }) {
+function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onDeleteAll }) {
+  const [confirmDel, setConfirmDel] = useState(null); // stock yang mau dihapus
+  const [wipeStep, setWipeStep] = useState(0);        // 0=off, 1=dialog 1, 2=dialog final
+  const [wipeText, setWipeText] = useState('');
   function exportCSV() {
     const headers = ['Symbol', 'Nama', 'Qty', 'Avg Price', 'Current Price', 'Market Value', 'P/L', 'P/L %', 'Sector'];
     const rows = stocks.map(s => {
@@ -808,7 +812,7 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete }) {
                 <div className="mono" style={{ fontSize: 13, textAlign: 'right', fontWeight: 600, color: pl >= 0 ? C.green : C.red }}>{fmtPct(pl)}</div>
                 <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
                   <button onClick={() => onEdit(s)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 4 }}><Pencil size={14} color={C.inkSoft} /></button>
-                  <button onClick={() => onDelete(s.id)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 4 }}><Trash2 size={14} color={C.rust} /></button>
+                  <button onClick={() => setConfirmDel(s)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 4 }}><Trash2 size={14} color={C.rust} /></button>
                 </div>
               </div>
             );
@@ -818,9 +822,96 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete }) {
 
       {stocks.length > 0 && <DividendCard stocks={stocks} />}
 
+      {stocks.length > 0 && (
+        <div style={{ marginTop: 16, textAlign: 'right' }}>
+          <button
+            onClick={() => { setWipeText(''); setWipeStep(1); }}
+            style={{ background: 'transparent', color: C.rust, border: `1.5px solid ${C.rust}`, padding: '8px 16px', borderRadius: 100, fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <Trash2 size={13} /> Hapus Semua Portofolio
+          </button>
+        </div>
+      )}
+
+      {/* Hapus semua — konfirmasi tahap 1 */}
+      {wipeStep === 1 && (
+        <div onClick={() => setWipeStep(0)} style={{ position: 'fixed', inset: 0, background: 'rgba(26,42,32,0.45)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: C.cream, borderRadius: 20, padding: 24, maxWidth: 380, width: '100%' }}>
+            <h3 className="serif" style={{ fontSize: 20, fontWeight: 600, marginBottom: 8 }}>Hapus semua portofolio?</h3>
+            <p style={{ fontSize: 14, color: C.inkSoft, lineHeight: 1.55, marginBottom: 18 }}>
+              Seluruh <strong style={{ color: C.ink }}>{stocks.length} saham</strong> di portofoliomu akan dihapus permanen. Riwayat dividen & grafik ikut kosong.
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setWipeStep(0)} style={{ background: 'transparent', color: C.ink, border: `1.5px solid rgba(26,42,32,0.2)`, padding: '10px 18px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Batal</button>
+              <button onClick={() => setWipeStep(2)} style={{ background: C.rust, color: C.cream, border: 'none', padding: '10px 18px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Lanjut</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Hapus semua — konfirmasi final (ketik HAPUS) */}
+      {wipeStep === 2 && (
+        <div onClick={() => setWipeStep(0)} style={{ position: 'fixed', inset: 0, background: 'rgba(26,42,32,0.45)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: C.cream, borderRadius: 20, padding: 24, maxWidth: 380, width: '100%' }}>
+            <h3 className="serif" style={{ fontSize: 20, fontWeight: 600, marginBottom: 8 }}>Konfirmasi terakhir</h3>
+            <p style={{ fontSize: 13, color: C.rust, fontWeight: 600, marginBottom: 12 }}>Tindakan ini tidak bisa dibatalkan.</p>
+            <p style={{ fontSize: 14, color: C.inkSoft, lineHeight: 1.55, marginBottom: 10 }}>
+              Ketik <strong className="mono" style={{ color: C.ink }}>HAPUS</strong> untuk menghapus seluruh portofolio:
+            </p>
+            <input
+              value={wipeText}
+              onChange={(e) => setWipeText(e.target.value)}
+              placeholder="HAPUS"
+              autoFocus
+              style={{ width: '100%', padding: '10px 14px', borderRadius: 12, border: `1.5px solid rgba(26,42,32,0.2)`, background: C.cream2, fontSize: 14, marginBottom: 16 }}
+            />
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setWipeStep(0)} style={{ background: 'transparent', color: C.ink, border: `1.5px solid rgba(26,42,32,0.2)`, padding: '10px 18px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Batal</button>
+              <button
+                disabled={wipeText.trim().toUpperCase() !== 'HAPUS'}
+                onClick={() => { onDeleteAll(); setWipeStep(0); }}
+                style={{ background: wipeText.trim().toUpperCase() === 'HAPUS' ? C.red : 'rgba(192,57,43,0.35)', color: C.cream, border: 'none', padding: '10px 18px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: wipeText.trim().toUpperCase() === 'HAPUS' ? 'pointer' : 'not-allowed' }}
+              >
+                Hapus Semua
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{ marginTop: 16, padding: 14, background: 'rgba(196,155,60,0.1)', borderRadius: 12, fontSize: 12, color: C.inkSoft, lineHeight: 1.5 }}>
         💡 <strong style={{ color: C.ink }}>Privat:</strong> Hanya kamu yang bisa melihat portofolio ini. Tersimpan di akunmu &amp; sinkron lintas perangkat. Harga live (delayed) dari pasar.
       </div>
+
+      {/* Konfirmasi hapus */}
+      {confirmDel && (
+        <div
+          onClick={() => setConfirmDel(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(26,42,32,0.45)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+        >
+          <div onClick={(e) => e.stopPropagation()} style={{ background: C.cream, borderRadius: 20, padding: 24, maxWidth: 360, width: '100%' }}>
+            <h3 className="serif" style={{ fontSize: 20, fontWeight: 600, marginBottom: 8 }}>Hapus {confirmDel.symbol}?</h3>
+            <p style={{ fontSize: 14, color: C.inkSoft, lineHeight: 1.55, marginBottom: 6 }}>
+              {confirmDel.name || confirmDel.symbol} — {Number(confirmDel.qty).toLocaleString('id-ID')} lembar akan dihapus dari portofoliomu.
+            </p>
+            <p style={{ fontSize: 12, color: C.rust, marginBottom: 18 }}>Tindakan ini tidak bisa dibatalkan.</p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setConfirmDel(null)}
+                style={{ background: 'transparent', color: C.ink, border: `1.5px solid rgba(26,42,32,0.2)`, padding: '10px 18px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+              >
+                Batal
+              </button>
+              <button
+                onClick={() => { onDelete(confirmDel.id); setConfirmDel(null); }}
+                style={{ background: C.red, color: C.cream, border: 'none', padding: '10px 18px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+              >
+                Ya, hapus
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

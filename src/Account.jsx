@@ -93,11 +93,17 @@ export function usePortfolio(userId) {
     await loadHoldings();
   }
 
+  async function deleteAll() {
+    const { error } = await supabase.from('holdings').delete().eq('user_id', userId);
+    if (error) alert('Gagal hapus: ' + error.message);
+    await loadHoldings();
+  }
+
   return {
     stocks, loading,
     ihsg: ihsg ? ihsg.value : 7800,
     ihsgChange: ihsg ? ihsg.change : 0,
-    addHolding, updateHolding, deleteHolding,
+    addHolding, updateHolding, deleteHolding, deleteAll,
   };
 }
 
