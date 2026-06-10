@@ -299,6 +299,11 @@ function Comments({ symbol, userId, userName, onRequireLogin }) {
 
   useEffect(() => { load(); }, [symbol]);
 
+  // Admin yang masih memakai nama default otomatis tampil sebagai "Sobat Investor"
+  const isAdminUser = ADMIN_USER_IDS.includes(userId);
+  const isDefaultName = !userName || userName.indexOf('Investor-') === 0;
+  const effectiveName = isAdminUser && isDefaultName ? 'Sobat Investor' : userName;
+
   async function saveName() {
     const v = nameInput.trim();
     if (!v) return;
@@ -311,7 +316,7 @@ function Comments({ symbol, userId, userName, onRequireLogin }) {
     const text = body.trim();
     if (!text) return;
     setBusy(true);
-    const author = userName || 'anon';
+    const author = effectiveName || 'anon';
     const { error } = await supabase.from('comments').insert({ symbol, user_id: userId, author, body: text });
     if (error) alert('Gagal kirim komentar: ' + error.message);
     else { setBody(''); await load(); }
@@ -350,7 +355,7 @@ function Comments({ symbol, userId, userName, onRequireLogin }) {
               </span>
             ) : (
               <span>
-                Tampil sebagai <strong style={{ color: C.ink }}>{userName}</strong>
+                Tampil sebagai <strong style={{ color: C.ink }}>{effectiveName}</strong>
                 {ADMIN_USER_IDS.includes(userId) && (
                   <span className="mono" style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.1em', background: C.cuan, color: C.ink, borderRadius: 100, padding: '2px 8px', marginLeft: 6, verticalAlign: 'middle' }}>ADMIN</span>
                 )}{' '}
