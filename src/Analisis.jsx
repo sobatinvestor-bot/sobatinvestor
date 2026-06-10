@@ -76,7 +76,7 @@ export default function AnalisisTab({ userId, userName, onRequireLogin }) {
     <div className="fade-up" style={{ padding: '24px 20px', maxWidth: 800, margin: '0 auto' }}>
       <h2 className="serif" style={{ fontSize: 32, fontWeight: 500, letterSpacing: '-0.02em', marginBottom: 6 }}>Analisis</h2>
       <p style={{ fontSize: 14, color: C.inkSoft, lineHeight: 1.55, marginBottom: 14 }}>
-        Analisis mendalam emiten IDX oleh AI - model bisnis, katalis, dan risiko. Diskusikan di kolom komentar tiap analisis.
+        Analisis emiten IDX oleh AI - model bisnis, katalis, dan risiko. Diskusikan di kolom komentar tiap analisis.
       </p>
 
       {/* Sub-tab: Umum / Saham Kamu */}
@@ -149,8 +149,8 @@ export default function AnalisisTab({ userId, userName, onRequireLogin }) {
         </div>
       )}
 
-      <div style={{ marginTop: 16, padding: 14, background: 'rgba(196,155,60,0.1)', borderRadius: 12, fontSize: 12, color: C.inkSoft, lineHeight: 1.5 }}>
-        &#9432; Analisis AI bersifat edukatif berdasarkan data publik, <strong style={{ color: C.ink }}>bukan rekomendasi beli/jual</strong>. Keputusan investasi sepenuhnya tanggung jawab kamu.
+      <div style={{ marginTop: 16, padding: 14, background: 'rgba(192,57,43,0.08)', borderRadius: 12, fontSize: 12, color: C.red, lineHeight: 1.5 }}>
+        &#9432; Analisis AI bersifat edukatif berdasarkan data publik, <strong style={{ color: C.red }}>bukan rekomendasi beli/jual</strong>. Keputusan investasi sepenuhnya tanggung jawab kamu.
       </div>
     </div>
   );
