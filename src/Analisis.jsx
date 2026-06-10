@@ -350,7 +350,10 @@ function Comments({ symbol, userId, userName, onRequireLogin }) {
               </span>
             ) : (
               <span>
-                Tampil sebagai <strong style={{ color: C.ink }}>{userName}</strong>{' '}
+                Tampil sebagai <strong style={{ color: C.ink }}>{userName}</strong>
+                {ADMIN_USER_IDS.includes(userId) && (
+                  <span className="mono" style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.1em', background: C.cuan, color: C.ink, borderRadius: 100, padding: '2px 8px', marginLeft: 6, verticalAlign: 'middle' }}>ADMIN</span>
+                )}{' '}
                 <button onClick={() => { setNameInput(userName && userName.indexOf('Investor-') === 0 ? '' : (userName || '')); setEditingName(true); }} style={{ background: 'transparent', border: 'none', color: C.forest, fontWeight: 600, fontSize: 12, cursor: 'pointer', padding: 0 }}>Ubah</button>
               </span>
             )}
