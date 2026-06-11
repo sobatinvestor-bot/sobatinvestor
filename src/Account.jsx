@@ -124,9 +124,13 @@ export function Auth({ inline }) {
         const { error } = await supabase.auth.signInWithPassword({ email, password: pw });
         if (error) setMsg(error.message);
       } else {
-        const { error } = await supabase.auth.signUp({ email, password: pw });
+        const { data, error } = await supabase.auth.signUp({ email, password: pw });
         if (error) setMsg(error.message);
-        else setMsg('Akun dibuat. Silakan Masuk.');
+        else if (data && data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+          setMsg('Email ini sudah terdaftar. Silakan Masuk.');
+        } else {
+          setMsg('Akun dibuat. Silakan buka email kamu dan konfirmasi.');
+        }
       }
     } finally { setBusy(false); }
   }
