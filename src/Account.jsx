@@ -149,10 +149,10 @@ export function Auth({ inline }) {
           {mode === 'login' ? 'Dashboard portofolio pribadimu.' : 'Buat akun, simpan portofolio sendiri.'}
         </p>
         <Field icon={Mail} placeholder="email@kamu.com" value={email} onChange={setEmail} />
-        <Field icon={Lock} placeholder="password (min 6 karakter)" type="password" value={pw} onChange={setPw} />
+        <Field icon={Lock} placeholder={mode === 'login' ? 'password' : 'password (min 8: huruf besar, kecil & angka)'} type="password" value={pw} onChange={setPw} />
         {msg && <div style={{ fontSize: 13, color: C.rust, margin: '6px 2px 0' }}>{msg}</div>}
-        <button onClick={submit} disabled={busy || !email || pw.length < 6}
-          style={{ width: '100%', background: (busy || !email || pw.length < 6) ? 'rgba(26,42,32,0.25)' : C.forest, color: C.cream, border: 'none', padding: 14, borderRadius: 100, fontSize: 14, fontWeight: 600, cursor: 'pointer', marginTop: 12 }}>
+        <button onClick={submit} disabled={busy || !email || pw.length < (mode === 'login' ? 6 : 8)}
+          style={{ width: '100%', background: (busy || !email || pw.length < (mode === 'login' ? 6 : 8)) ? 'rgba(26,42,32,0.25)' : C.forest, color: C.cream, border: 'none', padding: 14, borderRadius: 100, fontSize: 14, fontWeight: 600, cursor: 'pointer', marginTop: 12 }}>
           {busy ? 'Memproses…' : (mode === 'login' ? 'Masuk' : 'Buat Akun')}
         </button>
         <div style={{ textAlign: 'center', marginTop: 16, fontSize: 13, color: C.inkSoft }}>
