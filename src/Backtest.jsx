@@ -218,12 +218,21 @@ export default function Backtest() {
 
       {res && (
         <div className="fade-up">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 14 }}>
-            <Stat label={`STRATEGI SMA ${fast}/${slow}${res.div_count > 0 ? ' +DIV' : ''}`} value={fmtPct(res.strat_return)} positive={res.strat_return >= 0} />
-            <Stat label={`BELI & TAHAN ${res.symbol}${res.div_count > 0 ? ' +DIV' : ''}`} value={fmtPct(res.bh_return)} positive={res.bh_return >= 0} />
-            <Stat label="TRANSAKSI" value={`${res.trades}×`} />
-            <Stat label={res.div_count > 0 ? 'DIVIDEN REINVEST' : 'DATA'} value={res.div_count > 0 ? `${res.div_count}×` : `${res.n_days} hari`} />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10, marginBottom: 6 }}>
+            <Stat
+              label={`STRATEGI SMA ${fast}/${slow}`}
+              value={fmtPct(res.strat_return)}
+              positive={res.strat_return >= 0}
+              sub={`${res.trades}× transaksi${(res.divIdx && res.divIdx.length > 0) ? ` · kebagian dividen ${res.div_count} dari ${res.divIdx.length}` : ''}`}
+            />
+            <Stat
+              label={`BELI & TAHAN ${res.symbol}`}
+              value={fmtPct(res.bh_return)}
+              positive={res.bh_return >= 0}
+              sub={(res.divIdx && res.divIdx.length > 0) ? `0× transaksi · kebagian semua ${res.divIdx.length} dividen` : 'hanya pergerakan harga (tanpa dividen)'}
+            />
           </div>
+          <div className="mono" style={{ fontSize: 10, color: C.inkSoft, marginBottom: 14 }}>Data: {res.n_days} hari perdagangan</div>
 
           <div style={{ background: C.cream2, borderRadius: 18, padding: 16 }}>
             <ResponsiveContainer width="100%" height={220}>
@@ -286,11 +295,12 @@ export default function Backtest() {
   );
 }
 
-function Stat({ label, value, positive }) {
+function Stat({ label, value, positive, sub }) {
   return (
     <div style={{ background: C.cream2, borderRadius: 14, padding: 14 }}>
       <div className="mono" style={{ fontSize: 9, color: C.inkSoft, letterSpacing: '0.08em', marginBottom: 6 }}>{label}</div>
-      <div className="serif" style={{ fontSize: 20, fontWeight: 600, color: positive === undefined ? C.ink : (positive ? C.green : C.red) }}>{value}</div>
+      <div className="serif" style={{ fontSize: 24, fontWeight: 600, color: positive === undefined ? C.ink : (positive ? C.green : C.red) }}>{value}</div>
+      {sub && <div style={{ fontSize: 12, color: C.inkSoft, marginTop: 6, lineHeight: 1.4 }}>{sub}</div>}
     </div>
   );
 }
