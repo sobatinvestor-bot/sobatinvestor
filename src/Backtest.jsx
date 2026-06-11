@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { ComposedChart, Area, Scatter, XAxis, YAxis, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { Loader2, Play } from 'lucide-react';
 
 const C = {
@@ -49,18 +49,36 @@ def sma(arr, n):
 f = sma(closes, fast_n)
 s = sma(closes, slow_n)
 
-# Strategi: pegang saham saat SMA cepat > SMA lambat, cash saat sebaliknya
+# Dividen per indeks hari (kosong jika mode tanpa reinvest)
+div_map = {}
+for d in data.get("divs", []):
+    div_map[d["i"]] = div_map.get(d["i"], 0.0) + float(d["amount"])
+
+# Strategi: pegang saham saat SMA cepat > SMA lambat; dividen di-reinvest saat pegang
 cash, shares, pos, trades = 1.0, 0.0, 0, 0
 equity = []
+trade_log = []
+div_count = 0
 for i, c in enumerate(closes):
+    if i in div_map and shares > 0:
+        shares += (shares * div_map[i]) / c  # reinvest dividen ke saham yg sama
+        div_count += 1
     if f[i] is not None and s[i] is not None:
         if f[i] > s[i] and pos == 0:
             shares = cash / c; cash = 0.0; pos = 1; trades += 1
+            trade_log.append({"i": i, "type": "buy", "price": c})
         elif f[i] < s[i] and pos == 1:
             cash = shares * c; shares = 0.0; pos = 0; trades += 1
+            trade_log.append({"i": i, "type": "sell", "price": c})
     equity.append(cash + shares * c)
 
-buyhold = [c / closes[0] for c in closes]
+# Beli & tahan: beli di hari pertama, dividen juga di-reinvest
+sh_bh = 1.0 / closes[0]
+buyhold = []
+for i, c in enumerate(closes):
+    if i in div_map:
+        sh_bh += (sh_bh * div_map[i]) / c
+    buyhold.append(sh_bh * c)
 
 result = json.dumps({
     "dates": dates,
@@ -69,16 +87,19 @@ result = json.dumps({
     "strat_return": (equity[-1] - 1) * 100,
     "bh_return": (buyhold[-1] - 1) * 100,
     "trades": trades,
+    "trade_log": trade_log,
+    "div_count": div_count,
     "n_days": len(closes),
 })
 result
 `;
 
 export default function Backtest() {
-  const [symbol, setSymbol] = useState('BBCA');
+  const [symbol, setSymbol] = useState('ADRO');
   const [range, setRange] = useState('2y');
   const [fast, setFast] = useState(20);
   const [slow, setSlow] = useState(50);
+  const [divMode, setDivMode] = useState('tanpa'); // 'tanpa' | 'reinvest'
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
@@ -98,17 +119,36 @@ export default function Backtest() {
       const series = (d.history || {})[sym];
       if (!series || series.length < slow + 10) throw new Error(`Data ${sym} tidak cukup (butuh > ${slow + 10} hari). Cek kode saham.`);
 
+      // Dividen (hanya saat mode reinvest): petakan ex-date ke indeks hari di series
+      let divs = [];
+      if (divMode === 'reinvest') {
+        setStatus('Mengambil data dividen...');
+        try {
+          const rd = await fetch(`/api/dividends?symbols=${encodeURIComponent(sym)}&range=${range}`);
+          if (rd.ok) {
+            const dd = await rd.json();
+            (dd.dividends || []).forEach((dv) => {
+              const exT = new Date(dv.exDate).getTime();
+              const idx = series.findIndex((p) => p.t >= exT);
+              if (idx > 0 && dv.amount > 0) divs.push({ i: idx, amount: dv.amount });
+            });
+          }
+        } catch { /* tanpa dividen jika gagal — hasil tetap valid sebagai price-return */ }
+      }
+
       const pyodide = await ensurePyodide(setStatus);
       setStatus('Menjalankan backtest (Python)...');
       const payload = {
         closes: series.map((p) => p.close),
         dates: series.map((p) => new Date(p.t).toLocaleDateString('id-ID', { month: 'short', year: '2-digit' })),
         fast, slow,
+        divs,
       };
       pyodide.globals.set('input_json', JSON.stringify(payload));
       const out = pyodide.runPython(PY_BACKTEST);
       const parsed = JSON.parse(out);
-      setRes({ ...parsed, symbol: sym });
+      const fullDates = series.map((p) => new Date(p.t).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }));
+      setRes({ ...parsed, symbol: sym, fullDates });
       setStatus('');
     } catch (e) {
       setErr(e.message || 'Terjadi kesalahan.');
@@ -117,7 +157,17 @@ export default function Backtest() {
   }
 
   const chartData = res
-    ? res.dates.map((dt, i) => ({ label: dt, strategi: +(res.equity[i] * 100).toFixed(1), belitahan: +(res.buyhold[i] * 100).toFixed(1) }))
+    ? res.dates.map((dt, i) => {
+        const trade = (res.trade_log || []).find((t) => t.i === i);
+        const eq = +(res.equity[i] * 100).toFixed(1);
+        return {
+          label: dt,
+          strategi: eq,
+          belitahan: +(res.buyhold[i] * 100).toFixed(1),
+          beli: trade && trade.type === 'buy' ? eq : null,
+          jual: trade && trade.type === 'sell' ? eq : null,
+        };
+      })
     : [];
 
   const inp = { width: '100%', padding: '10px 12px', borderRadius: 12, border: 'none', background: C.cream, fontSize: 14, boxSizing: 'border-box' };
@@ -148,6 +198,13 @@ export default function Backtest() {
             <label style={lbl}>SMA lambat</label>
             <input type="number" min={5} max={250} value={slow} onChange={(e) => setSlow(+e.target.value)} style={inp} />
           </div>
+          <div>
+            <label style={lbl}>Dividen</label>
+            <select value={divMode} onChange={(e) => setDivMode(e.target.value)} style={inp}>
+              <option value="tanpa">Tanpa</option>
+              <option value="reinvest">Dengan Reinvest</option>
+            </select>
+          </div>
         </div>
         <button onClick={run} disabled={busy}
           style={{ background: busy ? 'rgba(26,42,32,0.25)' : C.forest, color: C.cream, border: 'none', padding: '12px 22px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: busy ? 'default' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
@@ -160,15 +217,15 @@ export default function Backtest() {
       {res && (
         <div className="fade-up">
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 14 }}>
-            <Stat label={`STRATEGI SMA ${fast}/${slow}`} value={fmtPct(res.strat_return)} positive={res.strat_return >= 0} />
-            <Stat label={`BELI & TAHAN ${res.symbol}`} value={fmtPct(res.bh_return)} positive={res.bh_return >= 0} />
+            <Stat label={`STRATEGI SMA ${fast}/${slow}${res.div_count > 0 ? ' +DIV' : ''}`} value={fmtPct(res.strat_return)} positive={res.strat_return >= 0} />
+            <Stat label={`BELI & TAHAN ${res.symbol}${res.div_count > 0 ? ' +DIV' : ''}`} value={fmtPct(res.bh_return)} positive={res.bh_return >= 0} />
             <Stat label="TRANSAKSI" value={`${res.trades}×`} />
-            <Stat label="DATA" value={`${res.n_days} hari`} />
+            <Stat label={res.div_count > 0 ? 'DIVIDEN REINVEST' : 'DATA'} value={res.div_count > 0 ? `${res.div_count}×` : `${res.n_days} hari`} />
           </div>
 
           <div style={{ background: C.cream2, borderRadius: 18, padding: 16 }}>
             <ResponsiveContainer width="100%" height={220}>
-              <AreaChart data={chartData}>
+              <ComposedChart data={chartData}>
                 <defs>
                   <linearGradient id="btGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor={C.cuan} stopOpacity={0.35} />
@@ -180,14 +237,34 @@ export default function Backtest() {
                 <Tooltip
                   contentStyle={{ background: C.ink, border: 'none', borderRadius: 8, fontSize: 12 }}
                   labelStyle={{ color: C.cream }}
-                  formatter={(v, name) => [v + ' (awal=100)', name === 'strategi' ? `Strategi SMA` : 'Beli & Tahan']}
+                  formatter={(v, name) => {
+                    const nm = { strategi: `Strategi SMA`, belitahan: 'Beli & Tahan', beli: '▲ BELI', jual: '▼ JUAL' }[name] || name;
+                    return [v + ' (awal=100)', nm];
+                  }}
                 />
-                <Legend formatter={(v) => v === 'strategi' ? `Strategi SMA ${fast}/${slow}` : 'Beli & Tahan'} wrapperStyle={{ fontSize: 12 }} />
+                <Legend formatter={(v) => ({ strategi: `Strategi SMA ${fast}/${slow}`, belitahan: 'Beli & Tahan', beli: 'Beli', jual: 'Jual' }[v] || v)} wrapperStyle={{ fontSize: 12 }} />
                 <Area type="monotone" dataKey="strategi" stroke={C.cuan} strokeWidth={2.2} fill="url(#btGrad)" dot={false} />
                 <Area type="monotone" dataKey="belitahan" stroke={C.inkSoft} strokeWidth={1.5} strokeDasharray="4 3" fill="none" dot={false} />
-              </AreaChart>
+                <Scatter dataKey="beli" fill={C.green} shape="triangle" legendType="triangle" />
+                <Scatter dataKey="jual" fill={C.red} shape="diamond" legendType="diamond" />
+              </ComposedChart>
             </ResponsiveContainer>
           </div>
+
+          {res.trade_log && res.trade_log.length > 0 && (
+            <div style={{ background: C.cream2, borderRadius: 18, padding: 16, marginTop: 12 }}>
+              <div className="mono" style={{ fontSize: 10, color: C.inkSoft, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>Riwayat sinyal ({res.trade_log.length})</div>
+              {res.trade_log.map((t, idx) => (
+                <div key={idx} style={{ display: 'grid', gridTemplateColumns: '70px 1fr auto', gap: 8, padding: '7px 0', borderBottom: idx < res.trade_log.length - 1 ? '1px solid rgba(26,42,32,0.06)' : 'none', fontSize: 13, alignItems: 'center' }}>
+                  <span className="mono" style={{ fontWeight: 700, fontSize: 11, color: t.type === 'buy' ? C.green : C.red }}>
+                    {t.type === 'buy' ? '▲ BELI' : '▼ JUAL'}
+                  </span>
+                  <span style={{ color: C.inkSoft, fontSize: 12 }}>{res.fullDates && res.fullDates[t.i] ? res.fullDates[t.i] : res.dates[t.i]}</span>
+                  <span className="mono" style={{ fontWeight: 600 }}>{Math.round(t.price).toLocaleString('id-ID')}</span>
+                </div>
+              ))}
+            </div>
+          )}
 
           <div style={{ marginTop: 12, padding: 12, background: 'rgba(192,57,43,0.08)', borderRadius: 12, fontSize: 11, color: C.red, lineHeight: 1.5 }}>
             &#9432; Backtest = simulasi masa lalu (tanpa biaya transaksi & slippage), bukan jaminan hasil masa depan dan bukan rekomendasi beli/jual.

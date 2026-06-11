@@ -90,7 +90,17 @@ export default function AnalisisTab({ userId, userName, onRequireLogin }) {
         ))}
       </div>
 
-      {page === 'backtest' ? (
+      {page === 'backtest' && !userId ? (
+        <div style={{ background: C.cream2, borderRadius: 18, padding: 24, textAlign: 'center' }}>
+          <p style={{ fontSize: 14, color: C.inkSoft, marginBottom: 14, lineHeight: 1.55 }}>
+            Masuk untuk menggunakan Backtest — uji strategi SMA dengan Python engine, gratis untuk member.
+          </p>
+          <button onClick={onRequireLogin}
+            style={{ background: C.forest, color: C.cream, border: 'none', padding: '10px 20px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+            Masuk / Daftar
+          </button>
+        </div>
+      ) : page === 'backtest' ? (
         <Backtest />
       ) : isPorto && !userId ? (
         <div style={{ background: C.cream2, borderRadius: 18, padding: 24, textAlign: 'center' }}>
