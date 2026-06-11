@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ChevronLeft, Send, Trash2, Loader2, TrendingUp, TrendingDown, MessageCircle } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell } from 'recharts';
 import { supabase } from './lib/supabase';
+import Backtest from './Backtest.jsx';
 
 const C = {
   cream: '#F4EFE6',
@@ -81,7 +82,7 @@ export default function AnalisisTab({ userId, userName, onRequireLogin }) {
 
       {/* Sub-tab: Umum / Saham Kamu */}
       <div style={{ display: 'inline-flex', gap: 4, background: C.cream2, borderRadius: 100, padding: 3, marginBottom: 18 }}>
-        {[['umum', 'Analisis Umum'], ['porto', 'Saham Kamu']].map(([k, lbl]) => (
+        {[['umum', 'Analisis Umum'], ['porto', 'Saham Kamu'], ['backtest', 'Backtest']].map(([k, lbl]) => (
           <button key={k} onClick={() => setPage(k)}
             style={{ border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, padding: '7px 16px', borderRadius: 100, background: page === k ? C.forest : 'transparent', color: page === k ? C.cream : C.inkSoft }}>
             {lbl}
@@ -89,7 +90,9 @@ export default function AnalisisTab({ userId, userName, onRequireLogin }) {
         ))}
       </div>
 
-      {isPorto && !userId ? (
+      {page === 'backtest' ? (
+        <Backtest />
+      ) : isPorto && !userId ? (
         <div style={{ background: C.cream2, borderRadius: 18, padding: 24, textAlign: 'center' }}>
           <p style={{ fontSize: 14, color: C.inkSoft, marginBottom: 14, lineHeight: 1.55 }}>
             Masuk untuk melihat analisis khusus saham-saham di portofoliomu.
