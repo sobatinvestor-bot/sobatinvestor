@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ComposedChart, Area, Scatter, XAxis, YAxis, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { ComposedChart, Area, Scatter, XAxis, YAxis, ResponsiveContainer, Tooltip, Legend, ReferenceLine } from 'recharts';
 import { Loader2, Play } from 'lucide-react';
 
 const C = {
@@ -148,7 +148,8 @@ export default function Backtest() {
       const out = pyodide.runPython(PY_BACKTEST);
       const parsed = JSON.parse(out);
       const fullDates = series.map((p) => new Date(p.t).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }));
-      setRes({ ...parsed, symbol: sym, fullDates });
+      const divIdx = [...new Set(divs.map((d) => d.i))].sort((a, b) => a - b);
+      setRes({ ...parsed, symbol: sym, fullDates, divIdx });
       setStatus('');
     } catch (e) {
       setErr(e.message || 'Terjadi kesalahan.');
@@ -161,6 +162,7 @@ export default function Backtest() {
         const trade = (res.trade_log || []).find((t) => t.i === i);
         const eq = +(res.equity[i] * 100).toFixed(1);
         return {
+          i,
           label: dt,
           strategi: eq,
           belitahan: +(res.buyhold[i] * 100).toFixed(1),
@@ -232,11 +234,15 @@ export default function Backtest() {
                     <stop offset="100%" stopColor={C.cuan} stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <XAxis dataKey="label" tick={{ fontSize: 10, fill: C.inkSoft }} minTickGap={40} />
+                <XAxis dataKey="i" type="number" domain={['dataMin', 'dataMax']} tick={{ fontSize: 10, fill: C.inkSoft }} minTickGap={40} tickFormatter={(v) => (res.dates && res.dates[v]) || ''} />
                 <YAxis tick={{ fontSize: 10, fill: C.inkSoft }} domain={['auto', 'auto']} width={42} />
+                {(res.divIdx || []).map((di) => (
+                  <ReferenceLine key={di} x={di} stroke={C.cuan} strokeDasharray="2 4" strokeWidth={1.3} />
+                ))}
                 <Tooltip
                   contentStyle={{ background: C.ink, border: 'none', borderRadius: 8, fontSize: 12 }}
                   labelStyle={{ color: C.cream }}
+                  labelFormatter={(v) => (res.fullDates && res.fullDates[v]) || (res.dates && res.dates[v]) || v}
                   formatter={(v, name) => {
                     const nm = { strategi: `Strategi SMA`, belitahan: 'Beli & Tahan', beli: '▲ BELI', jual: '▼ JUAL' }[name] || name;
                     return [v + ' (awal=100)', nm];
@@ -249,6 +255,11 @@ export default function Backtest() {
                 <Scatter dataKey="jual" fill={C.red} shape="diamond" legendType="diamond" />
               </ComposedChart>
             </ResponsiveContainer>
+            {res.divIdx && res.divIdx.length > 0 && (
+              <div style={{ fontSize: 11, color: C.inkSoft, marginTop: 6 }}>
+                <span style={{ color: C.cuan, fontWeight: 700 }}>┊</span> garis emas vertikal = tanggal ex-dividen ({res.divIdx.length}×)
+              </div>
+            )}
           </div>
 
           {res.trade_log && res.trade_log.length > 0 && (

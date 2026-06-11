@@ -35,6 +35,12 @@ const fmtPct = (n) => (n >= 0 ? '+' : '') + n.toFixed(2) + '%';
 export default function App() {
   const [session, setSession] = useState(undefined); // undefined = masih cek
   const [tab, setTab] = useState('home');
+  const [analisisPage, setAnalisisPage] = useState(null); // permintaan buka page tertentu di tab Analisis
+
+  function goTo(tabId, page) {
+    setAnalisisPage(page || null);
+    setTab(tabId);
+  }
   const [market, setMarket] = useState({ quotes: [], ihsg: null });
 
   useEffect(() => {
@@ -76,12 +82,14 @@ export default function App() {
     <div style={{ background: C.cream, minHeight: '100vh', color: C.ink }}>
       <Nav ihsg={ihsg} ihsgChange={ihsgChange} session={session} setTab={setTab} />
       <div style={{ paddingBottom: 100 }}>
-        {tab === 'home' && <HomeTab stocks={market.quotes} setTab={setTab} />}
+        {tab === 'home' && <HomeTab stocks={market.quotes} setTab={setTab} goTo={goTo} />}
         {tab === 'analisis' && (
           <AnalisisTab
             userId={session ? session.user.id : null}
             userName={session ? (session.user.user_metadata && session.user.user_metadata.display_name ? session.user.user_metadata.display_name : 'Investor-' + session.user.id.slice(0, 4)) : null}
             onRequireLogin={() => setTab('portfolio')}
+            initialPage={analisisPage}
+            onPageConsumed={() => setAnalisisPage(null)}
           />
         )}
         {isPrivateTab && !session && <Auth inline />}
@@ -196,7 +204,7 @@ function BottomNav({ tab, setTab }) {
   );
 }
 
-function HomeTab({ stocks, setTab }) {
+function HomeTab({ stocks, setTab, goTo }) {
   return (
     <div className="fade-up">
       <div style={{ padding: '40px 20px 24px', maxWidth: 1100, margin: '0 auto' }}>
@@ -255,16 +263,21 @@ function HomeTab({ stocks, setTab }) {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
           {[
-            { num: '01', title: 'Python Engine', desc: 'Auto-fetch IDX, Yahoo Finance. Backtest dan indikator teknikal jalan otomatis.', bg: C.forest, fg: C.cream },
-            { num: '02', title: 'Agentic AI', desc: 'Bukan chatbot biasa — bisa riset emiten dan eksekusi analisis untuk kamu.', bg: C.cream2, fg: C.ink },
-            { num: '03', title: 'Excel Export', desc: 'Laporan portfolio + chart, siap kirim ke bos atau buat lapor pajak.', bg: C.cream2, fg: C.ink },
-            { num: '04', title: 'Live Dashboard', desc: 'P/L real-time, alokasi sektor, dividend calendar di satu layar.', bg: C.cream2, fg: C.ink },
+            { num: '01', title: 'Python Engine', desc: 'Backtest strategi SMA dengan Python asli yang jalan di browser-mu. Data harga & dividen IDX real — khusus member.', bg: C.forest, fg: C.cream, tab: 'analisis', page: 'backtest' },
+            { num: '02', title: 'Analisis AI', desc: 'Analisis emiten oleh AI: model bisnis, katalis, dan risiko. Plus halaman khusus saham di portofoliomu.', bg: C.cream2, fg: C.ink, tab: 'analisis' },
+            { num: '03', title: 'Excel Export', desc: 'Export portofolio ke CSV — buka langsung di Excel untuk laporan atau arsip pribadi.', bg: C.cream2, fg: C.ink, tab: 'portfolio' },
+            { num: '04', title: 'Live Dashboard', desc: 'P/L live, alokasi sektor, dan proyeksi dividen 12 bulan di satu layar.', bg: C.cream2, fg: C.ink, tab: 'portfolio' },
           ].map((f) => (
-            <div key={f.num} style={{ background: f.bg, color: f.fg, padding: 24, borderRadius: 20, border: `1px solid rgba(26,42,32,0.05)` }}>
+            <button
+              key={f.num}
+              onClick={() => (goTo ? goTo(f.tab, f.page) : setTab(f.tab))}
+              style={{ textAlign: 'left', background: f.bg, color: f.fg, padding: 24, borderRadius: 20, border: `1px solid rgba(26,42,32,0.05)`, cursor: 'pointer', fontFamily: 'inherit' }}
+            >
               <div className="mono" style={{ fontSize: 11, opacity: 0.6, marginBottom: 16, letterSpacing: '0.1em' }}>{f.num} /</div>
               <h3 className="serif" style={{ fontSize: 24, fontWeight: 500, marginBottom: 8, letterSpacing: '-0.01em' }}>{f.title}</h3>
               <p style={{ fontSize: 14, opacity: 0.75, lineHeight: 1.55 }}>{f.desc}</p>
-            </div>
+              <div style={{ fontSize: 13, fontWeight: 600, marginTop: 14, opacity: 0.85 }}>Coba sekarang →</div>
+            </button>
           ))}
         </div>
       </div>

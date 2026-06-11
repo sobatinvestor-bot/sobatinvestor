@@ -23,12 +23,21 @@ const fmtTime = (s) =>
 const fmtDate = (s) =>
   new Date(s).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
 
-export default function AnalisisTab({ userId, userName, onRequireLogin }) {
+export default function AnalisisTab({ userId, userName, onRequireLogin, initialPage, onPageConsumed }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(null);
-  const [page, setPage] = useState('umum'); // 'umum' | 'porto'
+  const [page, setPage] = useState(initialPage || 'umum'); // 'umum' | 'porto' | 'backtest'
   const [mySymbols, setMySymbols] = useState(null); // null = belum dimuat
+
+  // Permintaan buka page tertentu dari luar (mis. kartu Beranda → Backtest)
+  useEffect(() => {
+    if (initialPage) {
+      setPage(initialPage);
+      setOpen(null);
+      if (onPageConsumed) onPageConsumed();
+    }
+  }, [initialPage]);
 
   useEffect(() => {
     let active = true;
