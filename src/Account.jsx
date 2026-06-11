@@ -240,12 +240,39 @@ export function logout() { supabase.auth.signOut(); }
 // ============================================================
 // Modal tambah / edit saham
 // ============================================================
+// 11 sektor resmi IDX-IC + Lainnya (label lama di data tersimpan tetap dirender via legacyOpt)
+const IDX_SECTORS = [
+  'Energi', 'Barang Baku', 'Perindustrian', 'Barang Konsumer Primer', 'Barang Konsumer Non-Primer',
+  'Kesehatan', 'Keuangan', 'Properti & Real Estat', 'Teknologi', 'Infrastruktur',
+  'Transportasi & Logistik', 'Lainnya',
+];
+
 export function Editor({ holding, onSave, onClose }) {
   const isNew = !holding.id;
   const [f, setF] = useState({
     symbol: holding.symbol || '', name: holding.name || '', sector: holding.sector || 'Lainnya',
     qty: holding.qty || '', avg: holding.avg || '', buyDate: holding.buyDate || '', id: holding.id,
   });
+  // Auto-isi sektor (+ nama jika kosong) dari tabel referensi resmi stock_directory.
+  // found: null = belum dicek / kode belum 4 huruf; true/false = hasil lookup.
+  const [found, setFound] = useState(null);
+  useEffect(() => {
+    const sym = f.symbol.trim().toUpperCase();
+    if (!/^[A-Z]{4}$/.test(sym)) { setFound(null); return; }
+    let alive = true;
+    const t = setTimeout(async () => {
+      const { data } = await supabase
+        .from('stock_directory').select('symbol,name,sector').eq('symbol', sym).maybeSingle();
+      if (!alive) return;
+      if (data) {
+        setFound(true);
+        setF((p) => ({ ...p, sector: data.sector, name: p.name.trim() ? p.name : (data.name || '') }));
+      } else {
+        setFound(false);
+      }
+    }, 350); // debounce: tunggu user selesai mengetik
+    return () => { alive = false; clearTimeout(t); };
+  }, [f.symbol]);
   const valid = f.symbol.trim() && Number(f.qty) > 0 && Number(f.avg) > 0;
   const Lbl = ({ t }) => <div className="mono" style={{ fontSize: 10, letterSpacing: '0.08em', color: C.inkSoft, margin: '10px 0 5px', textTransform: 'uppercase' }}>{t}</div>;
   const inp = { width: '100%', background: C.cream2, border: 'none', borderRadius: 12, padding: '12px 14px', fontSize: 14, color: C.ink, outline: 'none', fontFamily: 'inherit' };
@@ -263,10 +290,18 @@ export function Editor({ holding, onSave, onClose }) {
         <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Bank Central Asia" style={inp} />
         <Lbl t="Sektor" />
         <select value={f.sector} onChange={(e) => setF({ ...f, sector: e.target.value })} style={inp}>
-          {['Perbankan & Keuangan', 'Energi', 'Tambang & Barang Baku', 'Industri', 'Barang Konsumer Primer', 'Barang Konsumer Non-Primer', 'Kesehatan', 'Properti & Real Estate', 'Teknologi', 'Infrastruktur', 'Transportasi & Logistik', 'Telekomunikasi', 'Utilitas', 'Lainnya'].map((s) => (
+          {/* label lama (mis. "Utilitas", "Tambang & Barang Baku") tetap tampil agar data lama tidak blank */}
+          {!IDX_SECTORS.includes(f.sector) && <option value={f.sector}>{f.sector}</option>}
+          {IDX_SECTORS.map((s) => (
             <option key={s} value={s}>{s}</option>
           ))}
         </select>
+        {found === true && (
+          <div style={{ fontSize: 11, color: C.green, marginTop: 5 }}>Sektor terisi otomatis dari klasifikasi resmi IDX</div>
+        )}
+        {found === false && (
+          <div style={{ fontSize: 11, color: C.inkSoft, marginTop: 5 }}>Kode tidak ada di direktori - pilih sektor manual</div>
+        )}
         <div style={{ display: 'flex', gap: 10 }}>
           <div style={{ flex: 1 }}><Lbl t="Jumlah (lembar)" /><input type="number" value={f.qty} onChange={(e) => setF({ ...f, qty: e.target.value })} placeholder="100" style={inp} /></div>
           <div style={{ flex: 1 }}><Lbl t="Harga rata-rata" /><input type="number" value={f.avg} onChange={(e) => setF({ ...f, avg: e.target.value })} placeholder="9800" style={inp} /></div>
