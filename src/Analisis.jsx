@@ -111,7 +111,8 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
             </button>
           ))}
           {filter === 'syariah' && (
-            <span className="mono" style={{ fontSize: 10, color: C.inkSoft, letterSpacing: '0.04em' }}>Emiten dalam indeks ISSI</span>
+            // PERIODE ISSI: perbarui teks ini setiap refresh_issi (evaluasi mayor BEI ±Juni & Desember)
+            <span className="mono" style={{ fontSize: 10, color: C.inkSoft, letterSpacing: '0.04em' }}>Indeks ISSI · berlaku s.d. 30 Nov 2026</span>
           )}
         </div>
       )}
