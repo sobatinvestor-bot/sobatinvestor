@@ -285,9 +285,9 @@ export function Editor({ holding, onSave, onClose }) {
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={18} color={C.inkSoft} /></button>
         </div>
         <Lbl t="Kode saham" />
-        <input value={f.symbol} onChange={(e) => setF({ ...f, symbol: e.target.value.toUpperCase() })} placeholder="mis. BBCA" style={inp} />
+        <input value={f.symbol} onChange={(e) => setF({ ...f, symbol: e.target.value.toUpperCase() })} placeholder="mis. ADRO" style={inp} />
         <Lbl t="Nama (opsional)" />
-        <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Bank Central Asia" style={inp} />
+        <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Alamtri Resources Indonesia" style={inp} />
         <Lbl t="Sektor" />
         <select value={f.sector} onChange={(e) => setF({ ...f, sector: e.target.value })} style={inp}>
           {/* label lama (mis. "Utilitas", "Tambang & Barang Baku") tetap tampil agar data lama tidak blank */}
