@@ -116,6 +116,29 @@ export function Auth({ inline }) {
   const [pw, setPw] = useState('');
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
+  const [showAsk, setShowAsk] = useState(false);
+  const [askEmail, setAskEmail] = useState('');
+  const [askMsg, setAskMsg] = useState('');
+  const [askWebsite, setAskWebsite] = useState(''); // honeypot
+  const [askBusy, setAskBusy] = useState(false);
+  const [askSent, setAskSent] = useState(false);
+  const [askErr, setAskErr] = useState('');
+
+  async function sendAsk() {
+    setAskBusy(true); setAskErr('');
+    try {
+      const r = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: askEmail.trim(), message: askMsg.trim(), website: askWebsite }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (r.ok && d.ok) setAskSent(true);
+      else setAskErr(d.error || 'Gagal mengirim. Coba lagi.');
+    } catch {
+      setAskErr('Gagal terhubung. Coba lagi.');
+    } finally { setAskBusy(false); }
+  }
 
   async function submit() {
     setBusy(true); setMsg('');
@@ -162,6 +185,41 @@ export function Auth({ inline }) {
             {mode === 'login' ? 'Daftar' : 'Masuk'}
           </button>
         </div>
+        <div style={{ textAlign: 'center', marginTop: 8, fontSize: 13, color: C.inkSoft }}>
+          Ada kendala?{' '}
+          <button onClick={() => setShowAsk(!showAsk)}
+            style={{ background: 'none', border: 'none', color: C.forest, fontWeight: 700, cursor: 'pointer', padding: 0 }}>
+            Klik di sini untuk tanya admin
+          </button>
+        </div>
+        {showAsk && (
+          <div style={{ marginTop: 14, borderTop: `1px solid rgba(26,42,32,0.1)`, paddingTop: 14 }}>
+            {askSent ? (
+              <div style={{ fontSize: 13, color: C.forest, fontWeight: 600, textAlign: 'center' }}>
+                Terkirim! Admin akan membalas ke email kamu. 🌱
+              </div>
+            ) : (
+              <>
+                <Field icon={Mail} placeholder="email kamu (untuk dibalas)" value={askEmail} onChange={setAskEmail} />
+                <textarea
+                  value={askMsg}
+                  onChange={(e) => setAskMsg(e.target.value)}
+                  placeholder="Tulis pertanyaan atau kendalamu di sini..."
+                  rows={3}
+                  maxLength={2000}
+                  style={{ width: '100%', padding: '12px 14px', borderRadius: 14, border: 'none', background: C.cream, fontSize: 14, fontFamily: 'inherit', resize: 'vertical', marginBottom: 8, boxSizing: 'border-box' }}
+                />
+                {/* honeypot anti-bot — disembunyikan dari manusia */}
+                <input type="text" value={askWebsite} onChange={(e) => setAskWebsite(e.target.value)} style={{ display: 'none' }} tabIndex={-1} autoComplete="off" aria-hidden="true" />
+                {askErr && <div style={{ fontSize: 12, color: C.rust, marginBottom: 8 }}>{askErr}</div>}
+                <button onClick={sendAsk} disabled={askBusy || !askEmail || askMsg.trim().length < 10}
+                  style={{ width: '100%', background: (askBusy || !askEmail || askMsg.trim().length < 10) ? 'rgba(26,42,32,0.25)' : C.cuan, color: C.ink, border: 'none', padding: 12, borderRadius: 100, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                  {askBusy ? 'Mengirim…' : 'Kirim ke Admin'}
+                </button>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
