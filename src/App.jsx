@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine } from 'recharts';
 import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus } from 'lucide-react';
 import { supabase } from './lib/supabase';
-import { Auth, usePortfolio, Editor, logout, LotsHistory, SellEditor, RdnCard } from './Account.jsx';
+import { Auth, usePortfolio, Editor, logout, LotsHistory, SellEditor, RdnCard, StockNews } from './Account.jsx';
 import AnalisisTab from './Analisis.jsx';
 
 const C = {
@@ -154,6 +154,7 @@ function PrivateArea({ tab, userId, ihsgQuote }) {
           />
           <RdnCard settings={settings} onAdjust={adjustRdn} onSaveFees={saveFees} />
           <LotsHistory userId={userId} />
+          <StockNews stocks={stocks} />
         </>
       )}
       {tab === 'chat' && <ChatTab stocks={stocks} />}
