@@ -32,6 +32,30 @@ const initialStocks = [
 const fmtRp = (n) => 'Rp ' + Math.round(n).toLocaleString('id-ID');
 const fmtPct = (n) => (n >= 0 ? '+' : '') + n.toFixed(2) + '%';
 
+// Menangkap error render agar satu komponen bermasalah tidak memblank seluruh app.
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { err: null }; }
+  static getDerivedStateFromError(err) { return { err }; }
+  componentDidCatch(err, info) { console.error('App error:', err, info); }
+  render() {
+    if (this.state.err) {
+      return (
+        <div style={{ padding: 20, margin: 16, background: C.cream, borderRadius: 16, color: C.ink, fontFamily: 'inherit' }}>
+          <div className="serif" style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>Ada bagian yang gagal dimuat</div>
+          <div style={{ fontSize: 13, color: C.inkSoft, marginBottom: 12 }}>
+            Coba muat ulang halaman. Jika masih bermasalah, detail teknis di bawah membantu perbaikan.
+          </div>
+          <pre style={{ fontSize: 11, color: C.rust, whiteSpace: 'pre-wrap', wordBreak: 'break-word', background: C.cream2, padding: 12, borderRadius: 10, margin: 0 }}>
+            {String(this.state.err && this.state.err.message || this.state.err)}
+          </pre>
+          <button onClick={() => location.reload()} style={{ marginTop: 12, padding: '10px 18px', borderRadius: 999, border: 'none', cursor: 'pointer', background: C.forest, color: '#fff', fontSize: 13, fontWeight: 600, fontFamily: 'inherit' }}>Muat ulang</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function App() {
   const [session, setSession] = useState(undefined); // undefined = masih cek
   const [tab, setTab] = useState('home');
@@ -93,7 +117,11 @@ export default function App() {
           />
         )}
         {isPrivateTab && !session && <Auth inline />}
-        {isPrivateTab && session && <PrivateArea tab={tab} userId={session.user.id} ihsgQuote={market.ihsg} />}
+        {isPrivateTab && session && (
+          <ErrorBoundary>
+            <PrivateArea tab={tab} userId={session.user.id} ihsgQuote={market.ihsg} />
+          </ErrorBoundary>
+        )}
       </div>
       <BottomNav tab={tab} setTab={setTab} />
     </div>
@@ -1067,6 +1095,34 @@ export function DividendCard({ stocks }) {
       <div className="serif" style={{ fontSize: 26, fontWeight: 600, color: C.green, marginBottom: 4 }}>{fmtRp(total12)}</div>
       <div style={{ fontSize: 12, color: C.inkSoft, marginBottom: 16 }}>perkiraan dividen 12 bulan ke depan — tanggal pasti dipakai bila sudah diumumkan, sisanya proyeksi pola tahun lalu</div>
 
+      {hist.length > 0 && (
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+            <h4 className="serif" style={{ fontSize: 15, fontWeight: 600 }}>Riwayat Dividen</h4>
+            <span className="mono" style={{ fontSize: 10, color: C.inkSoft, letterSpacing: '0.08em' }}>12 BULAN TERAKHIR</span>
+          </div>
+          <div className="serif" style={{ fontSize: 20, fontWeight: 600, color: C.green, marginBottom: 8 }}>{fmtRp(totalHist)}</div>
+          {hist.map((r, i) => (
+            <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 8, alignItems: 'center', padding: '10px 0', borderBottom: `1px solid rgba(26,42,32,0.06)` }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 13 }}>{r.symbol}</div>
+                <div style={{ fontSize: 11, color: C.inkSoft }}>{fmtRp(r.amount)}/lembar × {r.qty.toLocaleString('id-ID')} berhak</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div className="mono" style={{ fontSize: 11, color: C.inkSoft }}>ex {fmtDate(new Date(r.exTime))}</div>
+                <div className="mono" style={{ fontSize: 8, letterSpacing: '0.06em', color: C.inkSoft }}>±DIBAYAR {fmtDate(r.payEst).toUpperCase()}</div>
+              </div>
+              <div className="mono" style={{ fontSize: 13, fontWeight: 600, color: C.green, textAlign: 'right', minWidth: 84 }}>{fmtRp(r.cash)}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+        <h4 className="serif" style={{ fontSize: 15, fontWeight: 600 }}>Akan Datang</h4>
+        <span className="mono" style={{ fontSize: 10, color: C.inkSoft, letterSpacing: '0.08em' }}>12 BULAN KE DEPAN</span>
+      </div>
+
       {loading ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: C.inkSoft, fontSize: 13 }}>
           <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Memuat data dividen…
@@ -1084,29 +1140,6 @@ export function DividendCard({ stocks }) {
               <div style={{ textAlign: 'right' }}>
                 <div className="mono" style={{ fontSize: 11, color: C.inkSoft }}>{fmtDate(r.payDate)}</div>
                 <div className="mono" style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.06em', color: r.fix ? C.green : C.inkSoft }}>{r.fix ? 'FIX' : 'PERKIRAAN'}</div>
-              </div>
-              <div className="mono" style={{ fontSize: 13, fontWeight: 600, color: C.green, textAlign: 'right', minWidth: 84 }}>{fmtRp(r.cash)}</div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {hist.length > 0 && (
-        <div style={{ marginTop: 18 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
-            <h4 className="serif" style={{ fontSize: 15, fontWeight: 600 }}>Riwayat Dividen</h4>
-            <span className="mono" style={{ fontSize: 10, color: C.inkSoft, letterSpacing: '0.08em' }}>12 BULAN TERAKHIR</span>
-          </div>
-          <div className="serif" style={{ fontSize: 20, fontWeight: 600, color: C.green, marginBottom: 8 }}>{fmtRp(totalHist)}</div>
-          {hist.map((r, i) => (
-            <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 8, alignItems: 'center', padding: '10px 0', borderBottom: `1px solid rgba(26,42,32,0.06)` }}>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 13 }}>{r.symbol}</div>
-                <div style={{ fontSize: 11, color: C.inkSoft }}>{fmtRp(r.amount)}/lembar × {r.qty.toLocaleString('id-ID')} berhak</div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div className="mono" style={{ fontSize: 11, color: C.inkSoft }}>ex {fmtDate(new Date(r.exTime))}</div>
-                <div className="mono" style={{ fontSize: 8, letterSpacing: '0.06em', color: C.inkSoft }}>±DIBAYAR {fmtDate(r.payEst).toUpperCase()}</div>
               </div>
               <div className="mono" style={{ fontSize: 13, fontWeight: 600, color: C.green, textAlign: 'right', minWidth: 84 }}>{fmtRp(r.cash)}</div>
             </div>
