@@ -602,7 +602,7 @@ export function StockNews({ stocks }) {
     if (!symKey) { setNews([]); return; }
     let active = true;
     setNews(null);
-    fetch(`/api/news?symbols=${encodeURIComponent(symKey)}&limit=10`)
+    fetch(`/api/news?symbols=${encodeURIComponent(symKey)}&limit=20`)
       .then((r) => (r.ok ? r.json() : { news: [] }))
       .then((d) => { if (active) setNews(d.news || []); })
       .catch(() => { if (active) setNews([]); });

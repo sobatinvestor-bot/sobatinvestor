@@ -1,7 +1,7 @@
 // functions/api/news.js
 // Berita per-emiten dari Google News RSS (agregator legal: judul + ringkasan + TAUTAN
 // ke sumber asli, tanpa muat artikel penuh).
-// Endpoint: GET /api/news?symbols=BBCA|Bank Central Asia,TLKM|Telkom&limit=8
+// Endpoint: GET /api/news?symbols=BBCA|Bank Central Asia,TLKM|Telkom&limit=20
 //
 // Legal note: hanya judul, tanggal, sumber, dan link dikembalikan — pengguna
 // diarahkan ke situs penerbit asli. Tidak ada teks artikel yang disalin.
@@ -58,7 +58,7 @@ async function fetchNews({ symbol, name }) {
   const items = [];
   // Parse RSS sederhana tanpa dependensi (Workers tidak punya DOMParser)
   const itemMatches = xml.match(/<item>[\s\S]*?<\/item>/g) || [];
-  for (const block of itemMatches.slice(0, 6)) {
+  for (const block of itemMatches.slice(0, 10)) {
     const title = clean(pick(block, "title"));
     const link = clean(pick(block, "link"));
     const pubDate = pick(block, "pubDate");
