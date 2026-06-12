@@ -104,7 +104,7 @@ export default function App() {
 
   return (
     <div style={{ background: C.cream, minHeight: '100vh', color: C.ink }}>
-      <Nav ihsg={ihsg} ihsgChange={ihsgChange} session={session} setTab={setTab} />
+      <Nav ihsg={ihsg} ihsgChange={ihsgChange} session={session} setTab={setTab} tab={tab} />
       <div style={{ paddingBottom: 100 }}>
         {tab === 'home' && <HomeTab stocks={market.quotes} setTab={setTab} goTo={goTo} />}
         {tab === 'analisis' && (
@@ -166,7 +166,7 @@ function PrivateArea({ tab, userId, ihsgQuote }) {
   );
 }
 
-function Nav({ ihsg, ihsgChange, session, setTab }) {
+export function Nav({ ihsg, ihsgChange, session, setTab, tab }) {
   return (
     <div style={{ borderBottom: `1px solid rgba(26,42,32,0.08)`, background: 'rgba(244,239,230,0.9)', backdropFilter: 'blur(12px)', position: 'sticky', top: 0, zIndex: 50 }}>
       <div style={{ padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', maxWidth: 1280, margin: '0 auto' }}>
