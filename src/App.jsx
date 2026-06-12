@@ -856,10 +856,10 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onDeleteAll }) 
                 <div className="mono" style={{ fontSize: 13, textAlign: 'right' }}>{s.qty.toLocaleString('id-ID')}</div>
                 <div className="mono" style={{ fontSize: 13, textAlign: 'right', fontWeight: 600 }}>{Math.round(s.price).toLocaleString('id-ID')}</div>
                 <div className="mono" style={{ fontSize: 13, textAlign: 'right', fontWeight: 600, color: pl >= 0 ? C.green : C.red }}>{fmtPct(pl)}</div>
-                <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
-                  <button onClick={() => onSell(s)} title="Jual" style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 4 }}><Minus size={14} color={C.cuan} /></button>
-                  <button onClick={() => onEdit(s)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 4 }}><Pencil size={14} color={C.inkSoft} /></button>
-                  <button onClick={() => setConfirmDel(s)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 4 }}><Trash2 size={14} color={C.rust} /></button>
+                <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
+                  <button onClick={() => onSell(s)} title="Jual saham ini" style={{ background: C.cuan, border: 'none', cursor: 'pointer', padding: '5px 12px', borderRadius: 100, color: '#fff', fontSize: 12, fontWeight: 700, fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Minus size={13} /> Jual</button>
+                  <button onClick={() => onEdit(s)} title="Edit" style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 4 }}><Pencil size={15} color={C.inkSoft} /></button>
+                  <button onClick={() => setConfirmDel(s)} title="Hapus" style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 4 }}><Trash2 size={15} color={C.rust} /></button>
                 </div>
               </div>
             );
