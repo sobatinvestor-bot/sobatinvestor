@@ -1038,17 +1038,21 @@ export function DividendCard({ stocks }) {
   const buyDateMap = {};
   stocks.forEach((s) => { buyDateMap[s.symbol] = s.buyDate || null; });
   function eligibleQty(symbol, exTime) {
+    // Toleransi 1 hari: tanggal dividen dari feed (Yahoo) bisa bergeser sehari
+    // antara cum-date dan ex-date akibat konversi zona waktu. Lot dianggap berhak
+    // bila dibeli pada atau sebelum tanggal feed (gugur hanya jika dibeli SESUDAH).
+    const cutoff = exTime + DAY;
     const symLots = (lots || []).filter((l) => l.symbol === symbol);
     if (symLots.length > 0) {
       const q = symLots.reduce((sum, l) => {
         const t = new Date(l.buy_date || (l.created_at || '').slice(0, 10)).getTime();
-        if (t >= exTime) return sum;
+        if (t >= cutoff) return sum;
         return sum + (l.side === 'sell' ? -Number(l.qty) : Number(l.qty));
       }, 0);
       return Math.max(0, q);
     }
     const bd = buyDateMap[symbol];
-    if (bd && new Date(bd).getTime() >= exTime) return 0;
+    if (bd && new Date(bd).getTime() >= cutoff) return 0;
     return qtyMap[symbol] || 0;
   }
   const hist = raw.map((d) => {
