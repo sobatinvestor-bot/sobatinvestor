@@ -33,10 +33,12 @@ export function usePortfolio(userId) {
   }, [loadSettings]);
 
   // Mutasi saldo RDN atomik via RPC; best-effort (tabel belum ada -> diabaikan)
-  async function adjustRdn(delta) {
-    const { data, error } = await supabase.rpc('adjust_rdn', { p_delta: Math.round(delta) });
-    if (!error && data !== null) setSettings((p) => ({ ...p, rdn: Number(data) }));
-    else if (error) console.warn('RDN tidak terupdate:', error.message);
+  async function adjustRdn(delta, note = null) {
+    const { data, error } = await supabase.rpc('adjust_rdn', { p_delta: Math.round(delta), p_note: note });
+    if (!error && data !== null) {
+      setSettings((p) => ({ ...p, rdn: Number(data) }));
+      window.dispatchEvent(new Event('sobat-rdn-changed'));
+    } else if (error) console.warn('RDN tidak terupdate:', error.message);
   }
 
   async function saveFees(f) {
@@ -122,7 +124,7 @@ export function usePortfolio(userId) {
       if (error) alert('Gagal menggabungkan: ' + error.message);
       else {
         await recordLot(h);
-        await adjustRdn(-(h.qty * h.avg) * (1 + settings.fee_buy / 100));
+        await adjustRdn(-(h.qty * h.avg) * (1 + settings.fee_buy / 100), `Beli ${h.symbol}`);
         alert(`${h.symbol} digabung: ${newQty} lembar @ rata-rata Rp${mergedAvg.toLocaleString('id-ID')}`);
       }
       await loadHoldings();
@@ -143,7 +145,7 @@ export function usePortfolio(userId) {
       return;
     }
     await recordLot(h);
-    await adjustRdn(-(h.qty * h.avg) * (1 + settings.fee_buy / 100));
+    await adjustRdn(-(h.qty * h.avg) * (1 + settings.fee_buy / 100), `Beli ${h.symbol}`);
     await loadHoldings();
   }
 
@@ -172,7 +174,7 @@ export function usePortfolio(userId) {
     const gross = s.qty * s.price;
     const potongan = gross * ((settings.fee_sell + settings.tax_sell) / 100);
     const net = gross - potongan;
-    await adjustRdn(net);
+    await adjustRdn(net, `Jual ${holding.symbol}`);
     const realized = (s.price - Number(holding.avg_price)) * s.qty;
     const tanda = realized >= 0 ? '+' : '-';
     alert(`${holding.symbol} terjual ${s.qty.toLocaleString('id-ID')} lembar @ Rp${s.price.toLocaleString('id-ID')}. P/L terealisasi: ${tanda}Rp${Math.abs(Math.round(realized)).toLocaleString('id-ID')}. Masuk RDN (setelah fee+pajak ${(settings.fee_sell + settings.tax_sell).toLocaleString('id-ID')}%): Rp${Math.round(net).toLocaleString('id-ID')}${sisa === 0 ? '. Posisi habis.' : ''}`);
@@ -540,12 +542,31 @@ export function SellEditor({ holding, onSell, onClose, fees = { fee_sell: 0.15, 
 // Kartu RDN — saldo kas virtual + setor/tarik + pengaturan fee.
 // Pasang di App.jsx: <RdnCard settings={settings} onAdjust={adjustRdn} onSaveFees={saveFees} />
 // ============================================================
-export function RdnCard({ settings, onAdjust, onSaveFees }) {
+export function RdnCard({ settings, onAdjust, onSaveFees, userId }) {
   const [nominal, setNominal] = useState('');
   const [showFee, setShowFee] = useState(false);
   const [fee, setFee] = useState(null);
+  const [showHist, setShowHist] = useState(false);
+  const [ledger, setLedger] = useState(null);
   const f = fee || settings;
   const n = Number(nominal);
+
+  const loadLedger = useCallback(async () => {
+    if (!userId) { setLedger([]); return; }
+    const { data, error } = await supabase
+      .from('rdn_ledger').select('id,delta,note,balance,created_at')
+      .eq('user_id', userId).order('created_at', { ascending: false }).limit(50);
+    setLedger(error ? [] : (data || []));
+  }, [userId]);
+
+  useEffect(() => { if (showHist && ledger === null) loadLedger(); }, [showHist, ledger, loadLedger]);
+  useEffect(() => {
+    const h = () => { if (showHist) loadLedger(); else setLedger(null); };
+    window.addEventListener('sobat-rdn-changed', h);
+    return () => window.removeEventListener('sobat-rdn-changed', h);
+  }, [showHist, loadLedger]);
+
+  const fmtTgl = (d) => new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
   const inp = { background: C.cream2, border: 'none', borderRadius: 10, padding: '10px 12px', fontSize: 13, color: C.ink, outline: 'none', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box' };
   const btn = (bg) => ({ border: 'none', borderRadius: 999, padding: '10px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer', background: bg, color: '#fff', fontFamily: 'inherit' });
   return (
@@ -567,8 +588,8 @@ export function RdnCard({ settings, onAdjust, onSaveFees }) {
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 8 }}>
         <input type="number" value={nominal} onChange={(e) => setNominal(e.target.value)} placeholder="nominal setor / tarik" style={inp} />
-        <button disabled={!(n > 0)} onClick={() => { onAdjust(n); setNominal(''); }} style={btn(n > 0 ? C.green : 'rgba(26,42,32,0.15)')}>Setor</button>
-        <button disabled={!(n > 0)} onClick={() => { onAdjust(-n); setNominal(''); }} style={btn(n > 0 ? C.rust : 'rgba(26,42,32,0.15)')}>Tarik</button>
+        <button disabled={!(n > 0)} onClick={() => { onAdjust(n, 'Setor'); setNominal(''); }} style={btn(n > 0 ? C.green : 'rgba(26,42,32,0.15)')}>Setor</button>
+        <button disabled={!(n > 0)} onClick={() => { onAdjust(-n, 'Tarik'); setNominal(''); }} style={btn(n > 0 ? C.rust : 'rgba(26,42,32,0.15)')}>Tarik</button>
       </div>
       {showFee && (
         <div style={{ marginTop: 12, borderTop: '1px solid rgba(26,42,32,0.08)', paddingTop: 12 }}>
@@ -581,6 +602,35 @@ export function RdnCard({ settings, onAdjust, onSaveFees }) {
             ))}
           </div>
           <button onClick={() => { onSaveFees(f); setShowFee(false); setFee(null); }} style={{ ...btn(C.forest), marginTop: 10, width: '100%' }}>Simpan Fee</button>
+        </div>
+      )}
+
+      <button onClick={() => setShowHist(!showHist)}
+        style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 12, color: C.inkSoft, fontFamily: 'inherit', marginTop: 14, padding: 0, display: 'flex', alignItems: 'center', gap: 6 }} className="mono">
+        Riwayat RDN {showHist ? '▴' : '▾'}
+      </button>
+      {showHist && (
+        <div style={{ marginTop: 8, borderTop: '1px solid rgba(26,42,32,0.08)' }}>
+          {ledger === null && <div style={{ padding: '12px 0', fontSize: 13, color: C.inkSoft }}>Memuat…</div>}
+          {ledger !== null && ledger.length === 0 && (
+            <div style={{ padding: '12px 0', fontSize: 13, color: C.inkSoft }}>Belum ada mutasi RDN.</div>
+          )}
+          {ledger !== null && ledger.map((l) => (
+            <div key={l.id} style={{ display: 'grid', gridTemplateColumns: '1fr auto', padding: '9px 0', borderBottom: '1px solid rgba(26,42,32,0.06)', alignItems: 'center' }}>
+              <div>
+                <span style={{ fontSize: 12, color: C.ink }}>{l.note || (Number(l.delta) >= 0 ? 'Masuk' : 'Keluar')}</span>
+                <span className="mono" style={{ fontSize: 10, color: C.inkSoft, marginLeft: 8 }}>{fmtTgl(l.created_at)}</span>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div className="mono" style={{ fontSize: 13, fontWeight: 600, color: Number(l.delta) >= 0 ? C.green : C.red }}>
+                  {Number(l.delta) >= 0 ? '+' : '-'}Rp{Math.abs(Math.round(Number(l.delta))).toLocaleString('id-ID')}
+                </div>
+                {l.balance != null && (
+                  <div className="mono" style={{ fontSize: 9, color: C.inkSoft }}>saldo Rp{Math.round(Number(l.balance)).toLocaleString('id-ID')}</div>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

@@ -154,7 +154,7 @@ function PrivateArea({ tab, userId, ihsgQuote }) {
               onDeleteAll={deleteAll}
             />
           </div>
-          <div id="sec-rdn" style={{ scrollMarginTop: 70 }}><RdnCard settings={settings} onAdjust={adjustRdn} onSaveFees={saveFees} /></div>
+          <div id="sec-rdn" style={{ scrollMarginTop: 70 }}><RdnCard settings={settings} onAdjust={adjustRdn} onSaveFees={saveFees} userId={userId} /></div>
           <div id="sec-riwayat" style={{ scrollMarginTop: 70 }}><LotsHistory userId={userId} /></div>
           <div id="sec-berita" style={{ scrollMarginTop: 70 }}><StockNews stocks={stocks} /></div>
         </>
