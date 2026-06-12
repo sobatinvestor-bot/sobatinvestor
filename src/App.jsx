@@ -1092,11 +1092,10 @@ export function DividendCard({ stocks }) {
   return (
     <div style={{ background: C.cream2, borderRadius: 20, padding: 20, marginTop: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14 }}>
-        <h3 className="serif" style={{ fontSize: 18, fontWeight: 600 }}>Cash from Dividend</h3>
-        <span className="mono" style={{ fontSize: 10, color: C.inkSoft, letterSpacing: '0.08em' }}>12 BULAN KE DEPAN</span>
+        <h3 className="serif" style={{ fontSize: 18, fontWeight: 600 }}>Total Dividen</h3>
       </div>
 
-      <div className="serif" style={{ fontSize: 26, fontWeight: 600, color: C.green, marginBottom: 4 }}>{fmtRp(total12)}</div>
+      <div className="serif" style={{ fontSize: 30, fontWeight: 600, color: C.green, marginBottom: 4 }}>{fmtRp(total12)}</div>
       <div style={{ fontSize: 12, color: C.inkSoft, marginBottom: 16 }}>perkiraan dividen 12 bulan ke depan — tanggal pasti dipakai bila sudah diumumkan, sisanya proyeksi pola tahun lalu</div>
 
       {hist.length > 0 && (
@@ -1126,6 +1125,9 @@ export function DividendCard({ stocks }) {
         <h4 className="serif" style={{ fontSize: 15, fontWeight: 600 }}>Akan Datang</h4>
         <span className="mono" style={{ fontSize: 10, color: C.inkSoft, letterSpacing: '0.08em' }}>12 BULAN KE DEPAN</span>
       </div>
+      {rows.length > 0 && (
+        <div className="serif" style={{ fontSize: 20, fontWeight: 600, color: C.green, marginBottom: 8 }}>{fmtRp(total12)}</div>
+      )}
 
       {loading ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: C.inkSoft, fontSize: 13 }}>
