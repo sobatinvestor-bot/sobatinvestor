@@ -144,17 +144,19 @@ function PrivateArea({ tab, userId, ihsgQuote }) {
       {tab === 'portfolio' && (
         <>
           <DashboardTab stocks={stocks} ihsgQuote={ihsgQuote} />
-          <PortfolioTab
-            stocks={stocks}
-            onAdd={() => setEditing({})}
-            onEdit={(s) => setEditing(s)}
-            onDelete={deleteHolding}
-            onSell={(s) => setSelling(s)}
-            onDeleteAll={deleteAll}
-          />
-          <RdnCard settings={settings} onAdjust={adjustRdn} onSaveFees={saveFees} />
-          <LotsHistory userId={userId} />
-          <StockNews stocks={stocks} />
+          <div id="sec-saham" style={{ scrollMarginTop: 70 }}>
+            <PortfolioTab
+              stocks={stocks}
+              onAdd={() => setEditing({})}
+              onEdit={(s) => setEditing(s)}
+              onDelete={deleteHolding}
+              onSell={(s) => setSelling(s)}
+              onDeleteAll={deleteAll}
+            />
+          </div>
+          <div id="sec-rdn" style={{ scrollMarginTop: 70 }}><RdnCard settings={settings} onAdjust={adjustRdn} onSaveFees={saveFees} /></div>
+          <div id="sec-riwayat" style={{ scrollMarginTop: 70 }}><LotsHistory userId={userId} /></div>
+          <div id="sec-berita" style={{ scrollMarginTop: 70 }}><StockNews stocks={stocks} /></div>
         </>
       )}
       {tab === 'chat' && <ChatTab stocks={stocks} />}
@@ -173,6 +175,17 @@ function Nav({ ihsg, ihsgChange, session, setTab }) {
           sobat<span style={{ color: C.cuan, fontWeight: 700 }}>.</span>investor
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          {session && tab === 'portfolio' && (
+            <div style={{ display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: 'center' }}>
+              {[['sec-saham', 'Saham'], ['sec-dividen', 'Dividen'], ['sec-rdn', 'RDN'], ['sec-berita', 'Berita']].map(([id, lbl]) => (
+                <button key={id} onClick={() => { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
+                  className="mono"
+                  style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: C.inkSoft, fontSize: 11, fontWeight: 600, padding: '4px 7px', borderRadius: 100, fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+                  {lbl}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="mono" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: C.inkSoft }}>
             <span style={{ fontWeight: 600, color: C.ink }}>{ihsg.toFixed(2)}</span>
             <span style={{ color: ihsgChange >= 0 ? C.green : C.red, fontWeight: 600 }}>{fmtPct(ihsgChange)}</span>
@@ -870,7 +883,7 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onDeleteAll }) 
         </div>
       )}
 
-      {stocks.length > 0 && <DividendCard stocks={stocks} />}
+      {stocks.length > 0 && <div id="sec-dividen" style={{ scrollMarginTop: 70 }}><DividendCard stocks={stocks} /></div>}
 
       {stocks.length > 0 && (
         <div style={{ marginTop: 16, textAlign: 'right' }}>
