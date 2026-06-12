@@ -552,17 +552,20 @@ export function RdnCard({ settings, onAdjust, onSaveFees }) {
     <div style={{ background: C.cream, borderRadius: 16, marginTop: 16, padding: '16px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
         <span className="serif" style={{ fontSize: 16, fontWeight: 600, color: C.ink }}>Rekening Dana (RDN)</span>
-        <button onClick={() => { setShowFee(!showFee); setFee(null); }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 11, color: C.inkSoft, fontFamily: 'inherit' }} className="mono">
-          fee: beli {Number(settings.fee_buy).toLocaleString('id-ID')}% · jual {Number(settings.fee_sell).toLocaleString('id-ID')}%+{Number(settings.tax_sell).toLocaleString('id-ID')}% ⚙
+        <button onClick={() => { setShowFee(!showFee); setFee(null); }} title="Atur fee & pajak" style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 14, color: C.inkSoft, fontFamily: 'inherit' }} className="mono">
+          ⚙
         </button>
       </div>
       <div className="serif" style={{ fontSize: 24, fontWeight: 600, marginTop: 6, color: Number(settings.rdn) >= 0 ? C.green : C.red }}>
         Rp{Math.round(Number(settings.rdn)).toLocaleString('id-ID')}
       </div>
       <div style={{ fontSize: 11, color: C.inkSoft, marginTop: 2 }}>
-        hasil jual (bersih) &amp; dividen (gros, otomatis saat estimasi bayar lewat) masuk ke sini; pembelian + fee mengurangi saldo. Pajak dividen 10% bisa dikurangi via Tarik.
+        hasil jual &amp; dividen (gros belum fee dan pajak)
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 8, marginTop: 12 }}>
+      <div style={{ fontSize: 12, color: C.inkSoft, marginTop: 14, marginBottom: 6 }}>
+        Sesuaikan Saldo dengan Setor/Tarik :
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 8 }}>
         <input type="number" value={nominal} onChange={(e) => setNominal(e.target.value)} placeholder="nominal setor / tarik" style={inp} />
         <button disabled={!(n > 0)} onClick={() => { onAdjust(n); setNominal(''); }} style={btn(n > 0 ? C.green : 'rgba(26,42,32,0.15)')}>Setor</button>
         <button disabled={!(n > 0)} onClick={() => { onAdjust(-n); setNominal(''); }} style={btn(n > 0 ? C.rust : 'rgba(26,42,32,0.15)')}>Tarik</button>
