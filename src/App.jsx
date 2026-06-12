@@ -339,6 +339,13 @@ function DashboardTab({ stocks, ihsgQuote }) {
 
   // Masa lalu = harga historis asli; masa depan (30 hari) = harga terakhir (datar) + dividen.
   const DAY = 86400000;
+  const [lots, setLots] = useState(null); // riwayat pembelian utk hitung kelayakan ex-date
+  useEffect(() => {
+    let active = true;
+    supabase.from('lots').select('symbol,qty,buy_date,created_at')
+      .then(({ data }) => { if (active) setLots(data || []); });
+    return () => { active = false; };
+  }, [symKey]);
   const OFFSET_DAYS = 21;
   const FUTURE_DAYS = 30;
   const qtyMap = {};
@@ -931,7 +938,7 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onDeleteAll }) {
 }
 
 // Cash from Dividend — jumlah real dari Yahoo, tanggal bayar = perkiraan (ex-date + offset)
-function DividendCard({ stocks }) {
+export function DividendCard({ stocks }) {
   const symKey = stocks.map((s) => s.symbol).join(',');
   const [raw, setRaw] = useState([]);   // [{ symbol, amount, exDate }]
   const [loading, setLoading] = useState(true);
@@ -986,6 +993,34 @@ function DividendCard({ stocks }) {
     .sort((a, b) => a.payDate - b.payDate);
 
   const total12 = rows.reduce((s, r) => s + r.cash, 0);
+
+  // ---- Riwayat dividen 12 bulan terakhir ----
+  // Lembar yang berhak = lembar yang DIMILIKI sebelum ex-date (cum date).
+  // Sumber: tabel lots (buy_date, fallback tanggal pencatatan). Jika emiten
+  // belum punya lot sama sekali (data lama), fallback ke buy_date holding;
+  // tanpa tanggal sama sekali dianggap sudah dimiliki sejak lama.
+  const buyDateMap = {};
+  stocks.forEach((s) => { buyDateMap[s.symbol] = s.buyDate || null; });
+  function eligibleQty(symbol, exTime) {
+    const symLots = (lots || []).filter((l) => l.symbol === symbol);
+    if (symLots.length > 0) {
+      return symLots.reduce((sum, l) => {
+        const t = new Date(l.buy_date || (l.created_at || '').slice(0, 10)).getTime();
+        return t < exTime ? sum + Number(l.qty) : sum;
+      }, 0);
+    }
+    const bd = buyDateMap[symbol];
+    if (bd && new Date(bd).getTime() >= exTime) return 0;
+    return qtyMap[symbol] || 0;
+  }
+  const hist = raw.map((d) => {
+    const exTime = new Date(d.exDate).getTime();
+    const q = eligibleQty(d.symbol, exTime);
+    return { symbol: d.symbol, amount: d.amount, qty: q, cash: d.amount * q, exTime, payEst: new Date(exTime + OFFSET) };
+  })
+    .filter((r) => r.exTime <= now && r.exTime >= now - YEAR && r.cash > 0)
+    .sort((a, b) => b.exTime - a.exTime);
+  const totalHist = hist.reduce((s, r) => s + r.cash, 0);
   const fmtDate = (d) => d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
 
   return (
@@ -1022,8 +1057,31 @@ function DividendCard({ stocks }) {
         </div>
       )}
 
+      {hist.length > 0 && (
+        <div style={{ marginTop: 18 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+            <h4 className="serif" style={{ fontSize: 15, fontWeight: 600 }}>Riwayat Dividen</h4>
+            <span className="mono" style={{ fontSize: 10, color: C.inkSoft, letterSpacing: '0.08em' }}>12 BULAN TERAKHIR</span>
+          </div>
+          <div className="serif" style={{ fontSize: 20, fontWeight: 600, color: C.green, marginBottom: 8 }}>{fmtRp(totalHist)}</div>
+          {hist.map((r, i) => (
+            <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 8, alignItems: 'center', padding: '10px 0', borderBottom: `1px solid rgba(26,42,32,0.06)` }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 13 }}>{r.symbol}</div>
+                <div style={{ fontSize: 11, color: C.inkSoft }}>{fmtRp(r.amount)}/lembar × {r.qty.toLocaleString('id-ID')} berhak</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div className="mono" style={{ fontSize: 11, color: C.inkSoft }}>ex {fmtDate(new Date(r.exTime))}</div>
+                <div className="mono" style={{ fontSize: 8, letterSpacing: '0.06em', color: C.inkSoft }}>±DIBAYAR {fmtDate(r.payEst).toUpperCase()}</div>
+              </div>
+              <div className="mono" style={{ fontSize: 13, fontWeight: 600, color: C.green, textAlign: 'right', minWidth: 84 }}>{fmtRp(r.cash)}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div style={{ marginTop: 12, fontSize: 11, color: C.inkSoft, lineHeight: 1.5 }}>
-        ⓘ <strong style={{ color: C.ink }}>FIX</strong> = dividen yang tanggalnya sudah diumumkan. <strong style={{ color: C.ink }}>PERKIRAAN</strong> = proyeksi dari pola tahun lalu (+~1 tahun). Jumlah &amp; tanggal final bergantung keputusan RUPS emiten.
+        ⓘ <strong style={{ color: C.ink }}>FIX</strong> = dividen yang tanggalnya sudah diumumkan. <strong style={{ color: C.ink }}>PERKIRAAN</strong> = proyeksi dari pola tahun lalu (+~1 tahun). Jumlah &amp; tanggal final bergantung keputusan RUPS emiten. Riwayat: ex-date adalah tanggal aktual; tanggal bayar estimasi (+21 hari); lembar yang berhak dihitung dari kepemilikan sebelum ex-date berdasarkan riwayat pembelian.
       </div>
     </div>
   );
