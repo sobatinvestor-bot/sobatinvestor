@@ -594,24 +594,20 @@ export function RdnCard({ settings, onAdjust, onSaveFees }) {
 // Pasang di App.jsx: <StockNews symbols={stocks.map(s => s.symbol)} />
 // ============================================================
 export function StockNews({ stocks }) {
-  const [open, setOpen] = useState(false);
-  const [news, setNews] = useState(null);
-  // Kirim "SYMBOL|Nama" agar query berita lebih presisi (kode + nama perusahaan)
   const tokens = (stocks || []).map((s) => s.name ? `${s.symbol}|${s.name}` : s.symbol);
   const symKey = tokens.join(',');
+  const [news, setNews] = useState(symKey ? null : []);
 
   useEffect(() => {
-    if (!open || news !== null || !symKey) return;
+    if (!symKey) { setNews([]); return; }
     let active = true;
+    setNews(null);
     fetch(`/api/news?symbols=${encodeURIComponent(symKey)}&limit=10`)
       .then((r) => (r.ok ? r.json() : { news: [] }))
       .then((d) => { if (active) setNews(d.news || []); })
       .catch(() => { if (active) setNews([]); });
     return () => { active = false; };
-  }, [open, news, symKey]);
-
-  // reset cache saat daftar saham berubah
-  useEffect(() => { setNews(null); }, [symKey]);
+  }, [symKey]);
 
   const fmtWaktu = (iso) => {
     const d = new Date(iso), now = Date.now(), diff = (now - d.getTime()) / 1000;
@@ -623,34 +619,31 @@ export function StockNews({ stocks }) {
 
   return (
     <div style={{ background: C.cream, borderRadius: 16, marginTop: 16, overflow: 'hidden' }}>
-      <button onClick={() => setOpen(!open)}
-        style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'transparent', border: 'none', padding: '14px 16px', cursor: 'pointer', fontFamily: 'inherit' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px' }}>
         <span className="serif" style={{ fontSize: 16, fontWeight: 600, color: C.ink }}>Berita Sahammu</span>
-        <span className="mono" style={{ fontSize: 11, color: C.inkSoft }}>{open ? 'tutup' : 'lihat'}</span>
-      </button>
-      {open && (
-        <div style={{ borderTop: '1px solid rgba(26,42,32,0.08)' }}>
-          {news === null && <div style={{ padding: 16, fontSize: 13, color: C.inkSoft }}>Memuat berita…</div>}
-          {news !== null && news.length === 0 && (
-            <div style={{ padding: 16, fontSize: 13, color: C.inkSoft }}>Belum ada berita terbaru untuk sahammu.</div>
-          )}
-          {news !== null && news.map((n, i) => (
-            <a key={i} href={n.link} target="_blank" rel="noopener noreferrer"
-              style={{ display: 'block', padding: '12px 16px', borderBottom: '1px solid rgba(26,42,32,0.06)', textDecoration: 'none', color: 'inherit' }}>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', marginBottom: 3 }}>
-                <span className="mono" style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', color: C.cuan }}>{n.symbol}</span>
-                <span className="mono" style={{ fontSize: 10, color: C.inkSoft }}>{n.source}{n.source ? ' · ' : ''}{fmtWaktu(n.date)}</span>
-              </div>
-              <div style={{ fontSize: 13, lineHeight: 1.4, color: C.ink }}>{n.title}</div>
-            </a>
-          ))}
-          {news !== null && news.length > 0 && (
-            <div style={{ padding: '10px 16px', fontSize: 10, color: C.inkSoft }}>
-              Sumber: Google News. Ketuk untuk baca di situs penerbit asli.
+        <span className="mono" style={{ fontSize: 10, color: C.inkSoft, letterSpacing: '0.08em' }}>TERBARU</span>
+      </div>
+      <div style={{ borderTop: '1px solid rgba(26,42,32,0.08)' }}>
+        {news === null && <div style={{ padding: 16, fontSize: 13, color: C.inkSoft }}>Memuat berita…</div>}
+        {news !== null && news.length === 0 && (
+          <div style={{ padding: 16, fontSize: 13, color: C.inkSoft }}>Belum ada berita terbaru untuk sahammu.</div>
+        )}
+        {news !== null && news.map((n, i) => (
+          <a key={i} href={n.link} target="_blank" rel="noopener noreferrer"
+            style={{ display: 'block', padding: '12px 16px', borderBottom: '1px solid rgba(26,42,32,0.06)', textDecoration: 'none', color: 'inherit' }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', marginBottom: 3 }}>
+              <span className="mono" style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', color: C.cuan }}>{n.symbol}</span>
+              <span className="mono" style={{ fontSize: 10, color: C.inkSoft }}>{n.source}{n.source ? ' · ' : ''}{fmtWaktu(n.date)}</span>
             </div>
-          )}
-        </div>
-      )}
+            <div style={{ fontSize: 13, lineHeight: 1.4, color: C.ink }}>{n.title}</div>
+          </a>
+        ))}
+        {news !== null && news.length > 0 && (
+          <div style={{ padding: '10px 16px', fontSize: 10, color: C.inkSoft }}>
+            Sumber: Google News. Ketuk untuk baca di situs penerbit asli.
+          </div>
+        )}
+      </div>
     </div>
   );
 }
