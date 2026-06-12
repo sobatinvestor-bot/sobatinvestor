@@ -483,7 +483,9 @@ function DashboardTab({ stocks, ihsgQuote }) {
       });
       const cumDiv = divEvents.filter((e) => e.payTime <= t).reduce((s, e) => s + e.cash, 0);
       const value = base + cumDiv;
-      const pct = (baseSet && valueStart > 0 && value > 0) ? ((value / valueStart) - 1) * 100 : null;
+      // pct portofolio = price-return MURNI (tanpa dividen) agar setara dgn IHSG
+      // yang juga price-return. Dividen tetap masuk ke `value` (Rupiah & grafik).
+      const pct = (baseSet && valueStart > 0 && base > 0) ? ((base / valueStart) - 1) * 100 : null;
       let ihsg = null, ihsgPct = null;
       if (hasIhsg && ihsgStart > 0 && baseSet) {
         const idx = (t >= todayTime && ihsgLive != null) ? ihsgLive : closeAt('^JKSE', t);
