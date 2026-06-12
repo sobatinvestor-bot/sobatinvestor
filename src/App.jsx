@@ -339,13 +339,6 @@ function DashboardTab({ stocks, ihsgQuote }) {
 
   // Masa lalu = harga historis asli; masa depan (30 hari) = harga terakhir (datar) + dividen.
   const DAY = 86400000;
-  const [lots, setLots] = useState(null); // riwayat pembelian utk hitung kelayakan ex-date
-  useEffect(() => {
-    let active = true;
-    supabase.from('lots').select('symbol,qty,buy_date,created_at')
-      .then(({ data }) => { if (active) setLots(data || []); });
-    return () => { active = false; };
-  }, [symKey]);
   const OFFSET_DAYS = 21;
   const FUTURE_DAYS = 30;
   const qtyMap = {};
@@ -943,6 +936,16 @@ export function DividendCard({ stocks }) {
   const [raw, setRaw] = useState([]);   // [{ symbol, amount, exDate }]
   const [loading, setLoading] = useState(true);
   const OFFSET_DAYS = 21; // perkiraan jeda ex-date → tanggal bayar (pola umum IDX)
+  const [lots, setLots] = useState(null); // riwayat pembelian utk hitung kelayakan ex-date
+
+  useEffect(() => {
+    let active = true;
+    supabase.from('lots').select('symbol,qty,buy_date,created_at')
+      .then(({ data }) => { if (active) setLots(data || []); })
+      .catch(() => { if (active) setLots([]); });
+    return () => { active = false; };
+  }, [symKey]);
+
 
   useEffect(() => {
     if (!symKey) { setRaw([]); setLoading(false); return; }
