@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine } from 'recharts';
 import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText } from 'lucide-react';
 import { supabase } from './lib/supabase';
-import { Auth, usePortfolio, Editor, logout } from './Account.jsx';
+import { Auth, usePortfolio, Editor, logout, LotsHistory } from './Account.jsx';
 import AnalisisTab from './Analisis.jsx';
 
 const C = {
@@ -122,6 +122,7 @@ function PrivateArea({ tab, userId, ihsgQuote }) {
             onDelete={deleteHolding}
             onDeleteAll={deleteAll}
           />
+          <LotsHistory userId={userId} />
         </>
       )}
       {tab === 'chat' && <ChatTab stocks={stocks} />}

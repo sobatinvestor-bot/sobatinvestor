@@ -68,13 +68,53 @@ export function usePortfolio(userId) {
     };
   });
 
+  // Catat transaksi ke riwayat (best-effort: kegagalan tidak memblokir simpan holdings)
+  async function recordLot(h) {
+    const { error } = await supabase.from('lots').insert({
+      user_id: userId, symbol: h.symbol, qty: h.qty, price: h.avg, buy_date: h.buyDate || null,
+    });
+    if (error) console.warn('Riwayat lot tidak tercatat:', error.message);
+    else window.dispatchEvent(new Event('sobat-lots-changed'));
+  }
+
   async function addHolding(h) {
+    // Jika emiten sudah ada di portofolio: gabungkan (averaging), jangan tolak.
+    // qty dijumlah, avg_price = rata-rata tertimbang, buy_date pakai yang paling awal.
+    const existing = holdings.find((x) => x.symbol === h.symbol);
+    if (existing) {
+      const oldQty = Number(existing.qty);
+      const newQty = oldQty + h.qty;
+      const mergedAvg = Math.round(((oldQty * Number(existing.avg_price)) + (h.qty * h.avg)) / newQty * 100) / 100;
+      const dates = [existing.buy_date, h.buyDate].filter(Boolean).sort();
+      const { error } = await supabase.from('holdings').update({
+        qty: newQty, avg_price: mergedAvg,
+        buy_date: dates[0] || null,
+        // nama/sektor lama dipertahankan kecuali sebelumnya kosong
+        name: existing.name || h.name, sector: existing.sector || h.sector,
+      }).eq('id', existing.id);
+      if (error) alert('Gagal menggabungkan: ' + error.message);
+      else {
+        await recordLot(h);
+        alert(`${h.symbol} digabung: ${newQty} lembar @ rata-rata Rp${mergedAvg.toLocaleString('id-ID')}`);
+      }
+      await loadHoldings();
+      return;
+    }
     const { error } = await supabase.from('holdings').insert({
       user_id: userId,
       symbol: h.symbol, name: h.name, sector: h.sector,
       qty: h.qty, avg_price: h.avg, buy_date: h.buyDate || null,
     });
-    if (error) alert('Gagal menyimpan: ' + error.message);
+    if (error) {
+      if ((error.message || '').includes('duplicate key')) {
+        await loadHoldings();
+        alert(`${h.symbol} ternyata sudah ada di portofolio (mungkin ditambah dari perangkat lain). Coba simpan sekali lagi untuk menggabungkannya.`);
+        return;
+      }
+      alert('Gagal menyimpan: ' + error.message);
+      return;
+    }
+    await recordLot(h);
     await loadHoldings();
   }
 
@@ -88,14 +128,23 @@ export function usePortfolio(userId) {
   }
 
   async function deleteHolding(id) {
+    const sym = (holdings.find((x) => x.id === id) || {}).symbol;
     const { error } = await supabase.from('holdings').delete().eq('id', id);
     if (error) alert('Gagal hapus: ' + error.message);
+    else if (sym) {
+      await supabase.from('lots').delete().eq('user_id', userId).eq('symbol', sym);
+      window.dispatchEvent(new Event('sobat-lots-changed'));
+    }
     await loadHoldings();
   }
 
   async function deleteAll() {
     const { error } = await supabase.from('holdings').delete().eq('user_id', userId);
     if (error) alert('Gagal hapus: ' + error.message);
+    else {
+      await supabase.from('lots').delete().eq('user_id', userId);
+      window.dispatchEvent(new Event('sobat-lots-changed'));
+    }
     await loadHoldings();
   }
 
@@ -313,6 +362,70 @@ export function Editor({ holding, onSave, onClose }) {
           {isNew ? 'Simpan ke Portofolio' : 'Update'}
         </button>
       </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Riwayat pembelian (tabel lots) — kartu collapsible, mandiri.
+// Pasang di App.jsx: <LotsHistory userId={userId} />
+// ============================================================
+export function LotsHistory({ userId }) {
+  const [open, setOpen] = useState(false);
+  const [lots, setLots] = useState(null); // null = belum dimuat
+
+  const load = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('lots')
+      .select('id,symbol,qty,price,buy_date,created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(100);
+    setLots(error ? [] : (data || []));
+  }, [userId]);
+
+  useEffect(() => {
+    if (open && lots === null) load();
+  }, [open, lots, load]);
+
+  useEffect(() => {
+    const h = () => { if (open) load(); else setLots(null); };
+    window.addEventListener('sobat-lots-changed', h);
+    return () => window.removeEventListener('sobat-lots-changed', h);
+  }, [open, load]);
+
+  const fmtTgl = (d) => new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+
+  return (
+    <div style={{ background: C.cream, borderRadius: 16, marginTop: 16, overflow: 'hidden' }}>
+      <button onClick={() => setOpen(!open)}
+        style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'transparent', border: 'none', padding: '14px 16px', cursor: 'pointer', fontFamily: 'inherit' }}>
+        <span className="serif" style={{ fontSize: 16, fontWeight: 600, color: C.ink }}>Riwayat Pembelian</span>
+        <span className="mono" style={{ fontSize: 11, color: C.inkSoft }}>{open ? 'tutup' : 'lihat'}</span>
+      </button>
+      {open && (
+        <div style={{ borderTop: '1px solid rgba(26,42,32,0.08)' }}>
+          {lots === null && <div style={{ padding: 16, fontSize: 13, color: C.inkSoft }}>Memuat...</div>}
+          {lots !== null && lots.length === 0 && (
+            <div style={{ padding: 16, fontSize: 13, color: C.inkSoft }}>
+              Belum ada riwayat. Transaksi tercatat otomatis setiap kali kamu menambah saham.
+            </div>
+          )}
+          {lots !== null && lots.map((l) => (
+            <div key={l.id} style={{ display: 'grid', gridTemplateColumns: '1fr auto', padding: '11px 16px', borderBottom: '1px solid rgba(26,42,32,0.06)', alignItems: 'center' }}>
+              <div>
+                <span style={{ fontWeight: 700, fontSize: 13 }}>{l.symbol}</span>
+                <span className="mono" style={{ fontSize: 12, color: C.inkSoft, marginLeft: 8 }}>
+                  {Number(l.qty).toLocaleString('id-ID')} lbr @ Rp{Number(l.price).toLocaleString('id-ID')}
+                </span>
+              </div>
+              <div className="mono" style={{ fontSize: 10, color: C.inkSoft, textAlign: 'right' }}>
+                {l.buy_date ? `beli ${fmtTgl(l.buy_date)}` : `dicatat ${fmtTgl(l.created_at)}`}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
