@@ -1095,8 +1095,7 @@ export function DividendCard({ stocks }) {
         <h3 className="serif" style={{ fontSize: 18, fontWeight: 600 }}>Total Dividen</h3>
       </div>
 
-      <div className="serif" style={{ fontSize: 30, fontWeight: 600, color: C.green, marginBottom: 4 }}>{fmtRp(total12)}</div>
-      <div style={{ fontSize: 12, color: C.inkSoft, marginBottom: 16 }}>perkiraan dividen 12 bulan ke depan — tanggal pasti dipakai bila sudah diumumkan, sisanya proyeksi pola tahun lalu</div>
+      <div className="serif" style={{ fontSize: 30, fontWeight: 600, color: C.green, marginBottom: 16 }}>{fmtRp(totalHist + total12)}</div>
 
       {hist.length > 0 && (
         <div style={{ marginBottom: 18 }}>
@@ -1126,8 +1125,9 @@ export function DividendCard({ stocks }) {
         <span className="mono" style={{ fontSize: 10, color: C.inkSoft, letterSpacing: '0.08em' }}>12 BULAN KE DEPAN</span>
       </div>
       {rows.length > 0 && (
-        <div className="serif" style={{ fontSize: 20, fontWeight: 600, color: C.green, marginBottom: 8 }}>{fmtRp(total12)}</div>
+        <div className="serif" style={{ fontSize: 20, fontWeight: 600, color: C.green, marginBottom: 4 }}>{fmtRp(total12)}</div>
       )}
+      <div style={{ fontSize: 12, color: C.inkSoft, marginBottom: 12 }}>perkiraan dividen 12 bulan ke depan — tanggal pasti dipakai bila sudah diumumkan, sisanya proyeksi pola tahun lalu</div>
 
       {loading ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: C.inkSoft, fontSize: 13 }}>
