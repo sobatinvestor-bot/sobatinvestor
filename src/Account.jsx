@@ -18,6 +18,33 @@ export function usePortfolio(userId) {
   const [prices, setPrices] = useState({});
   const [ihsg, setIhsg] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Fee transaksi (persen) + saldo RDN — dimuat dari user_settings, default praktik umum IDX
+  const [settings, setSettings] = useState({ fee_buy: 0.15, fee_sell: 0.15, tax_sell: 0.10, rdn: 0 });
+
+  const loadSettings = useCallback(async () => {
+    const { data } = await supabase.from('user_settings').select('fee_buy,fee_sell,tax_sell,rdn').maybeSingle();
+    if (data) setSettings(data);
+  }, []);
+  useEffect(() => { if (userId) loadSettings(); }, [userId, loadSettings]);
+  useEffect(() => {
+    const h = () => loadSettings();
+    window.addEventListener('sobat-rdn-changed', h);
+    return () => window.removeEventListener('sobat-rdn-changed', h);
+  }, [loadSettings]);
+
+  // Mutasi saldo RDN atomik via RPC; best-effort (tabel belum ada -> diabaikan)
+  async function adjustRdn(delta) {
+    const { data, error } = await supabase.rpc('adjust_rdn', { p_delta: Math.round(delta) });
+    if (!error && data !== null) setSettings((p) => ({ ...p, rdn: Number(data) }));
+    else if (error) console.warn('RDN tidak terupdate:', error.message);
+  }
+
+  async function saveFees(f) {
+    const row = { user_id: userId, fee_buy: Number(f.fee_buy), fee_sell: Number(f.fee_sell), tax_sell: Number(f.tax_sell) };
+    const { error } = await supabase.from('user_settings').upsert(row, { onConflict: 'user_id' });
+    if (error) alert('Gagal menyimpan fee: ' + error.message);
+    else setSettings((p) => ({ ...p, ...row }));
+  }
 
   const loadHoldings = useCallback(async () => {
     const { data, error } = await supabase
@@ -69,9 +96,9 @@ export function usePortfolio(userId) {
   });
 
   // Catat transaksi ke riwayat (best-effort: kegagalan tidak memblokir simpan holdings)
-  async function recordLot(h) {
+  async function recordLot(h, side = 'buy') {
     const { error } = await supabase.from('lots').insert({
-      user_id: userId, symbol: h.symbol, qty: h.qty, price: h.avg, buy_date: h.buyDate || null,
+      user_id: userId, symbol: h.symbol, qty: h.qty, price: h.avg, buy_date: h.buyDate || null, side,
     });
     if (error) console.warn('Riwayat lot tidak tercatat:', error.message);
     else window.dispatchEvent(new Event('sobat-lots-changed'));
@@ -95,6 +122,7 @@ export function usePortfolio(userId) {
       if (error) alert('Gagal menggabungkan: ' + error.message);
       else {
         await recordLot(h);
+        await adjustRdn(-(h.qty * h.avg) * (1 + settings.fee_buy / 100));
         alert(`${h.symbol} digabung: ${newQty} lembar @ rata-rata Rp${mergedAvg.toLocaleString('id-ID')}`);
       }
       await loadHoldings();
@@ -115,6 +143,7 @@ export function usePortfolio(userId) {
       return;
     }
     await recordLot(h);
+    await adjustRdn(-(h.qty * h.avg) * (1 + settings.fee_buy / 100));
     await loadHoldings();
   }
 
@@ -124,6 +153,29 @@ export function usePortfolio(userId) {
       qty: h.qty, avg_price: h.avg, buy_date: h.buyDate || null,
     }).eq('id', h.id);
     if (error) alert('Gagal update: ' + error.message);
+    await loadHoldings();
+  }
+
+  async function sellHolding(holding, s) {
+    const owned = Number(holding.qty);
+    if (s.qty > owned) { alert(`Jumlah jual (${s.qty}) melebihi kepemilikan (${owned} lembar).`); return; }
+    const sisa = owned - s.qty;
+    let error;
+    if (sisa === 0) {
+      // jual habis: hapus baris holding, riwayat lots SENGAJA dipertahankan
+      ({ error } = await supabase.from('holdings').delete().eq('id', holding.id));
+    } else {
+      ({ error } = await supabase.from('holdings').update({ qty: sisa }).eq('id', holding.id));
+    }
+    if (error) { alert('Gagal menjual: ' + error.message); return; }
+    await recordLot({ symbol: holding.symbol, qty: s.qty, avg: s.price, buyDate: s.date || null }, 'sell');
+    const gross = s.qty * s.price;
+    const potongan = gross * ((settings.fee_sell + settings.tax_sell) / 100);
+    const net = gross - potongan;
+    await adjustRdn(net);
+    const realized = (s.price - Number(holding.avg_price)) * s.qty;
+    const tanda = realized >= 0 ? '+' : '-';
+    alert(`${holding.symbol} terjual ${s.qty.toLocaleString('id-ID')} lembar @ Rp${s.price.toLocaleString('id-ID')}. P/L terealisasi: ${tanda}Rp${Math.abs(Math.round(realized)).toLocaleString('id-ID')}. Masuk RDN (setelah fee+pajak ${(settings.fee_sell + settings.tax_sell).toLocaleString('id-ID')}%): Rp${Math.round(net).toLocaleString('id-ID')}${sisa === 0 ? '. Posisi habis.' : ''}`);
     await loadHoldings();
   }
 
@@ -152,7 +204,8 @@ export function usePortfolio(userId) {
     stocks, loading,
     ihsg: ihsg ? ihsg.value : 7800,
     ihsgChange: ihsg ? ihsg.change : 0,
-    addHolding, updateHolding, deleteHolding, deleteAll,
+    addHolding, updateHolding, deleteHolding, deleteAll, sellHolding,
+    settings, adjustRdn, saveFees,
   };
 }
 
@@ -377,7 +430,7 @@ export function LotsHistory({ userId }) {
   const load = useCallback(async () => {
     const { data, error } = await supabase
       .from('lots')
-      .select('id,symbol,qty,price,buy_date,created_at')
+      .select('id,symbol,qty,price,buy_date,created_at,side')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(100);
@@ -415,7 +468,10 @@ export function LotsHistory({ userId }) {
             <div key={l.id} style={{ display: 'grid', gridTemplateColumns: '1fr auto', padding: '11px 16px', borderBottom: '1px solid rgba(26,42,32,0.06)', alignItems: 'center' }}>
               <div>
                 <span style={{ fontWeight: 700, fontSize: 13 }}>{l.symbol}</span>
-                <span className="mono" style={{ fontSize: 12, color: C.inkSoft, marginLeft: 8 }}>
+                <span className="mono" style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', marginLeft: 8, color: l.side === 'sell' ? C.rust : C.green }}>
+                  {l.side === 'sell' ? 'JUAL' : 'BELI'}
+                </span>
+                <span className="mono" style={{ fontSize: 12, color: C.inkSoft, marginLeft: 6 }}>
                   {Number(l.qty).toLocaleString('id-ID')} lbr @ Rp{Number(l.price).toLocaleString('id-ID')}
                 </span>
               </div>
@@ -429,3 +485,102 @@ export function LotsHistory({ userId }) {
     </div>
   );
 }
+
+
+// ============================================================
+// Modal jual/kurangi saham. Pasang di App.jsx (PrivateArea).
+// ============================================================
+export function SellEditor({ holding, onSell, onClose, fees = { fee_sell: 0.15, tax_sell: 0.10 } }) {
+  const [f, setF] = useState({ qty: '', price: '', date: '' });
+  const owned = Number(holding.qty);
+  const q = Number(f.qty), p = Number(f.price);
+  const valid = q > 0 && q <= owned && p > 0;
+  const inp = { width: '100%', padding: '12px 14px', borderRadius: 12, border: 'none', background: C.cream2, fontSize: 14, fontFamily: 'inherit', color: C.ink, outline: 'none', boxSizing: 'border-box' };
+  const lbl = { fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', color: C.inkSoft, textTransform: 'uppercase', display: 'block', margin: '14px 0 6px' };
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(26,42,32,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60, padding: 16 }} onClick={onClose}>
+      <div style={{ background: C.cream, borderRadius: 20, padding: 24, width: '100%', maxWidth: 420 }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 className="serif" style={{ fontSize: 20, fontWeight: 600 }}>Jual {holding.symbol}</h3>
+          <button onClick={onClose} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 18, color: C.inkSoft }}>×</button>
+        </div>
+        <div style={{ fontSize: 12, color: C.inkSoft, marginTop: 4 }}>
+          Dimiliki: {owned.toLocaleString('id-ID')} lembar @ rata-rata Rp{Number(holding.avg_price).toLocaleString('id-ID')}
+        </div>
+        <span style={lbl}>Jumlah dijual (lembar)</span>
+        <input type="number" value={f.qty} onChange={(e) => setF({ ...f, qty: e.target.value })} placeholder={`maks. ${owned}`} style={inp} />
+        {q > owned && <div style={{ fontSize: 11, color: C.red, marginTop: 5 }}>Melebihi jumlah yang dimiliki</div>}
+        <span style={lbl}>Harga jual / lembar</span>
+        <input type="number" value={f.price} onChange={(e) => setF({ ...f, price: e.target.value })} placeholder="mis. 1250" style={inp} />
+        {valid && (
+          <div style={{ fontSize: 11, marginTop: 6, lineHeight: 1.6 }}>
+            <div style={{ color: (p - Number(holding.avg_price)) >= 0 ? C.green : C.red }}>
+              P/L terealisasi: {((p - Number(holding.avg_price)) * q >= 0 ? '+' : '-')}Rp{Math.abs(Math.round((p - Number(holding.avg_price)) * q)).toLocaleString('id-ID')}
+            </div>
+            <div style={{ color: C.inkSoft }}>
+              Fee {Number(fees.fee_sell).toLocaleString('id-ID')}% + pajak {Number(fees.tax_sell).toLocaleString('id-ID')}% = -Rp{Math.round(q * p * ((Number(fees.fee_sell) + Number(fees.tax_sell)) / 100)).toLocaleString('id-ID')}
+            </div>
+            <div style={{ color: C.ink, fontWeight: 600 }}>
+              Masuk RDN: Rp{Math.round(q * p * (1 - (Number(fees.fee_sell) + Number(fees.tax_sell)) / 100)).toLocaleString('id-ID')}
+            </div>
+          </div>
+        )}
+        <span style={lbl}>Tanggal jual (opsional)</span>
+        <input type="date" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} style={inp} />
+        <button disabled={!valid} onClick={() => { onSell(holding, { qty: q, price: p, date: f.date }); onClose(); }}
+          style={{ width: '100%', marginTop: 18, padding: '13px 0', borderRadius: 999, border: 'none', cursor: valid ? 'pointer' : 'default', background: valid ? C.rust : 'rgba(26,42,32,0.12)', color: valid ? '#fff' : C.inkSoft, fontSize: 14, fontWeight: 600, fontFamily: 'inherit' }}>
+          Jual
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Kartu RDN — saldo kas virtual + setor/tarik + pengaturan fee.
+// Pasang di App.jsx: <RdnCard settings={settings} onAdjust={adjustRdn} onSaveFees={saveFees} />
+// ============================================================
+export function RdnCard({ settings, onAdjust, onSaveFees }) {
+  const [nominal, setNominal] = useState('');
+  const [showFee, setShowFee] = useState(false);
+  const [fee, setFee] = useState(null);
+  const f = fee || settings;
+  const n = Number(nominal);
+  const inp = { background: C.cream2, border: 'none', borderRadius: 10, padding: '10px 12px', fontSize: 13, color: C.ink, outline: 'none', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box' };
+  const btn = (bg) => ({ border: 'none', borderRadius: 999, padding: '10px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer', background: bg, color: '#fff', fontFamily: 'inherit' });
+  return (
+    <div style={{ background: C.cream, borderRadius: 16, marginTop: 16, padding: '16px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+        <span className="serif" style={{ fontSize: 16, fontWeight: 600, color: C.ink }}>Rekening Dana (RDN)</span>
+        <button onClick={() => { setShowFee(!showFee); setFee(null); }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 11, color: C.inkSoft, fontFamily: 'inherit' }} className="mono">
+          fee: beli {Number(settings.fee_buy).toLocaleString('id-ID')}% · jual {Number(settings.fee_sell).toLocaleString('id-ID')}%+{Number(settings.tax_sell).toLocaleString('id-ID')}% ⚙
+        </button>
+      </div>
+      <div className="serif" style={{ fontSize: 24, fontWeight: 600, marginTop: 6, color: Number(settings.rdn) >= 0 ? C.green : C.red }}>
+        Rp{Math.round(Number(settings.rdn)).toLocaleString('id-ID')}
+      </div>
+      <div style={{ fontSize: 11, color: C.inkSoft, marginTop: 2 }}>
+        hasil jual (bersih) &amp; dividen (gros, otomatis saat estimasi bayar lewat) masuk ke sini; pembelian + fee mengurangi saldo. Pajak dividen 10% bisa dikurangi via Tarik.
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 8, marginTop: 12 }}>
+        <input type="number" value={nominal} onChange={(e) => setNominal(e.target.value)} placeholder="nominal setor / tarik" style={inp} />
+        <button disabled={!(n > 0)} onClick={() => { onAdjust(n); setNominal(''); }} style={btn(n > 0 ? C.green : 'rgba(26,42,32,0.15)')}>Setor</button>
+        <button disabled={!(n > 0)} onClick={() => { onAdjust(-n); setNominal(''); }} style={btn(n > 0 ? C.rust : 'rgba(26,42,32,0.15)')}>Tarik</button>
+      </div>
+      {showFee && (
+        <div style={{ marginTop: 12, borderTop: '1px solid rgba(26,42,32,0.08)', paddingTop: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+            {[['fee_buy', 'Fee beli %'], ['fee_sell', 'Fee jual %'], ['tax_sell', 'Pajak jual %']].map(([k, label]) => (
+              <div key={k}>
+                <div className="mono" style={{ fontSize: 9, letterSpacing: '0.06em', color: C.inkSoft, marginBottom: 4, textTransform: 'uppercase' }}>{label}</div>
+                <input type="number" step="0.01" value={f[k]} onChange={(e) => setFee({ ...f, [k]: e.target.value })} style={inp} />
+              </div>
+            ))}
+          </div>
+          <button onClick={() => { onSaveFees(f); setShowFee(false); setFee(null); }} style={{ ...btn(C.forest), marginTop: 10, width: '100%' }}>Simpan Fee</button>
+        </div>
+      )}
+    </div>
+  );
+}
+

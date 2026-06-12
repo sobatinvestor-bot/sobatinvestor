@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine } from 'recharts';
-import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText } from 'lucide-react';
+import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus } from 'lucide-react';
 import { supabase } from './lib/supabase';
-import { Auth, usePortfolio, Editor, logout, LotsHistory } from './Account.jsx';
+import { Auth, usePortfolio, Editor, logout, LotsHistory, SellEditor, RdnCard } from './Account.jsx';
 import AnalisisTab from './Analisis.jsx';
 
 const C = {
@@ -102,8 +102,9 @@ export default function App() {
 
 // Area privat (hanya saat sudah login): Dashboard, Sobat AI, Portfolio
 function PrivateArea({ tab, userId, ihsgQuote }) {
-  const { stocks, addHolding, updateHolding, deleteHolding, deleteAll } = usePortfolio(userId);
+  const { stocks, addHolding, updateHolding, deleteHolding, deleteAll, sellHolding, settings, adjustRdn, saveFees } = usePortfolio(userId);
   const [editing, setEditing] = useState(null);
+  const [selling, setSelling] = useState(null);
 
   function handleSave(h) {
     if (h.id) updateHolding(h); else addHolding(h);
@@ -120,13 +121,16 @@ function PrivateArea({ tab, userId, ihsgQuote }) {
             onAdd={() => setEditing({})}
             onEdit={(s) => setEditing(s)}
             onDelete={deleteHolding}
+            onSell={(s) => setSelling(s)}
             onDeleteAll={deleteAll}
           />
+          <RdnCard settings={settings} onAdjust={adjustRdn} onSaveFees={saveFees} />
           <LotsHistory userId={userId} />
         </>
       )}
       {tab === 'chat' && <ChatTab stocks={stocks} />}
       {editing && <Editor holding={editing} onSave={handleSave} onClose={() => setEditing(null)} />}
+      {selling && <SellEditor holding={selling} onSell={sellHolding} onClose={() => setSelling(null)} fees={settings} />}
     </>
   );
 }
@@ -751,7 +755,7 @@ function ChatTab({ stocks }) {
   );
 }
 
-function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onDeleteAll }) {
+function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onDeleteAll }) {
   const [confirmDel, setConfirmDel] = useState(null); // stock yang mau dihapus
   const [wipeStep, setWipeStep] = useState(0);        // 0=off, 1=dialog 1, 2=dialog final
   const [wipeText, setWipeText] = useState('');
@@ -825,6 +829,7 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onDeleteAll }) {
                 <div className="mono" style={{ fontSize: 13, textAlign: 'right', fontWeight: 600 }}>{Math.round(s.price).toLocaleString('id-ID')}</div>
                 <div className="mono" style={{ fontSize: 13, textAlign: 'right', fontWeight: 600, color: pl >= 0 ? C.green : C.red }}>{fmtPct(pl)}</div>
                 <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                  <button onClick={() => onSell(s)} title="Jual" style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 4 }}><Minus size={14} color={C.cuan} /></button>
                   <button onClick={() => onEdit(s)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 4 }}><Pencil size={14} color={C.inkSoft} /></button>
                   <button onClick={() => setConfirmDel(s)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 4 }}><Trash2 size={14} color={C.rust} /></button>
                 </div>
@@ -940,7 +945,7 @@ export function DividendCard({ stocks }) {
 
   useEffect(() => {
     let active = true;
-    supabase.from('lots').select('symbol,qty,buy_date,created_at')
+    supabase.from('lots').select('symbol,qty,buy_date,created_at,side')
       .then(({ data }) => { if (active) setLots(data || []); })
       .catch(() => { if (active) setLots([]); });
     return () => { active = false; };
@@ -975,14 +980,14 @@ export function DividendCard({ stocks }) {
   const real = raw.map((d) => {
     const exTime = new Date(d.exDate).getTime();
     const qty = qtyMap[d.symbol] || 0;
-    return { symbol: d.symbol, amount: d.amount, qty, cash: d.amount * qty, payTime: exTime + OFFSET, fix: true };
-  }).filter((r) => r.cash > 0 && r.payTime > now && r.payTime <= horizon);
+    return { symbol: d.symbol, amount: d.amount, qty, cash: d.amount * qty, exTime, payTime: exTime + OFFSET, fix: true };
+  }).filter((r) => r.cash > 0 && r.exTime > now && r.exTime <= horizon);
 
   const proj = raw.map((d) => {
     const exTime = new Date(d.exDate).getTime();
     const qty = qtyMap[d.symbol] || 0;
     return { symbol: d.symbol, amount: d.amount, qty, cash: d.amount * qty, exTime, payTime: exTime + YEAR + OFFSET, fix: false };
-  }).filter((r) => r.cash > 0 && r.exTime >= now - YEAR && r.exTime <= now && r.payTime <= horizon);
+  }).filter((r) => r.cash > 0 && r.exTime >= now - YEAR && r.exTime <= now);
 
   // FIX diproses lebih dulu supaya menang saat dedupe
   const merged = [...real, ...proj].sort((a, b) => (a.fix === b.fix ? a.payTime - b.payTime : (a.fix ? -1 : 1)));
@@ -1007,10 +1012,12 @@ export function DividendCard({ stocks }) {
   function eligibleQty(symbol, exTime) {
     const symLots = (lots || []).filter((l) => l.symbol === symbol);
     if (symLots.length > 0) {
-      return symLots.reduce((sum, l) => {
+      const q = symLots.reduce((sum, l) => {
         const t = new Date(l.buy_date || (l.created_at || '').slice(0, 10)).getTime();
-        return t < exTime ? sum + Number(l.qty) : sum;
+        if (t >= exTime) return sum;
+        return sum + (l.side === 'sell' ? -Number(l.qty) : Number(l.qty));
       }, 0);
+      return Math.max(0, q);
     }
     const bd = buyDateMap[symbol];
     if (bd && new Date(bd).getTime() >= exTime) return 0;
@@ -1024,6 +1031,30 @@ export function DividendCard({ stocks }) {
     .filter((r) => r.exTime <= now && r.exTime >= now - YEAR && r.cash > 0)
     .sort((a, b) => b.exTime - a.exTime);
   const totalHist = hist.reduce((s, r) => s + r.cash, 0);
+
+  // Kredit otomatis dividen yang estimasi tanggal bayarnya sudah lewat ke saldo RDN.
+  // RPC credit_dividend idempoten (dedupe per user+symbol+ex_date), jadi aman
+  // dipanggil ulang lintas reload/perangkat. Guard ref mencegah spam per render.
+  const creditedKey = useRef('');
+  useEffect(() => {
+    if (lots === null || raw.length === 0) return;
+    if (creditedKey.current === symKey) return;
+    creditedKey.current = symKey;
+    (async () => {
+      const paid = hist.filter((r) => r.payEst.getTime() <= Date.now());
+      let adaBaru = false;
+      for (const r of paid) {
+        const { data, error } = await supabase.rpc('credit_dividend', {
+          p_symbol: r.symbol,
+          p_ex_date: new Date(r.exTime).toISOString().slice(0, 10),
+          p_amount: Math.round(r.cash),
+        });
+        if (!error && data !== null) adaBaru = true;
+      }
+      if (adaBaru) window.dispatchEvent(new Event('sobat-rdn-changed'));
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lots, raw, symKey]);
   const fmtDate = (d) => d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
 
   return (
