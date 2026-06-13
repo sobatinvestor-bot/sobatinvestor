@@ -652,149 +652,118 @@ function StatCard({ label, value, sub, positive, highlight }) {
 // AI Chat - DISABLED (Member Premium placeholder)
 // To re-enable: restore the original ChatTab function from git history
 // ============================================
-function ChatTab({ stocks }) {
+export function ChatTab({ stocks }) {
+  const [messages, setMessages] = useState([]); // {role, content}
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState('');
+  const scrollRef = useRef(null);
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [messages, loading]);
+
+  async function send() {
+    const text = input.trim();
+    if (!text || loading) return;
+    setErr('');
+    const next = [...messages, { role: 'user', content: text }];
+    setMessages(next);
+    setInput('');
+    setLoading(true);
+    try {
+      // Token user wajib (endpoint pakai utk verifikasi kuota)
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) { setErr('Harus login untuk pakai Sobat AI.'); setLoading(false); return; }
+
+      // Konteks portofolio ringkas (bukan seluruh tabel) — hemat token
+      const ctx = stocks && stocks.length
+        ? 'Konteks portofolio user: ' + stocks.map((s) => `${s.symbol} ${s.qty} lembar`).join(', ') + '.'
+        : '';
+      const payload = next.map((m, i) =>
+        i === next.length - 1 && ctx ? { role: m.role, content: `${ctx}\n\n${m.content}` } : m
+      );
+
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ messages: payload }),
+      });
+      const data = await res.json();
+
+      if (res.status === 429 || data.quota_exceeded) {
+        setErr(data.error || 'Kuota Sobat AI habis. Coba lagi nanti.');
+        setMessages(messages); // kembalikan, tidak hitung pesan gagal
+        setLoading(false);
+        return;
+      }
+      if (!res.ok) throw new Error(data.error || 'Gagal memuat jawaban');
+
+      const reply = (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim();
+      setMessages([...next, { role: 'assistant', content: reply || '(kosong)' }]);
+    } catch (e) {
+      setErr(e.message || 'Terjadi kesalahan.');
+      setMessages(messages);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const suggestions = ['Apa itu dividen yield?', 'Jelaskan rasio PER sederhana', 'Tips diversifikasi portofolio'];
+
   return (
-    <div className="fade-up" style={{ maxWidth: 800, margin: '0 auto', padding: '40px 20px 60px', minHeight: 'calc(100vh - 60px - 80px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-      
-      {/* Lock Icon Badge */}
-      <div style={{
-        width: 80,
-        height: 80,
-        borderRadius: 24,
-        background: C.forest,
-        color: C.cuanBright,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 24,
-        boxShadow: '0 8px 24px rgba(31,59,45,0.2)'
-      }}>
-        <Lock size={36} />
-      </div>
-
-      {/* Premium Badge */}
-      <div style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 6,
-        background: C.cuan,
-        color: C.ink,
-        padding: '6px 14px',
-        borderRadius: 100,
-        fontSize: 11,
-        fontWeight: 700,
-        letterSpacing: '0.1em',
-        textTransform: 'uppercase',
-        marginBottom: 16
-      }}>
-        <Sparkles size={12} /> Member Premium
-      </div>
-
-      {/* Heading */}
-      <h2 className="serif" style={{
-        fontSize: 'clamp(28px, 6vw, 42px)',
-        fontWeight: 500,
-        letterSpacing: '-0.02em',
-        textAlign: 'center',
-        marginBottom: 16,
-        lineHeight: 1.1
-      }}>
-        Sobat AI{' '}
-        <em style={{ color: C.forest }}>Premium</em>
-      </h2>
-
-      {/* Description */}
-      <p style={{
-        fontSize: 16,
-        color: C.inkSoft,
-        lineHeight: 1.6,
-        textAlign: 'center',
-        maxWidth: 480,
-        marginBottom: 32
-      }}>
-        Asisten AI eksklusif untuk member premium. Dapatkan analisis saham mendalam, 
-        rekomendasi portofolio, dan insight pasar real-time yang dipersonalisasi.
-      </p>
-
-      {/* Features List */}
-      <div style={{
-        background: C.cream2,
-        borderRadius: 20,
-        padding: 24,
-        maxWidth: 480,
-        width: '100%',
-        marginBottom: 24
-      }}>
-        <div className="mono" style={{
-          fontSize: 11,
-          textTransform: 'uppercase',
-          letterSpacing: '0.15em',
-          color: C.rust,
-          marginBottom: 14,
-          fontWeight: 500
-        }}>
-          // Yang akan kamu dapat
+    <div className="fade-up" style={{ maxWidth: 760, margin: '0 auto', padding: '24px 16px 40px', display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - 60px - 80px)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+        <div style={{ width: 40, height: 40, borderRadius: 12, background: C.forest, color: C.cuanBright, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Sparkles size={20} />
         </div>
-        {[
-          'Analisis fundamental & teknikal mendalam',
-          'Rekomendasi portofolio personal',
-          'Insight makro & sektor real-time',
-          'Strategi rebalancing otomatis',
-        ].map((feature, i) => (
-          <div key={i} style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            padding: '8px 0',
-            fontSize: 14,
-            color: C.ink
-          }}>
-            <span style={{
-              width: 20,
-              height: 20,
-              borderRadius: '50%',
-              background: C.forest,
-              color: C.cuanBright,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 11,
-              fontWeight: 700,
-              flexShrink: 0
-            }}>✓</span>
-            {feature}
+        <div>
+          <h2 className="serif" style={{ fontSize: 22, fontWeight: 600, lineHeight: 1 }}>Sobat AI</h2>
+          <div style={{ fontSize: 11, color: C.inkSoft }}>Ditenagai teknologi AI pihak ketiga</div>
+        </div>
+      </div>
+
+      <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '16px 0', minHeight: 240 }}>
+        {messages.length === 0 && (
+          <div style={{ padding: '20px 0' }}>
+            <div style={{ fontSize: 14, color: C.inkSoft, marginBottom: 14 }}>
+              Tanya apa saja seputar saham Indonesia, emiten, atau dividen. Sobat AI bukan pemberi nasihat keuangan — selalu riset mandiri sebelum berinvestasi.
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {suggestions.map((s) => (
+                <button key={s} onClick={() => setInput(s)}
+                  style={{ background: C.cream2, border: 'none', borderRadius: 100, padding: '8px 14px', fontSize: 12, color: C.ink, cursor: 'pointer', fontFamily: 'inherit' }}>{s}</button>
+              ))}
+            </div>
+          </div>
+        )}
+        {messages.map((m, i) => (
+          <div key={i} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start', marginBottom: 12 }}>
+            <div style={{ maxWidth: '85%', padding: '10px 14px', borderRadius: 16, fontSize: 14, lineHeight: 1.5, whiteSpace: 'pre-wrap',
+              background: m.role === 'user' ? C.forest : C.cream2, color: m.role === 'user' ? '#fff' : C.ink }}>
+              {m.content}
+            </div>
           </div>
         ))}
+        {loading && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: C.inkSoft, fontSize: 13 }}>
+            <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Sobat AI sedang mengetik…
+          </div>
+        )}
+        {err && <div style={{ fontSize: 13, color: C.rust, padding: '8px 0' }}>{err}</div>}
       </div>
 
-      {/* CTA */}
-      <button
-        style={{
-          background: C.forest,
-          color: C.cream,
-          padding: '14px 28px',
-          borderRadius: 100,
-          border: 'none',
-          fontSize: 14,
-          fontWeight: 600,
-          cursor: 'pointer',
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 8,
-          marginBottom: 12
-        }}
-        onClick={() => alert('Fitur premium akan tersedia segera. Stay tuned, sobat! 🌱')}
-      >
-        <Sparkles size={16} /> Coming Soon
-      </button>
-
-      <p style={{
-        fontSize: 12,
-        color: C.inkSoft,
-        textAlign: 'center'
-      }}>
-        Fitur ini sedang kami siapkan. Pantau update kami ya, sobat. 🌱
-      </p>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', borderTop: '1px solid rgba(26,42,32,0.08)', paddingTop: 12 }}>
+        <textarea value={input} onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
+          placeholder="Tulis pertanyaanmu…" rows={1}
+          style={{ flex: 1, resize: 'none', padding: '12px 14px', borderRadius: 14, border: 'none', background: C.cream2, fontSize: 14, fontFamily: 'inherit', color: C.ink, outline: 'none', maxHeight: 120 }} />
+        <button onClick={send} disabled={!input.trim() || loading}
+          style={{ background: input.trim() && !loading ? C.forest : 'rgba(26,42,32,0.15)', color: '#fff', border: 'none', borderRadius: 14, width: 46, height: 46, cursor: input.trim() && !loading ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <Send size={18} />
+        </button>
+      </div>
     </div>
   );
 }

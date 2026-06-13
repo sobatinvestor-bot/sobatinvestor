@@ -1,35 +1,56 @@
 // Cloudflare Pages Function: /api/chat
-// Proxies requests to Anthropic API while keeping the API key server-side.
-// Set ANTHROPIC_API_KEY as an environment variable in Cloudflare Pages settings.
+// Proxy ke Anthropic dengan API key server-side + proteksi kuota (budget ~Rp45rb/bln).
+// ENV yang diperlukan di Cloudflare Pages:
+//   ANTHROPIC_API_KEY  - kunci API Anthropic
+//   SUPABASE_URL       - https://xxxx.supabase.co
+//   SUPABASE_ANON_KEY  - anon key (untuk memanggil RPC dgn token user)
+
+const SYSTEM_PROMPT = `Kamu adalah Sobat AI, asisten dari aplikasi Sobat Investor — pemantau portofolio saham IDX (Bursa Efek Indonesia).
+
+Gaya jawab: Bahasa Indonesia, profesional, ringkas, berdasarkan data. Selalu mulai dari gambaran besar/menyeluruh lalu lanjut ke detail.
+
+Cakupan: saham Indonesia, analisis emiten, dividen, dan konsep investasi.
+
+Aturan identitas (WAJIB):
+- Perkenalkan diri hanya sebagai "Sobat AI". Jangan pernah menyebut nama model AI atau perusahaan penyedia teknologi apa pun.
+- Bila ditanya apakah kamu AI, jawab jujur: ya, kamu asisten AI. Jangan mengaku sebagai manusia.
+- Jangan mengklaim kamu dikembangkan sendiri oleh Sobat Investor. Bila didesak soal teknologimu, cukup katakan kamu ditenagai teknologi AI pihak ketiga.
+
+Penting: jawabanmu bukan nasihat keuangan. Ingatkan pengguna untuk riset mandiri sebelum mengambil keputusan investasi.`;
 
 export async function onRequestPost(context) {
   const { request, env } = context;
-
   try {
     const apiKey = env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      return jsonResponse({ error: 'ANTHROPIC_API_KEY not configured in Cloudflare Pages environment' }, 500);
+    if (!apiKey) return jsonResponse({ error: 'ANTHROPIC_API_KEY belum diset' }, 500);
+
+    // 1) Ambil token user dari header Authorization (dikirim frontend)
+    const authHeader = request.headers.get('Authorization') || '';
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    if (!token) return jsonResponse({ error: 'Harus login untuk pakai Sobat AI' }, 401);
+
+    // 2) Cek + catat kuota via RPC (atomik di Supabase)
+    const quota = await checkQuota(env, token);
+    if (!quota.ok) {
+      return jsonResponse({ error: quota.reason || 'Kuota habis', quota_exceeded: true }, 429);
     }
 
     const body = await request.json();
-
-    // Validation - only allow expected fields
-    const safeBody = {
-      model: body.model || 'claude-sonnet-4-20250514',
-      max_tokens: Math.min(body.max_tokens || 1000, 2000),
-      system: body.system,
-      messages: body.messages,
-    };
-
-    if (!Array.isArray(safeBody.messages) || safeBody.messages.length === 0) {
+    const messages = body.messages;
+    if (!Array.isArray(messages) || messages.length === 0) {
       return jsonResponse({ error: 'messages array required' }, 400);
     }
-
-    // Rate limiting check (basic) - count user messages
-    const userMessages = safeBody.messages.filter(m => m.role === 'user').length;
-    if (userMessages > 50) {
-      return jsonResponse({ error: 'Conversation too long' }, 400);
+    if (messages.filter((m) => m.role === 'user').length > 30) {
+      return jsonResponse({ error: 'Percakapan terlalu panjang, mulai chat baru ya.' }, 400);
     }
+
+    // 3) Paksa parameter aman di server (client TIDAK bisa override model/system/token)
+    const safeBody = {
+      model: 'claude-haiku-4-5-20251001', // model termurah — kunci budget
+      max_tokens: 600,                     // chat saham cukup pendek
+      system: SYSTEM_PROMPT,               // persona terkunci di server
+      messages,
+    };
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -40,23 +61,43 @@ export async function onRequestPost(context) {
       },
       body: JSON.stringify(safeBody),
     });
-
     const data = await response.json();
     return jsonResponse(data, response.status);
   } catch (err) {
-    console.error('API error:', err);
-    return jsonResponse({ error: 'Internal server error', detail: err.message }, 500);
+    console.error('chat error:', err);
+    return jsonResponse({ error: 'Kesalahan server', detail: err.message }, 500);
   }
 }
 
-// Handle CORS preflight (just in case)
+// Panggil RPC ai_check_and_log memakai token user (agar auth.uid() terisi)
+async function checkQuota(env, token) {
+  try {
+    const res = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/ai_check_and_log`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: env.SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${token}`,
+      },
+      body: '{}',
+    });
+    if (!res.ok) {
+      // Bila RPC gagal (mis. belum dideploy), tolak demi keamanan budget
+      return { ok: false, reason: 'Kuota tidak dapat diverifikasi' };
+    }
+    return await res.json(); // { ok, reason, sisa_harian }
+  } catch {
+    return { ok: false, reason: 'Kuota tidak dapat diverifikasi' };
+  }
+}
+
 export async function onRequestOptions() {
   return new Response(null, {
     status: 204,
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     },
   });
 }
@@ -64,9 +105,6 @@ export async function onRequestOptions() {
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-    },
+    headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
   });
 }
