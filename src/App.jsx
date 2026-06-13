@@ -106,8 +106,10 @@ export default function App() {
     <div style={{ background: C.cream, minHeight: '100vh', color: C.ink }}>
       <Nav ihsg={ihsg} ihsgChange={ihsgChange} session={session} setTab={setTab} tab={tab} />
       <div style={{ paddingBottom: 100 }}>
-        {tab === 'home' && <HomeTab stocks={market.quotes} setTab={setTab} goTo={goTo} />}
-        {tab === 'analisis' && (
+        <div style={{ display: tab === 'home' ? 'block' : 'none' }}>
+          <HomeTab stocks={market.quotes} setTab={setTab} goTo={goTo} />
+        </div>
+        <div style={{ display: tab === 'analisis' ? 'block' : 'none' }}>
           <AnalisisTab
             userId={session ? session.user.id : null}
             userName={session ? (session.user.user_metadata && session.user.user_metadata.display_name ? session.user.user_metadata.display_name : 'Investor-' + session.user.id.slice(0, 4)) : null}
@@ -115,12 +117,14 @@ export default function App() {
             initialPage={analisisPage}
             onPageConsumed={() => setAnalisisPage(null)}
           />
-        )}
+        </div>
         {isPrivateTab && !session && <Auth inline />}
-        {isPrivateTab && session && (
-          <ErrorBoundary>
-            <PrivateArea tab={tab} userId={session.user.id} ihsgQuote={market.ihsg} />
-          </ErrorBoundary>
+        {session && (
+          <div style={{ display: isPrivateTab ? 'block' : 'none' }}>
+            <ErrorBoundary>
+              <PrivateArea tab={tab} userId={session.user.id} ihsgQuote={market.ihsg} />
+            </ErrorBoundary>
+          </div>
         )}
       </div>
       <BottomNav tab={tab} setTab={setTab} />
@@ -141,25 +145,23 @@ function PrivateArea({ tab, userId, ihsgQuote }) {
 
   return (
     <>
-      {tab === 'portfolio' && (
-        <>
-          <DashboardTab stocks={stocks} ihsgQuote={ihsgQuote} />
-          <div id="sec-saham" style={{ scrollMarginTop: 70 }}>
-            <PortfolioTab
-              stocks={stocks}
-              onAdd={() => setEditing({})}
-              onEdit={(s) => setEditing(s)}
-              onDelete={deleteHolding}
-              onSell={(s) => setSelling(s)}
-              onDeleteAll={deleteAll}
-            />
-          </div>
-          <div id="sec-rdn" style={{ scrollMarginTop: 70 }}><RdnCard settings={settings} onAdjust={adjustRdn} onSaveFees={saveFees} userId={userId} /></div>
-          <div id="sec-riwayat" style={{ scrollMarginTop: 70 }}><LotsHistory userId={userId} /></div>
-          <div id="sec-berita" style={{ scrollMarginTop: 70 }}><StockNews stocks={stocks} /></div>
-        </>
-      )}
-      {tab === 'chat' && <ChatTab stocks={stocks} />}
+      <div style={{ display: tab === 'portfolio' ? 'block' : 'none' }}>
+        <DashboardTab stocks={stocks} ihsgQuote={ihsgQuote} />
+        <div id="sec-saham" style={{ scrollMarginTop: 70 }}>
+          <PortfolioTab
+            stocks={stocks}
+            onAdd={() => setEditing({})}
+            onEdit={(s) => setEditing(s)}
+            onDelete={deleteHolding}
+            onSell={(s) => setSelling(s)}
+            onDeleteAll={deleteAll}
+          />
+        </div>
+        <div id="sec-rdn" style={{ scrollMarginTop: 70 }}><RdnCard settings={settings} onAdjust={adjustRdn} onSaveFees={saveFees} userId={userId} /></div>
+        <div id="sec-riwayat" style={{ scrollMarginTop: 70 }}><LotsHistory userId={userId} /></div>
+        <div id="sec-berita" style={{ scrollMarginTop: 70 }}><StockNews stocks={stocks} /></div>
+      </div>
+      <ChatTab stocks={stocks} active={tab === 'chat'} />
       {editing && <Editor holding={editing} onSave={handleSave} onClose={() => setEditing(null)} />}
       {selling && <SellEditor holding={selling} onSell={sellHolding} onClose={() => setSelling(null)} fees={settings} />}
     </>
@@ -652,16 +654,25 @@ function StatCard({ label, value, sub, positive, highlight }) {
 // AI Chat - DISABLED (Member Premium placeholder)
 // To re-enable: restore the original ChatTab function from git history
 // ============================================
-export function ChatTab({ stocks }) {
+export function ChatTab({ stocks, active = true }) {
   const [messages, setMessages] = useState([]); // {role, content}
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
   const scrollRef = useRef(null);
+  const taRef = useRef(null);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, loading]);
+
+  // Textarea auto-grow: tinggi menyesuaikan jumlah baris (maks ~6 baris)
+  useEffect(() => {
+    const ta = taRef.current;
+    if (!ta) return;
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight, 140) + 'px';
+  }, [input]);
 
   async function send() {
     const text = input.trim();
@@ -756,7 +767,7 @@ export function ChatTab({ stocks }) {
   const suggestions = ['Apa itu dividen yield?', 'Jelaskan rasio PER sederhana', 'Tips diversifikasi portofolio'];
 
   return (
-    <div className="fade-up" style={{ maxWidth: 760, margin: '0 auto', padding: '24px 16px 40px', display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - 60px - 80px)' }}>
+    <div className="fade-up" style={{ display: active ? 'flex' : 'none', maxWidth: 760, margin: '0 auto', padding: '24px 16px 40px', flexDirection: 'column', minHeight: 'calc(100vh - 60px - 80px)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
         <div style={{ width: 40, height: 40, borderRadius: 12, background: C.forest, color: C.cuanBright, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Sparkles size={20} />
@@ -798,10 +809,10 @@ export function ChatTab({ stocks }) {
       </div>
 
       <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', borderTop: '1px solid rgba(26,42,32,0.08)', paddingTop: 12 }}>
-        <textarea value={input} onChange={(e) => setInput(e.target.value)}
+        <textarea ref={taRef} value={input} onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
           placeholder="Tulis pertanyaanmu…" rows={1}
-          style={{ flex: 1, resize: 'none', padding: '12px 14px', borderRadius: 14, border: 'none', background: C.cream2, fontSize: 14, fontFamily: 'inherit', color: C.ink, outline: 'none', maxHeight: 120 }} />
+          style={{ flex: 1, resize: 'none', padding: '12px 14px', borderRadius: 14, border: 'none', background: C.cream2, fontSize: 14, fontFamily: 'inherit', color: C.ink, outline: 'none', overflowY: 'auto', lineHeight: 1.4 }} />
         <button onClick={send} disabled={!input.trim() || loading}
           style={{ background: input.trim() && !loading ? C.forest : 'rgba(26,42,32,0.15)', color: '#fff', border: 'none', borderRadius: 14, width: 46, height: 46, cursor: input.trim() && !loading ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <Send size={18} />
