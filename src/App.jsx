@@ -677,28 +677,53 @@ export function ChatTab({ stocks }) {
       const token = session?.access_token;
       if (!token) { setErr('Harus login untuk pakai Sobat AI.'); setLoading(false); return; }
 
-      // Konteks portofolio + DATA EMITEN resmi (nama & sektor dari stock_directory)
-      // agar AI tidak menebak nama perusahaan dari kode saham.
+      // Konteks emiten: gabungan yang DIMILIKI + yang DISEBUT di pertanyaan.
       let ctx = '';
-      if (stocks && stocks.length) {
-        const syms = stocks.map((s) => s.symbol);
-        let dir = [];
-        try {
-          const { data } = await supabase
-            .from('stock_directory').select('symbol,name,sector,is_syariah').in('symbol', syms);
-          dir = data || [];
-        } catch { /* abaikan; fallback ke nama dari holdings */ }
-        const dirMap = {};
-        dir.forEach((d) => { dirMap[d.symbol] = d; });
-        const dataEmiten = stocks.map((s) => {
-          const d = dirMap[s.symbol] || {};
-          const nama = d.name || s.name || '(nama tidak diketahui)';
-          const sektor = d.sector || s.sector || '-';
-          const syariah = d.is_syariah === true ? 'Syariah (ISSI)' : (d.is_syariah === false ? 'non-Syariah' : 'status syariah tidak diketahui');
-          return `${s.symbol} = ${nama} (sektor: ${sektor}; ${syariah}), ${s.qty} lembar`;
-        }).join('; ');
-        ctx = `DATA EMITEN (sumber resmi, pakai nama, sektor & status syariah ini, jangan menebak): ${dataEmiten}.`;
-      }
+      try {
+        const ownedSyms = (stocks || []).map((s) => s.symbol);
+        // Deteksi kode saham: kata 4 huruf yang DITULIS KAPITAL di teks asli (mis. "TLKM"),
+        // agar kata biasa seperti "halo"/"saham" tidak terjaring.
+        const mentioned = (text.match(/\b[A-Z]{4}\b/g) || []);
+        const relevant = [...new Set([...ownedSyms, ...mentioned])].slice(0, 12);
+        if (relevant.length) {
+          // Direktori: nama, sektor, syariah
+          const { data: dir } = await supabase
+            .from('stock_directory').select('symbol,name,sector,is_syariah').in('symbol', relevant);
+          const dirMap = {};
+          (dir || []).forEach((d) => { dirMap[d.symbol] = d; });
+
+          // Analisis terkurasi: ringkasan + angka kunci + bull/bear (hanya yang published)
+          const { data: ana } = await supabase
+            .from('analyses').select('symbol,name,sector,ringkasan,bull,bear,chart,updated_at')
+            .in('symbol', relevant).eq('published', true);
+          const anaMap = {};
+          (ana || []).forEach((a) => { anaMap[a.symbol] = a; });
+
+          const blocks = relevant.map((sym) => {
+            const d = dirMap[sym] || {};
+            const a = anaMap[sym];
+            const nama = (a && a.name) || d.name || sym;
+            const sektor = (a && a.sector) || d.sector || '-';
+            const syariah = d.is_syariah === true ? 'Syariah (ISSI)' : (d.is_syariah === false ? 'non-Syariah' : 'status syariah tidak diketahui');
+            let blok = `${sym} = ${nama} (sektor: ${sektor}; ${syariah})`;
+            if (a) {
+              const angka = a.chart && a.chart.data
+                ? `${a.chart.title || 'Data'}: ` + a.chart.data.map((p) => `${p.label} ${p.value}`).join(', ')
+                : '';
+              const bull = Array.isArray(a.bull) ? a.bull.slice(0, 3).join('; ') : '';
+              const bear = Array.isArray(a.bear) ? a.bear.slice(0, 3).join('; ') : '';
+              blok += `. ANALISIS (per ${(a.updated_at || '').slice(0, 10)}): ${a.ringkasan || ''}`;
+              if (angka) blok += ` Angka kunci: ${angka}.`;
+              if (bull) blok += ` Positif: ${bull}.`;
+              if (bear) blok += ` Risiko: ${bear}.`;
+            } else {
+              blok += `. (Belum ada analisis terkurasi di aplikasi untuk emiten ini.)`;
+            }
+            return blok;
+          });
+          ctx = `DATA EMITEN (sumber resmi & analisis terkurasi aplikasi — pakai HANYA info ini untuk fakta/angka, jangan menebak atau mengarang angka laporan keuangan; ini referensi internal, jangan dibacakan sebagai daftar kecuali pengguna bertanya tentang emiten tersebut):\n${blocks.join('\n')}`;
+        }
+      } catch { /* abaikan; AI akan jawab tanpa konteks */ }
       const payload = next.map((m, i) =>
         i === next.length - 1 && ctx ? { role: m.role, content: `${ctx}\n\n${m.content}` } : m
       );
