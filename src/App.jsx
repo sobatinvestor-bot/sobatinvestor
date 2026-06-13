@@ -677,10 +677,28 @@ export function ChatTab({ stocks }) {
       const token = session?.access_token;
       if (!token) { setErr('Harus login untuk pakai Sobat AI.'); setLoading(false); return; }
 
-      // Konteks portofolio ringkas (bukan seluruh tabel) — hemat token
-      const ctx = stocks && stocks.length
-        ? 'Konteks portofolio user: ' + stocks.map((s) => `${s.symbol} ${s.qty} lembar`).join(', ') + '.'
-        : '';
+      // Konteks portofolio + DATA EMITEN resmi (nama & sektor dari stock_directory)
+      // agar AI tidak menebak nama perusahaan dari kode saham.
+      let ctx = '';
+      if (stocks && stocks.length) {
+        const syms = stocks.map((s) => s.symbol);
+        let dir = [];
+        try {
+          const { data } = await supabase
+            .from('stock_directory').select('symbol,name,sector,is_syariah').in('symbol', syms);
+          dir = data || [];
+        } catch { /* abaikan; fallback ke nama dari holdings */ }
+        const dirMap = {};
+        dir.forEach((d) => { dirMap[d.symbol] = d; });
+        const dataEmiten = stocks.map((s) => {
+          const d = dirMap[s.symbol] || {};
+          const nama = d.name || s.name || '(nama tidak diketahui)';
+          const sektor = d.sector || s.sector || '-';
+          const syariah = d.is_syariah === true ? 'Syariah (ISSI)' : (d.is_syariah === false ? 'non-Syariah' : 'status syariah tidak diketahui');
+          return `${s.symbol} = ${nama} (sektor: ${sektor}; ${syariah}), ${s.qty} lembar`;
+        }).join('; ');
+        ctx = `DATA EMITEN (sumber resmi, pakai nama, sektor & status syariah ini, jangan menebak): ${dataEmiten}.`;
+      }
       const payload = next.map((m, i) =>
         i === next.length - 1 && ctx ? { role: m.role, content: `${ctx}\n\n${m.content}` } : m
       );
