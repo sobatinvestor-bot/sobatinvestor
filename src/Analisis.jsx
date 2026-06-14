@@ -128,9 +128,9 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
               </button>
             ))}
           </div>
-          {filter === 'Syariah' && (
-            <p style={{ fontSize: 11, color: C.inkSoft, marginTop: 8 }}>Emiten dalam indeks ISSI</p>
-          )}
+          <p style={{ fontSize: 11, color: C.inkSoft, marginTop: 8 }}>
+            {shown.length} analisis{filter === 'Syariah' ? ' · emiten dalam indeks ISSI' : ''}
+          </p>
         </div>
       )}
 
