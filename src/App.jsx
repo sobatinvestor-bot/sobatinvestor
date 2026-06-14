@@ -707,30 +707,29 @@ export function ChatTab({ stocks, active = true }) {
           if (!STOP.has(c)) byKeyword.push(c);
         }
         const mentioned = [...upper, ...byKeyword];
-        const relevant = [...new Set([...ownedSyms, ...mentioned])].slice(0, 12);
-        console.log('[SobatAI] stocks mentah:', JSON.stringify(stocks));
-        console.log('[SobatAI] ownedSyms:', ownedSyms, '| mentioned:', mentioned, '| relevant:', relevant);
+        // Prioritas: emiten yang DISEBUT di pertanyaan dulu (itu yang user tanyakan),
+        // baru emiten yang DIMILIKI. Mencegah holding banyak menggusur emiten yg ditanya
+        // saat dipotong ke 12.
+        const relevant = [...new Set([...mentioned, ...ownedSyms])].slice(0, 12);
         if (relevant.length) {
           // Direktori: nama, sektor, syariah
-          const { data: dir, error: dirErr } = await supabase
+          const { data: dir } = await supabase
             .from('stock_directory').select('symbol,name,sector,is_syariah').in('symbol', relevant);
-          console.log('[SobatAI] dir hasil:', JSON.stringify(dir), '| dir error:', dirErr);
           const dirMap = {};
           (dir || []).forEach((d) => { dirMap[d.symbol] = d; });
 
           // Analisis terkurasi: ringkasan + angka kunci + bull/bear (hanya yang published)
-          const { data: ana, error: anaErr } = await supabase
+          const { data: ana } = await supabase
             .from('analyses').select('symbol,name,sector,ringkasan,bull,bear,chart,updated_at')
             .in('symbol', relevant).eq('published', true);
-          console.log('[SobatAI] ana error:', anaErr, '| ana count:', (ana || []).length);
           const anaMap = {};
           (ana || []).forEach((a) => { anaMap[a.symbol] = a; });
 
           const blocks = relevant.map((sym) => {
             const d = dirMap[sym] || {};
             const a = anaMap[sym];
-            const nama = (a && a.name) || d.name || sym;
-            const sektor = (a && a.sector) || d.sector || '-';
+            const nama = ((a && a.name) || d.name || sym).trim();
+            const sektor = ((a && a.sector) || d.sector || '-').trim();
             const syariah = d.is_syariah === true ? 'Syariah (ISSI)' : (d.is_syariah === false ? 'non-Syariah' : 'status syariah tidak diketahui');
             let blok = `${sym} = ${nama} (sektor: ${sektor}; ${syariah})`;
             if (a) {
@@ -750,8 +749,7 @@ export function ChatTab({ stocks, active = true }) {
           });
           ctx = `DATA EMITEN (sumber resmi & analisis terkurasi aplikasi — pakai HANYA info ini untuk fakta/angka, jangan menebak atau mengarang angka laporan keuangan; ini referensi internal, jangan dibacakan sebagai daftar kecuali pengguna bertanya tentang emiten tersebut):\n${blocks.join('\n')}`;
         }
-      } catch (ctxErr) { console.log('[SobatAI] ctx ERROR (ditelan):', ctxErr); }
-      console.log('[SobatAI] ctx final:', ctx ? ctx.slice(0, 200) : '(KOSONG)');
+      } catch { /* abaikan; AI akan jawab tanpa konteks */ }
       const payload = next.map((m, i) =>
         i === next.length - 1 && ctx ? { role: m.role, content: `${ctx}\n\n${m.content}` } : m
       );
