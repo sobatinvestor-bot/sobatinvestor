@@ -693,18 +693,20 @@ export function ChatTab({ stocks, active = true }) {
       try {
         const ownedSyms = (stocks || []).map((s) => s.symbol);
         // Deteksi kode saham dari pertanyaan:
-        //  (a) kata 4 huruf DITULIS KAPITAL (mis. "PTBA"), atau
-        //  (b) kata 4 huruf (huruf apa pun) yang didahului kata kunci emiten,
-        //      mis. "saham ptba", "emiten ktr", "kode bbca", "saham PTBA".
-        // Ini menangkap kode huruf-kecil tanpa menjaring kata umum acak.
+        //  (a) kata 4 huruf DITULIS KAPITAL (mis. "PTBA"), selalu dianggap kode.
+        //  (b) bila kalimat memuat kata kunci emiten (saham/emiten/kode/ticker/stock),
+        //      SEMUA kata 4-huruf di kalimat jadi kandidat (kecuali kata umum),
+        //      sehingga "saham ptba dan msti" menangkap ptba DAN msti.
         const upper = (text.match(/\b[A-Z]{4}\b/g) || []);
+        const STOP = new Set(['YANG','ATAU','SAJA','PADA','DARI','AKAN','BISA','SUDA','APAA','MASA','BUAT','LAGI','JUGA','PUNYA','MILIK','MASU','SEKT','APAK','DLLL','TADI','GMNA','GIMA','KALO','KLAU','UNTU','PALI','SAMA','LEBI','KARE','SETE','TENT','HARU','MAUP','BAIK']);
+        const hasKeyword = /\b(saham|emiten|kode|ticker|stock)\b/i.test(text);
         const byKeyword = [];
-        const STOP = new Set(['YANG','ATAU','SAJA','PADA','DARI','AKAN','BISA','SUDA','INI ','ITU ','APAA','MASA','BUAT','LAGI','JUGA','PUNYA','MILIK']);
-        const reKw = /\b(?:saham|emiten|kode|ticker|stock)\s+([a-zA-Z]{4})\b/gi;
-        let mkw;
-        while ((mkw = reKw.exec(text)) !== null) {
-          const c = mkw[1].toUpperCase();
-          if (!STOP.has(c)) byKeyword.push(c);
+        if (hasKeyword) {
+          const all = text.match(/\b[a-zA-Z]{4}\b/g) || [];
+          for (const w of all) {
+            const c = w.toUpperCase();
+            if (!STOP.has(c) && !/^(SAHA|EMIT|KODE|TICK|STOC)$/.test(c)) byKeyword.push(c);
+          }
         }
         const mentioned = [...upper, ...byKeyword];
         // Prioritas: emiten yang DISEBUT di pertanyaan dulu (itu yang user tanyakan),
