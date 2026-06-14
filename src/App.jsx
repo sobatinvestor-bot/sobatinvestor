@@ -659,8 +659,19 @@ export function ChatTab({ stocks, active = true }) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
+  const [quota, setQuota] = useState(null); // { login, admin, limit_harian, dipakai, sisa_harian }
   const scrollRef = useRef(null);
   const taRef = useRef(null);
+
+  async function refreshQuota() {
+    try {
+      const { data, error } = await supabase.rpc('ai_quota_status');
+      if (!error && data) setQuota(data);
+    } catch { /* abaikan */ }
+  }
+
+  // Muat sisa kuota saat tab dibuka
+  useEffect(() => { if (active) refreshQuota(); }, [active]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -767,12 +778,14 @@ export function ChatTab({ stocks, active = true }) {
         setErr(data.error || 'Kuota Sobat AI habis. Coba lagi nanti.');
         setMessages(messages); // kembalikan, tidak hitung pesan gagal
         setLoading(false);
+        refreshQuota();
         return;
       }
       if (!res.ok) throw new Error(data.error || 'Gagal memuat jawaban');
 
       const reply = (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim();
       setMessages([...next, { role: 'assistant', content: reply || '(kosong)' }]);
+      refreshQuota();
     } catch (e) {
       setErr(e.message || 'Terjadi kesalahan.');
       setMessages(messages);
@@ -793,6 +806,13 @@ export function ChatTab({ stocks, active = true }) {
           <h2 className="serif" style={{ fontSize: 22, fontWeight: 600, lineHeight: 1 }}>Sobat AI</h2>
           <div style={{ fontSize: 11, color: C.inkSoft }}>Ditenagai teknologi AI pihak ketiga</div>
         </div>
+        {quota && quota.login && (
+          <div style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, padding: '5px 10px', borderRadius: 100, whiteSpace: 'nowrap',
+            background: C.cream2,
+            color: (!quota.admin && quota.sisa_harian === 0) ? C.rust : C.inkSoft }}>
+            {quota.admin ? 'Admin · tanpa batas' : `Sisa chat hari ini: ${quota.sisa_harian}/${quota.limit_harian}`}
+          </div>
+        )}
       </div>
 
       <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '16px 0', minHeight: 240 }}>
