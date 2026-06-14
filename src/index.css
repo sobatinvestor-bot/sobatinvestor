@@ -42,7 +42,7 @@ html, body {
 }
 
 .fade-up { animation: fadeUp 0.5s ease forwards; }
-.ticker-track { animation: scroll-x 30s linear infinite; }
+.ticker-track { animation: scroll-x 15s linear infinite; }
 .pulse-dot { animation: pulse-dot 2s infinite; }
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
