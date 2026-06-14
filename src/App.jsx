@@ -692,21 +692,37 @@ export function ChatTab({ stocks, active = true }) {
       let ctx = '';
       try {
         const ownedSyms = (stocks || []).map((s) => s.symbol);
-        // Deteksi kode saham: kata 4 huruf yang DITULIS KAPITAL di teks asli (mis. "TLKM"),
-        // agar kata biasa seperti "halo"/"saham" tidak terjaring.
-        const mentioned = (text.match(/\b[A-Z]{4}\b/g) || []);
+        // Deteksi kode saham dari pertanyaan:
+        //  (a) kata 4 huruf DITULIS KAPITAL (mis. "PTBA"), atau
+        //  (b) kata 4 huruf (huruf apa pun) yang didahului kata kunci emiten,
+        //      mis. "saham ptba", "emiten ktr", "kode bbca", "saham PTBA".
+        // Ini menangkap kode huruf-kecil tanpa menjaring kata umum acak.
+        const upper = (text.match(/\b[A-Z]{4}\b/g) || []);
+        const byKeyword = [];
+        const STOP = new Set(['YANG','ATAU','SAJA','PADA','DARI','AKAN','BISA','SUDA','INI ','ITU ','APAA','MASA','BUAT','LAGI','JUGA','PUNYA','MILIK']);
+        const reKw = /\b(?:saham|emiten|kode|ticker|stock)\s+([a-zA-Z]{4})\b/gi;
+        let mkw;
+        while ((mkw = reKw.exec(text)) !== null) {
+          const c = mkw[1].toUpperCase();
+          if (!STOP.has(c)) byKeyword.push(c);
+        }
+        const mentioned = [...upper, ...byKeyword];
         const relevant = [...new Set([...ownedSyms, ...mentioned])].slice(0, 12);
+        console.log('[SobatAI] stocks mentah:', JSON.stringify(stocks));
+        console.log('[SobatAI] ownedSyms:', ownedSyms, '| mentioned:', mentioned, '| relevant:', relevant);
         if (relevant.length) {
           // Direktori: nama, sektor, syariah
-          const { data: dir } = await supabase
+          const { data: dir, error: dirErr } = await supabase
             .from('stock_directory').select('symbol,name,sector,is_syariah').in('symbol', relevant);
+          console.log('[SobatAI] dir hasil:', JSON.stringify(dir), '| dir error:', dirErr);
           const dirMap = {};
           (dir || []).forEach((d) => { dirMap[d.symbol] = d; });
 
           // Analisis terkurasi: ringkasan + angka kunci + bull/bear (hanya yang published)
-          const { data: ana } = await supabase
+          const { data: ana, error: anaErr } = await supabase
             .from('analyses').select('symbol,name,sector,ringkasan,bull,bear,chart,updated_at')
             .in('symbol', relevant).eq('published', true);
+          console.log('[SobatAI] ana error:', anaErr, '| ana count:', (ana || []).length);
           const anaMap = {};
           (ana || []).forEach((a) => { anaMap[a.symbol] = a; });
 
@@ -734,7 +750,8 @@ export function ChatTab({ stocks, active = true }) {
           });
           ctx = `DATA EMITEN (sumber resmi & analisis terkurasi aplikasi — pakai HANYA info ini untuk fakta/angka, jangan menebak atau mengarang angka laporan keuangan; ini referensi internal, jangan dibacakan sebagai daftar kecuali pengguna bertanya tentang emiten tersebut):\n${blocks.join('\n')}`;
         }
-      } catch { /* abaikan; AI akan jawab tanpa konteks */ }
+      } catch (ctxErr) { console.log('[SobatAI] ctx ERROR (ditelan):', ctxErr); }
+      console.log('[SobatAI] ctx final:', ctx ? ctx.slice(0, 200) : '(KOSONG)');
       const payload = next.map((m, i) =>
         i === next.length - 1 && ctx ? { role: m.role, content: `${ctx}\n\n${m.content}` } : m
       );
