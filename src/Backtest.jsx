@@ -244,7 +244,8 @@ export default function Backtest() {
                   </linearGradient>
                 </defs>
                 <XAxis dataKey="i" type="number" domain={['dataMin', 'dataMax']} tick={{ fontSize: 10, fill: C.inkSoft }} minTickGap={40} tickFormatter={(v) => (res.dates && res.dates[v]) || ''} />
-                <YAxis tick={{ fontSize: 10, fill: C.inkSoft }} domain={['auto', 'auto']} width={42} />
+                <YAxis tick={{ fontSize: 10, fill: C.inkSoft }} domain={['auto', 'auto']} width={42} tickFormatter={(v) => { const r = Math.round(v - 100); return (r > 0 ? '+' : '') + r + '%'; }} />
+                <ReferenceLine y={100} stroke={C.inkSoft} strokeDasharray="3 3" strokeOpacity={0.5} />
                 {(res.divIdx || []).map((di) => (
                   <ReferenceLine key={di} x={di} stroke={C.cuan} strokeDasharray="2 4" strokeWidth={1.3} />
                 ))}
@@ -254,7 +255,8 @@ export default function Backtest() {
                   labelFormatter={(v) => (res.fullDates && res.fullDates[v]) || (res.dates && res.dates[v]) || v}
                   formatter={(v, name) => {
                     const nm = { strategi: `Strategi SMA`, belitahan: 'Beli & Tahan', beli: '▲ BELI', jual: '▼ JUAL' }[name] || name;
-                    return [v + ' (awal=100)', nm];
+                    const r = v - 100;
+                    return [(r >= 0 ? '+' : '') + r.toFixed(1) + '%', nm];
                   }}
                 />
                 <Legend formatter={(v) => ({ strategi: `Strategi SMA ${fast}/${slow}`, belitahan: 'Beli & Tahan', beli: 'Beli', jual: 'Jual' }[v] || v)} wrapperStyle={{ fontSize: 12 }} />
