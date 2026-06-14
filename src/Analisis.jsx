@@ -28,7 +28,6 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(null);
   const [page, setPage] = useState(initialPage || 'umum'); // 'umum' | 'porto' | 'backtest'
-  const [filter, setFilter] = useState('semua'); // 'semua' | 'syariah' (hanya page umum)
   const [mySymbols, setMySymbols] = useState(null); // null = belum dimuat
 
   // Permintaan buka page tertentu dari luar (mis. kartu Beranda → Backtest)
@@ -42,16 +41,29 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
 
   useEffect(() => {
     let active = true;
-    supabase
-      .from('analyses')
-      .select('*')
-      .eq('published', true)
-      .order('created_at', { ascending: false })
-      .then(({ data, error }) => {
-        if (!active) return;
-        if (!error) setItems(data || []);
-        setLoading(false);
-      });
+    Promise.all([
+      supabase.from('analyses').select('*').eq('published', true),
+      supabase.rpc('analysis_comment_counts'),
+    ]).then(([aRes, cRes]) => {
+      if (!active) return;
+      const counts = {};
+      if (!cRes.error && Array.isArray(cRes.data)) {
+        cRes.data.forEach((r) => { counts[(r.symbol || '').toUpperCase()] = Number(r.cnt) || 0; });
+      }
+      const list = (aRes.error ? [] : (aRes.data || [])).map((a) => ({
+        ...a,
+        _comments: counts[(a.symbol || '').toUpperCase()] || 0,
+        _views: Number(a.view_count) || 0,
+      }));
+      // Urutan: jumlah komentar -> jumlah view -> terbaru
+      list.sort((x, y) =>
+        (y._comments - x._comments) ||
+        (y._views - x._views) ||
+        (new Date(y.created_at).getTime() - new Date(x.created_at).getTime())
+      );
+      setItems(list);
+      setLoading(false);
+    });
     return () => { active = false; };
   }, []);
 
@@ -76,10 +88,9 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
   }
 
   const isPorto = page === 'porto';
-  const base = isPorto && Array.isArray(mySymbols)
+  const shown = isPorto && Array.isArray(mySymbols)
     ? items.filter((a) => mySymbols.includes((a.symbol || '').toUpperCase()))
     : items;
-  const shown = !isPorto && filter === 'syariah' ? base.filter((a) => a.is_syariah === true) : base;
   const noAnalysis = isPorto && Array.isArray(mySymbols)
     ? mySymbols.filter((s) => !items.some((a) => (a.symbol || '').toUpperCase() === s)).sort()
     : [];
@@ -100,22 +111,6 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
           </button>
         ))}
       </div>
-
-      {/* Filter syariah (ISSI) — hanya di Analisis Umum */}
-      {page === 'umum' && (
-        <div style={{ display: 'flex', gap: 8, marginBottom: 16, alignItems: 'center' }}>
-          {[['semua', 'Semua'], ['syariah', 'Syariah']].map(([k, lbl]) => (
-            <button key={k} onClick={() => setFilter(k)}
-              style={{ cursor: 'pointer', fontSize: 12, fontWeight: 600, padding: '6px 14px', borderRadius: 100, border: `1px solid ${filter === k ? C.green : C.cream2}`, background: filter === k ? 'rgba(46,125,79,0.10)' : C.cream2, color: filter === k ? C.green : C.inkSoft }}>
-              {lbl}
-            </button>
-          ))}
-          {filter === 'syariah' && (
-            // PERIODE ISSI: perbarui teks ini setiap refresh_issi (evaluasi mayor BEI ±Juni & Desember)
-            <span className="mono" style={{ fontSize: 10, color: C.inkSoft, letterSpacing: '0.04em' }}>Indeks ISSI · berlaku s.d. 30 Nov 2026</span>
-          )}
-        </div>
-      )}
 
       {page === 'backtest' && !userId ? (
         <div style={{ background: C.cream2, borderRadius: 18, padding: 24, textAlign: 'center' }}>
@@ -148,9 +143,7 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
           Portofoliomu masih kosong. Tambahkan saham di tab <strong style={{ color: C.ink }}>Portofolio</strong>, lalu analisis yang relevan akan muncul di sini.
         </div>
       ) : shown.length === 0 && !isPorto ? (
-        <div style={{ fontSize: 14, color: C.inkSoft }}>
-          {filter === 'syariah' ? 'Belum ada analisis untuk emiten syariah (ISSI).' : 'Belum ada analisis yang dipublikasikan.'}
-        </div>
+        <div style={{ fontSize: 14, color: C.inkSoft }}>Belum ada analisis yang dipublikasikan.</div>
       ) : (
         <div style={{ display: 'grid', gap: 12 }}>
           {isPorto && shown.length === 0 && (
@@ -159,15 +152,12 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
           {shown.map((a) => (
             <button
               key={a.symbol}
-              onClick={() => setOpen(a.symbol)}
+              onClick={() => { setOpen(a.symbol); supabase.rpc('increment_analysis_view', { p_symbol: a.symbol }); }}
               style={{ textAlign: 'left', background: C.cream2, border: 'none', borderRadius: 18, padding: 18, cursor: 'pointer' }}
             >
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
                 <span className="serif" style={{ fontSize: 20, fontWeight: 600 }}>{a.symbol}</span>
                 <span style={{ fontSize: 12, color: C.inkSoft }}>{a.name}</span>
-                {a.is_syariah === true && (
-                  <span className="mono" style={{ fontSize: 9, fontWeight: 700, color: C.green, letterSpacing: '0.08em', border: `1px solid ${C.green}`, borderRadius: 100, padding: '2px 8px' }}>SYARIAH</span>
-                )}
                 {isPorto && <span className="mono" style={{ fontSize: 9, fontWeight: 700, color: C.cuan, letterSpacing: '0.08em', marginLeft: 'auto' }}>DI PORTOFOLIOMU</span>}
               </div>
               <div className="mono" style={{ fontSize: 10, color: C.rust, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>{a.sector}</div>
