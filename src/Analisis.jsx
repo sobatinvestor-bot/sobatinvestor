@@ -29,6 +29,7 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
   const [open, setOpen] = useState(null);
   const [page, setPage] = useState(initialPage || 'umum'); // 'umum' | 'porto' | 'backtest'
   const [mySymbols, setMySymbols] = useState(null); // null = belum dimuat
+  const [filter, setFilter] = useState('Semua'); // 'Semua' | 'Syariah' (hanya di Analisis Umum)
 
   // Permintaan buka page tertentu dari luar (mis. kartu Beranda → Backtest)
   useEffect(() => {
@@ -88,9 +89,10 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
   }
 
   const isPorto = page === 'porto';
-  const shown = isPorto && Array.isArray(mySymbols)
+  const base = isPorto && Array.isArray(mySymbols)
     ? items.filter((a) => mySymbols.includes((a.symbol || '').toUpperCase()))
     : items;
+  const shown = (!isPorto && filter === 'Syariah') ? base.filter((a) => a.is_syariah === true) : base;
   const noAnalysis = isPorto && Array.isArray(mySymbols)
     ? mySymbols.filter((s) => !items.some((a) => (a.symbol || '').toUpperCase() === s)).sort()
     : [];
@@ -111,6 +113,26 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
           </button>
         ))}
       </div>
+
+      {/* Filter Semua | Syariah (ISSI) - hanya di Analisis Umum */}
+      {page === 'umum' && (
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ display: 'inline-flex', gap: 8 }}>
+            {['Semua', 'Syariah'].map((f) => (
+              <button key={f} onClick={() => setFilter(f)}
+                style={{ cursor: 'pointer', fontSize: 12, fontWeight: 600, padding: '6px 14px', borderRadius: 100,
+                  background: filter === f ? 'rgba(31,59,45,0.08)' : 'transparent',
+                  border: `1px solid ${filter === f ? C.forest : 'rgba(58,74,64,0.25)'}`,
+                  color: filter === f ? C.forest : C.inkSoft }}>
+                {f}
+              </button>
+            ))}
+          </div>
+          {filter === 'Syariah' && (
+            <p style={{ fontSize: 11, color: C.inkSoft, marginTop: 8 }}>Emiten dalam indeks ISSI</p>
+          )}
+        </div>
+      )}
 
       {page === 'backtest' && !userId ? (
         <div style={{ background: C.cream2, borderRadius: 18, padding: 24, textAlign: 'center' }}>
@@ -143,7 +165,9 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
           Portofoliomu masih kosong. Tambahkan saham di tab <strong style={{ color: C.ink }}>Portofolio</strong>, lalu analisis yang relevan akan muncul di sini.
         </div>
       ) : shown.length === 0 && !isPorto ? (
-        <div style={{ fontSize: 14, color: C.inkSoft }}>Belum ada analisis yang dipublikasikan.</div>
+        <div style={{ fontSize: 14, color: C.inkSoft }}>
+          {filter === 'Syariah' ? 'Belum ada analisis untuk emiten syariah' : 'Belum ada analisis yang dipublikasikan.'}
+        </div>
       ) : (
         <div style={{ display: 'grid', gap: 12 }}>
           {isPorto && shown.length === 0 && (
@@ -158,6 +182,7 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
                 <span className="serif" style={{ fontSize: 20, fontWeight: 600 }}>{a.symbol}</span>
                 <span style={{ fontSize: 12, color: C.inkSoft }}>{a.name}</span>
+                {a.is_syariah && <span className="mono" style={{ fontSize: 9, fontWeight: 700, color: C.forest, border: `1px solid ${C.forest}`, borderRadius: 100, padding: '2px 7px', letterSpacing: '0.06em' }}>SYARIAH</span>}
                 {isPorto && <span className="mono" style={{ fontSize: 9, fontWeight: 700, color: C.cuan, letterSpacing: '0.08em', marginLeft: 'auto' }}>DI PORTOFOLIOMU</span>}
               </div>
               <div className="mono" style={{ fontSize: 10, color: C.rust, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>{a.sector}</div>
