@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine } from 'recharts';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import { Auth, usePortfolio, Editor, logout, LotsHistory, SellEditor, RdnCard, StockNews } from './Account.jsx';
-import AnalisisTab from './Analisis.jsx';
+const AnalisisTab = lazy(() => import('./Analisis.jsx'));
+const PerfChart = lazy(() => import('./DashboardCharts.jsx').then((m) => ({ default: m.PerfChart })));
+const SectorPie = lazy(() => import('./DashboardCharts.jsx').then((m) => ({ default: m.SectorPie })));
 
 const C = {
   cream: '#F4EFE6',
@@ -110,13 +111,15 @@ export default function App() {
           <HomeTab stocks={market.quotes} setTab={setTab} goTo={goTo} />
         </div>
         <div style={{ display: tab === 'analisis' ? 'block' : 'none' }}>
-          <AnalisisTab
-            userId={session ? session.user.id : null}
-            userName={session ? (session.user.user_metadata && session.user.user_metadata.display_name ? session.user.user_metadata.display_name : 'Investor-' + session.user.id.slice(0, 4)) : null}
-            onRequireLogin={() => setTab('portfolio')}
-            initialPage={analisisPage}
-            onPageConsumed={() => setAnalisisPage(null)}
-          />
+          <Suspense fallback={<div style={{ padding: '40px 20px', textAlign: 'center', color: C.inkSoft, fontSize: 13 }}>Memuat analisis…</div>}>
+            <AnalisisTab
+              userId={session ? session.user.id : null}
+              userName={session ? (session.user.user_metadata && session.user.user_metadata.display_name ? session.user.user_metadata.display_name : 'Investor-' + session.user.id.slice(0, 4)) : null}
+              onRequireLogin={() => setTab('portfolio')}
+              initialPage={analisisPage}
+              onPageConsumed={() => setAnalisisPage(null)}
+            />
+          </Suspense>
         </div>
         {isPrivateTab && !session && <Auth inline />}
         {session && (
@@ -565,22 +568,9 @@ function DashboardTab({ stocks, ihsgQuote }) {
             ))}
           </div>
         </div>
-        <ResponsiveContainer width="100%" height={180}>
-          <AreaChart data={perfData}>
-            <defs>
-              <linearGradient id="cuanGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={C.cuan} stopOpacity={0.4} />
-                <stop offset="100%" stopColor={C.cuan} stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <XAxis dataKey="label" hide />
-            <YAxis hide domain={[(min) => min * 0.999, (max) => max * 1.001]} />
-            <Tooltip content={<PerfTooltip />} />
-            <ReferenceLine x={todayLabel} stroke={C.inkSoft} strokeDasharray="3 3" label={{ value: 'Hari ini', position: 'insideTopRight', fontSize: 10, fill: C.inkSoft }} />
-            <Area type="linear" dataKey="value" stroke={C.cuan} strokeWidth={2.5} fill="url(#cuanGrad)" />
-            {hasIhsg && <Area type="linear" dataKey="ihsg" stroke={C.inkSoft} strokeWidth={1.5} strokeDasharray="4 3" fill="none" dot={false} />}
-          </AreaChart>
-        </ResponsiveContainer>
+        <Suspense fallback={<div style={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.inkSoft, fontSize: 12 }}>memuat grafik…</div>}>
+          <PerfChart perfData={perfData} todayLabel={todayLabel} hasIhsg={hasIhsg} />
+        </Suspense>
         <div style={{ fontSize: 11, color: C.inkSoft, marginTop: 8, lineHeight: 1.5 }}>
           Kiri "Hari ini" = harga historis asli tiap saham. Kanan = proyeksi datar di harga terakhir. Garis putus-putus = IHSG (disetarakan ke nilai awal). Lonjakan = dividen masuk (perkiraan tgl bayar).{totalDivWindow > 0 ? ` Total dividen di jendela ini: ${fmtRp(totalDivWindow)}.` : ''}
         </div>
@@ -589,18 +579,9 @@ function DashboardTab({ stocks, ihsgQuote }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, marginBottom: 16 }}>
         <div style={{ background: C.cream2, borderRadius: 20, padding: 20 }}>
           <h3 className="serif" style={{ fontSize: 18, fontWeight: 600, marginBottom: 12 }}>Alokasi Sektor</h3>
-          <ResponsiveContainer width="100%" height={160}>
-            <PieChart>
-              <Pie data={sectorData} dataKey="value" cx="50%" cy="50%" innerRadius={42} outerRadius={70} paddingAngle={2}>
-                {sectorData.map((_, i) => <Cell key={i} fill={sectorColors[i % sectorColors.length]} />)}
-              </Pie>
-              <Tooltip
-                contentStyle={{ background: C.ink, border: 'none', borderRadius: 8, fontSize: 12, color: C.cream }}
-                itemStyle={{ color: C.cream }}
-                formatter={(v) => fmtRp(v)}
-              />
-            </PieChart>
-          </ResponsiveContainer>
+          <Suspense fallback={<div style={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.inkSoft, fontSize: 12 }}>memuat grafik…</div>}>
+            <SectorPie sectorData={sectorData} sectorColors={sectorColors} />
+          </Suspense>
           <div style={{ marginTop: 8 }}>
             {sectorData.map((s, i) => (
               <div key={s.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', fontSize: 13 }}>

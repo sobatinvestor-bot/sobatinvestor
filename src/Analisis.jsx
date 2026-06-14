@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { ChevronLeft, Send, Trash2, Loader2, TrendingUp, TrendingDown, MessageCircle, Search, X } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell } from 'recharts';
 import { supabase } from './lib/supabase';
-import Backtest from './Backtest.jsx';
+const Backtest = lazy(() => import('./Backtest.jsx'));
 
 const C = {
   cream: '#F4EFE6',
@@ -166,7 +166,9 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
           </button>
         </div>
       ) : page === 'backtest' ? (
-        <Backtest />
+        <Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', gap: 8, color: C.inkSoft, fontSize: 14, padding: '12px 0' }}><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Memuat Backtest…</div>}>
+          <Backtest />
+        </Suspense>
       ) : isPorto && !userId ? (
         <div style={{ background: C.cream2, borderRadius: 18, padding: 24, textAlign: 'center' }}>
           <p style={{ fontSize: 14, color: C.inkSoft, marginBottom: 14, lineHeight: 1.55 }}>
