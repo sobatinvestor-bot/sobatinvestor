@@ -250,6 +250,10 @@ function AnalisisDetail({ a, onBack, userId, userName, onRequireLogin }) {
       </div>
 
       <Comments symbol={a.symbol} userId={userId} userName={userName} onRequireLogin={onRequireLogin} />
+
+      <button onClick={onBack} style={{ marginTop: 28, background: C.cream2, border: 'none', cursor: 'pointer', color: C.ink, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, padding: '10px 18px', borderRadius: 100 }}>
+        <ChevronLeft size={16} /> Kembali ke semua analisis
+      </button>
     </div>
   );
 }
