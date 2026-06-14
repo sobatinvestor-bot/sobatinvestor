@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, Send, Trash2, Loader2, TrendingUp, TrendingDown, MessageCircle } from 'lucide-react';
+import { ChevronLeft, Send, Trash2, Loader2, TrendingUp, TrendingDown, MessageCircle, Search, X } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell } from 'recharts';
 import { supabase } from './lib/supabase';
 import Backtest from './Backtest.jsx';
@@ -30,6 +30,7 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
   const [page, setPage] = useState(initialPage || 'umum'); // 'umum' | 'porto' | 'backtest'
   const [mySymbols, setMySymbols] = useState(null); // null = belum dimuat
   const [filter, setFilter] = useState('Semua'); // 'Semua' | 'Syariah' (hanya di Analisis Umum)
+  const [query, setQuery] = useState(''); // pencarian emiten (kode/nama), hanya di Analisis Umum
 
   // Permintaan buka page tertentu dari luar (mis. kartu Beranda → Backtest)
   useEffect(() => {
@@ -92,7 +93,15 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
   const base = isPorto && Array.isArray(mySymbols)
     ? items.filter((a) => mySymbols.includes((a.symbol || '').toUpperCase()))
     : items;
-  const shown = (!isPorto && filter === 'Syariah') ? base.filter((a) => a.is_syariah === true) : base;
+  const q = query.trim().toUpperCase();
+  const shown = base.filter((a) => {
+    if (!isPorto && filter === 'Syariah' && a.is_syariah !== true) return false;
+    if (!isPorto && q) {
+      const hay = `${(a.symbol || '').toUpperCase()} ${(a.name || '').toUpperCase()}`;
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
   const noAnalysis = isPorto && Array.isArray(mySymbols)
     ? mySymbols.filter((s) => !items.some((a) => (a.symbol || '').toUpperCase() === s)).sort()
     : [];
@@ -117,6 +126,18 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
       {/* Filter Semua | Syariah (ISSI) - hanya di Analisis Umum */}
       {page === 'umum' && (
         <div style={{ marginBottom: 18 }}>
+          <div style={{ position: 'relative', marginBottom: 12 }}>
+            <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: C.inkSoft, pointerEvents: 'none' }} />
+            <input value={query} onChange={(e) => setQuery(e.target.value)}
+              placeholder="Cari emiten (kode atau nama)…"
+              style={{ width: '100%', boxSizing: 'border-box', padding: '10px 34px', borderRadius: 100, border: 'none', background: C.cream2, fontSize: 13, color: C.ink, outline: 'none', fontFamily: 'inherit' }} />
+            {query && (
+              <button onClick={() => setQuery('')} aria-label="Hapus pencarian"
+                style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', cursor: 'pointer', color: C.inkSoft, display: 'flex', alignItems: 'center', padding: 4 }}>
+                <X size={15} />
+              </button>
+            )}
+          </div>
           <div style={{ display: 'inline-flex', gap: 8 }}>
             {['Semua', 'Syariah'].map((f) => (
               <button key={f} onClick={() => setFilter(f)}
@@ -129,7 +150,7 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
             ))}
           </div>
           <p style={{ fontSize: 11, color: C.inkSoft, marginTop: 8 }}>
-            {shown.length} analisis{filter === 'Syariah' ? ' · emiten dalam indeks ISSI' : ''}
+            {shown.length} analisis{filter === 'Syariah' ? ' · emiten dalam indeks ISSI' : ''}{q ? ` · hasil "${query.trim()}"` : ''}
           </p>
         </div>
       )}
@@ -166,7 +187,7 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
         </div>
       ) : shown.length === 0 && !isPorto ? (
         <div style={{ fontSize: 14, color: C.inkSoft }}>
-          {filter === 'Syariah' ? 'Belum ada analisis untuk emiten syariah' : 'Belum ada analisis yang dipublikasikan.'}
+          {q ? `Tidak ada analisis yang cocok dengan "${query.trim()}".` : (filter === 'Syariah' ? 'Belum ada analisis untuk emiten syariah' : 'Belum ada analisis yang dipublikasikan.')}
         </div>
       ) : (
         <div style={{ display: 'grid', gap: 12 }}>
