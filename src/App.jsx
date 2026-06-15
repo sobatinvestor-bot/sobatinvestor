@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus } from 'lucide-react';
 import { supabase } from './lib/supabase';
-import { Auth, usePortfolio, Editor, logout, LotsHistory, SellEditor, RdnCard, StockNews } from './Account.jsx';
+import { Auth, usePortfolio, Editor, logout, SellEditor, RdnCard, StockNews } from './Account.jsx';
 const AnalisisTab = lazy(() => import('./Analisis.jsx'));
 const PerfChart = lazy(() => import('./DashboardCharts.jsx').then((m) => ({ default: m.PerfChart })));
 const SectorPie = lazy(() => import('./DashboardCharts.jsx').then((m) => ({ default: m.SectorPie })));
@@ -167,7 +167,6 @@ function PrivateArea({ tab, userId, ihsgQuote, goAnalisis }) {
           />
         </div>
         <div id="sec-rdn" style={{ scrollMarginTop: 70 }}><RdnCard settings={settings} onAdjust={adjustRdn} onSaveFees={saveFees} userId={userId} /></div>
-        <div id="sec-riwayat" style={{ scrollMarginTop: 70 }}><LotsHistory userId={userId} /></div>
         <div id="sec-berita" style={{ scrollMarginTop: 70 }}><StockNews stocks={stocks} /></div>
         {userId === ADMIN_UID && <div id="sec-admin" style={{ scrollMarginTop: 70 }}><DividendAdmin userId={userId} /></div>}
       </div>

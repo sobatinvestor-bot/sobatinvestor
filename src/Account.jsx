@@ -125,7 +125,7 @@ export function usePortfolio(userId) {
       if (error) alert('Gagal menggabungkan: ' + error.message);
       else {
         await recordLot(h);
-        await adjustRdn(-(h.qty * h.avg) * (1 + settings.fee_buy / 100), `Beli ${h.symbol}`, h.buyDate || null);
+        await adjustRdn(-(h.qty * h.avg) * (1 + settings.fee_buy / 100), `Beli ${h.symbol} ${Number(h.qty).toLocaleString('id-ID')} @ Rp${Math.round(h.avg).toLocaleString('id-ID')}`, h.buyDate || null);
         alert(`${h.symbol} digabung: ${newQty} lembar @ rata-rata Rp${mergedAvg.toLocaleString('id-ID')}`);
       }
       await loadHoldings();
@@ -146,7 +146,7 @@ export function usePortfolio(userId) {
       return;
     }
     await recordLot(h);
-    await adjustRdn(-(h.qty * h.avg) * (1 + settings.fee_buy / 100), `Beli ${h.symbol}`, h.buyDate || null);
+    await adjustRdn(-(h.qty * h.avg) * (1 + settings.fee_buy / 100), `Beli ${h.symbol} ${Number(h.qty).toLocaleString('id-ID')} @ Rp${Math.round(h.avg).toLocaleString('id-ID')}`, h.buyDate || null);
     await loadHoldings();
   }
 
@@ -175,7 +175,7 @@ export function usePortfolio(userId) {
     const gross = s.qty * s.price;
     const potongan = gross * ((settings.fee_sell + settings.tax_sell) / 100);
     const net = gross - potongan;
-    await adjustRdn(net, `Jual ${holding.symbol}`, s.date || null);
+    await adjustRdn(net, `Jual ${holding.symbol} ${Number(s.qty).toLocaleString('id-ID')} @ Rp${Math.round(s.price).toLocaleString('id-ID')}`, s.date || null);
     const realized = (s.price - Number(holding.avg_price)) * s.qty;
     const tanda = realized >= 0 ? '+' : '-';
     alert(`${holding.symbol} terjual ${s.qty.toLocaleString('id-ID')} lembar @ Rp${s.price.toLocaleString('id-ID')}. P/L terealisasi: ${tanda}Rp${Math.abs(Math.round(realized)).toLocaleString('id-ID')}. Masuk RDN (setelah fee+pajak ${(settings.fee_sell + settings.tax_sell).toLocaleString('id-ID')}%): Rp${Math.round(net).toLocaleString('id-ID')}${sisa === 0 ? '. Posisi habis.' : ''}`);
