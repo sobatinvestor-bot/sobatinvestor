@@ -896,7 +896,7 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onDeleteAll }) 
         </div>
       ) : (
         <div style={{ background: C.cream2, borderRadius: 20, overflow: 'hidden' }}>
-          <div className="mono" style={{ display: 'grid', gridTemplateColumns: '1fr 70px 90px 80px 64px', padding: '14px 16px', fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', color: C.inkSoft, textTransform: 'uppercase', borderBottom: `1px solid rgba(26,42,32,0.08)` }}>
+          <div className="mono" style={{ display: 'grid', gridTemplateColumns: '1fr 48px 72px 86px 100px', padding: '14px 16px', fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', color: C.inkSoft, textTransform: 'uppercase', borderBottom: `1px solid rgba(26,42,32,0.08)` }}>
             <span>SAHAM</span>
             <span style={{ textAlign: 'right' }}>QTY</span>
             <span style={{ textAlign: 'right' }}>HARGA</span>
@@ -907,7 +907,7 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onDeleteAll }) 
             const plPct = (s.hasLive && s.avg) ? (s.price - s.avg) / s.avg * 100 : null;
             const plRp = s.hasLive ? (s.price - s.avg) * s.qty : null;
             return (
-              <div key={s.id || s.symbol} style={{ display: 'grid', gridTemplateColumns: '1fr 70px 90px 80px 64px', padding: '14px 16px', borderBottom: `1px solid rgba(26,42,32,0.06)`, alignItems: 'center' }}>
+              <div key={s.id || s.symbol} style={{ display: 'grid', gridTemplateColumns: '1fr 48px 72px 86px 100px', padding: '14px 16px', borderBottom: `1px solid rgba(26,42,32,0.06)`, alignItems: 'center' }}>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 14 }}>{s.symbol}</div>
                   <div style={{ fontSize: 11, color: C.inkSoft, marginTop: 2 }}>{s.name}</div>
@@ -927,10 +927,10 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onDeleteAll }) 
                     </>
                   ) : <span className="mono" style={{ fontSize: 13, color: C.inkSoft }}>—</span>}
                 </div>
-                <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
-                  <button onClick={() => onSell(s)} title="Jual saham ini" style={{ background: C.cuan, border: 'none', cursor: 'pointer', padding: '5px 12px', borderRadius: 100, color: '#fff', fontSize: 12, fontWeight: 700, fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Minus size={13} /> Jual</button>
-                  <button onClick={() => onEdit(s)} title="Edit" style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 4 }}><Pencil size={15} color={C.inkSoft} /></button>
-                  <button onClick={() => setConfirmDel(s)} title="Hapus" style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 4 }}><Trash2 size={15} color={C.rust} /></button>
+                <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', alignItems: 'center' }}>
+                  <button onClick={() => onSell(s)} title="Jual saham ini" style={{ background: C.cuan, border: 'none', cursor: 'pointer', padding: '5px 10px', borderRadius: 100, color: '#fff', fontSize: 11, fontWeight: 700, fontFamily: 'inherit' }}>Jual</button>
+                  <button onClick={() => onEdit(s)} title="Edit" style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 3 }}><Pencil size={14} color={C.inkSoft} /></button>
+                  <button onClick={() => setConfirmDel(s)} title="Hapus" style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 3 }}><Trash2 size={14} color={C.rust} /></button>
                 </div>
               </div>
             );
