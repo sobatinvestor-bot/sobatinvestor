@@ -68,13 +68,14 @@ async function fetchRss(u, symbol, src, diag) {
     const items = [];
     for (const block of blocks.slice(0, 10)) {
       const title = clean(pick(block, "title"));
-      const link = clean(pick(block, "link")) || clean(pickAttr(block, "link", "href"));
+      let link = clean(pick(block, "link")) || clean(pickAttr(block, "link", "href"));
       const pubDate = pick(block, "pubDate") || pick(block, "pubdate");
-      const source = clean(pick(block, "source"));
       if (!title || !link) continue;
+      link = realLink(link); // buka redirect Bing/Google -> URL penerbit asli
       const time = pubDate ? new Date(pubDate).getTime() : Date.now();
       if (isNaN(time)) continue;
-      items.push({ symbol, title, link, source: source || "", time });
+      const source = clean(pick(block, "source")) || clean(pick(block, "News:Source")) || sourceFromUrl(link);
+      items.push({ symbol, title, link, source, time });
     }
     if (diag) diag.push({ symbol, src, status: res.status, items: items.length, sample: xml.slice(0, 200) });
     return items;
@@ -82,6 +83,20 @@ async function fetchRss(u, symbol, src, diag) {
     if (diag) diag.push({ symbol, src, error: String(e) });
     return [];
   }
+}
+
+// Buka redirect (Bing apiclick / Google) -> URL penerbit asli bila ada param url=
+function realLink(raw) {
+  try {
+    const u = new URL(raw);
+    const inner = u.searchParams.get("url");
+    if (inner && /^https?:\/\//i.test(inner)) return inner;
+  } catch (e) { /* abaikan */ }
+  return raw;
+}
+// Nama sumber dari domain penerbit (mis. katadata.co.id)
+function sourceFromUrl(link) {
+  try { return new URL(link).hostname.replace(/^www\./, ""); } catch (e) { return ""; }
 }
 
 function pick(block, tag) {
