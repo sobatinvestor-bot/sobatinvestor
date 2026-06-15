@@ -33,8 +33,8 @@ export function usePortfolio(userId) {
   }, [loadSettings]);
 
   // Mutasi saldo RDN atomik via RPC; best-effort (tabel belum ada -> diabaikan)
-  async function adjustRdn(delta, note = null) {
-    const { data, error } = await supabase.rpc('adjust_rdn', { p_delta: Math.round(delta), p_note: note });
+  async function adjustRdn(delta, note = null, eventDate = null) {
+    const { data, error } = await supabase.rpc('adjust_rdn', { p_delta: Math.round(delta), p_note: note, p_event_date: eventDate || null });
     if (!error && data !== null) {
       setSettings((p) => ({ ...p, rdn: Number(data) }));
       window.dispatchEvent(new Event('sobat-rdn-changed'));
@@ -124,7 +124,7 @@ export function usePortfolio(userId) {
       if (error) alert('Gagal menggabungkan: ' + error.message);
       else {
         await recordLot(h);
-        await adjustRdn(-(h.qty * h.avg) * (1 + settings.fee_buy / 100), `Beli ${h.symbol}`);
+        await adjustRdn(-(h.qty * h.avg) * (1 + settings.fee_buy / 100), `Beli ${h.symbol}`, h.buyDate || null);
         alert(`${h.symbol} digabung: ${newQty} lembar @ rata-rata Rp${mergedAvg.toLocaleString('id-ID')}`);
       }
       await loadHoldings();
@@ -145,7 +145,7 @@ export function usePortfolio(userId) {
       return;
     }
     await recordLot(h);
-    await adjustRdn(-(h.qty * h.avg) * (1 + settings.fee_buy / 100), `Beli ${h.symbol}`);
+    await adjustRdn(-(h.qty * h.avg) * (1 + settings.fee_buy / 100), `Beli ${h.symbol}`, h.buyDate || null);
     await loadHoldings();
   }
 
@@ -174,7 +174,7 @@ export function usePortfolio(userId) {
     const gross = s.qty * s.price;
     const potongan = gross * ((settings.fee_sell + settings.tax_sell) / 100);
     const net = gross - potongan;
-    await adjustRdn(net, `Jual ${holding.symbol}`);
+    await adjustRdn(net, `Jual ${holding.symbol}`, s.date || null);
     const realized = (s.price - Number(holding.avg_price)) * s.qty;
     const tanda = realized >= 0 ? '+' : '-';
     alert(`${holding.symbol} terjual ${s.qty.toLocaleString('id-ID')} lembar @ Rp${s.price.toLocaleString('id-ID')}. P/L terealisasi: ${tanda}Rp${Math.abs(Math.round(realized)).toLocaleString('id-ID')}. Masuk RDN (setelah fee+pajak ${(settings.fee_sell + settings.tax_sell).toLocaleString('id-ID')}%): Rp${Math.round(net).toLocaleString('id-ID')}${sisa === 0 ? '. Posisi habis.' : ''}`);
@@ -554,7 +554,7 @@ export function RdnCard({ settings, onAdjust, onSaveFees, userId }) {
   const loadLedger = useCallback(async () => {
     if (!userId) { setLedger([]); return; }
     const { data, error } = await supabase
-      .from('rdn_ledger').select('id,delta,note,balance,created_at')
+      .from('rdn_ledger').select('id,delta,note,balance,created_at,event_date')
       .eq('user_id', userId).order('created_at', { ascending: false }).limit(50);
     setLedger(error ? [] : (data || []));
   }, [userId]);
@@ -619,7 +619,7 @@ export function RdnCard({ settings, onAdjust, onSaveFees, userId }) {
             <div key={l.id} style={{ display: 'grid', gridTemplateColumns: '1fr auto', padding: '9px 0', borderBottom: '1px solid rgba(26,42,32,0.06)', alignItems: 'center' }}>
               <div>
                 <span style={{ fontSize: 12, color: C.ink }}>{l.note || (Number(l.delta) >= 0 ? 'Masuk' : 'Keluar')}</span>
-                <span className="mono" style={{ fontSize: 10, color: C.inkSoft, marginLeft: 8 }}>{fmtTgl(l.created_at)}</span>
+                <span className="mono" style={{ fontSize: 10, color: C.inkSoft, marginLeft: 8 }}>{fmtTgl(l.event_date || l.created_at)}</span>
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div className="mono" style={{ fontSize: 13, fontWeight: 600, color: Number(l.delta) >= 0 ? C.green : C.red }}>

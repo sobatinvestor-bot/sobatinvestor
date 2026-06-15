@@ -1026,69 +1026,36 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onDeleteAll }) 
 // Hanya untuk admin. RLS tetap melindungi penulisan di sisi server.
 function DividendAdmin({ userId }) {
   const [rows, setRows] = useState(null);
-  const [edits, setEdits] = useState({});
-  const [busy, setBusy] = useState('');
 
   async function load() {
+    setRows(null);
     const { data } = await supabase.from('dividend_schedule')
-      .select('id,symbol,ex_date,pay_date,source')
+      .select('id,symbol,ex_date,pay_date')
       .eq('confirmed', false)
       .order('ex_date', { ascending: true });
     setRows(data || []);
-    const e = {};
-    (data || []).forEach((r) => { e[r.id] = { pay_date: r.pay_date, source: '' }; });
-    setEdits(e);
   }
   useEffect(() => { load(); }, []);
-  function setEdit(id, k, v) { setEdits((p) => ({ ...p, [id]: { ...p[id], [k]: v } })); }
-
-  async function confirm(r) {
-    const e = edits[r.id] || {};
-    const pay = e.pay_date || r.pay_date;
-    if (!pay) return;
-    setBusy(r.id);
-    const { error } = await supabase.from('dividend_schedule')
-      .update({ pay_date: pay, source: (e.source || '').trim() || 'admin', confirmed: true })
-      .eq('id', r.id);
-    setBusy('');
-    if (!error) load();
-  }
 
   if (userId !== ADMIN_UID) return null;
 
   return (
     <div style={{ background: C.cream2, borderRadius: 20, padding: 20, marginTop: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
-        <h3 className="serif" style={{ fontSize: 18, fontWeight: 600 }}>Admin · Antrean Dividen</h3>
+        <h3 className="serif" style={{ fontSize: 18, fontWeight: 600 }}>Admin · Antrean Dividen{rows && rows.length > 0 ? ` (${rows.length})` : ''}</h3>
         <button onClick={load} className="mono" style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: C.inkSoft, fontSize: 11, fontWeight: 600 }}>MUAT ULANG</button>
       </div>
-      <div style={{ fontSize: 12, color: C.inkSoft, marginBottom: 12 }}>Dividen terdeteksi worker yang perlu tanggal bayar resmi. Isi tanggal lalu konfirmasi — setelahnya dipakai tampilan & kredit RDN.</div>
+      <div style={{ fontSize: 12, color: C.inkSoft, marginBottom: 12 }}>Dividen terdeteksi worker (semua saham yang dipegang user) yang belum punya tanggal bayar resmi. Kirim daftar ini ke Boba untuk diisikan tanggal resminya.</div>
       {rows === null ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: C.inkSoft, fontSize: 13 }}><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Memuat…</div>
       ) : rows.length === 0 ? (
         <div style={{ fontSize: 13, color: C.inkSoft }}>Tidak ada antrean — semua dividen sudah punya tanggal resmi. ✓</div>
-      ) : rows.map((r) => {
-        const e = edits[r.id] || {};
-        return (
-          <div key={r.id} style={{ padding: '12px 0', borderBottom: '1px solid rgba(26,42,32,0.06)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-              <span style={{ fontWeight: 700, fontSize: 14 }}>{r.symbol}</span>
-              <span className="mono" style={{ fontSize: 11, color: C.inkSoft }}>ex {r.ex_date}</span>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 8, alignItems: 'center' }}>
-              <input type="date" value={e.pay_date || ''} onChange={(ev) => setEdit(r.id, 'pay_date', ev.target.value)}
-                style={{ padding: '8px 10px', borderRadius: 10, border: 'none', background: C.cream, fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box', width: '100%' }} />
-              <input value={e.source || ''} onChange={(ev) => setEdit(r.id, 'source', ev.target.value)} placeholder="sumber (mis. RUPST)"
-                style={{ padding: '8px 10px', borderRadius: 10, border: 'none', background: C.cream, fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box', width: '100%' }} />
-              <button onClick={() => confirm(r)} disabled={busy === r.id || !e.pay_date}
-                style={{ background: (busy === r.id || !e.pay_date) ? 'rgba(31,59,45,0.3)' : C.forest, color: C.cream, border: 'none', padding: '8px 14px', borderRadius: 100, fontSize: 12, fontWeight: 600, cursor: busy === r.id ? 'default' : 'pointer', whiteSpace: 'nowrap' }}>
-                {busy === r.id ? '…' : 'Konfirmasi'}
-              </button>
-            </div>
-            <div className="mono" style={{ fontSize: 10, color: C.inkSoft, marginTop: 4 }}>estimasi sekarang: {r.pay_date}</div>
-          </div>
-        );
-      })}
+      ) : rows.map((r) => (
+        <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '10px 0', borderBottom: '1px solid rgba(26,42,32,0.06)' }}>
+          <span style={{ fontWeight: 700, fontSize: 14 }}>{r.symbol}</span>
+          <span className="mono" style={{ fontSize: 11, color: C.inkSoft }}>ex {r.ex_date} · estimasi {r.pay_date}</span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -1235,6 +1202,7 @@ export function DividendCard({ stocks }) {
           p_symbol: r.symbol,
           p_ex_date: new Date(r.exTime).toISOString().slice(0, 10),
           p_amount: Math.round(r.cash),
+          p_pay_date: r.payEst.toISOString().slice(0, 10),
         });
         if (!error && data !== null) adaBaru = true;
       }
