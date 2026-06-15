@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
-import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus } from 'lucide-react';
+import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Upload, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus } from 'lucide-react';
 import { supabase } from './lib/supabase';
-import { Auth, usePortfolio, Editor, logout, SellEditor, RdnCard, StockNews } from './Account.jsx';
+import { Auth, usePortfolio, Editor, logout, SellEditor, RdnCard, StockNews, parseSobatCSV } from './Account.jsx';
 const AnalisisTab = lazy(() => import('./Analisis.jsx'));
 const PerfChart = lazy(() => import('./DashboardCharts.jsx').then((m) => ({ default: m.PerfChart })));
 const SectorPie = lazy(() => import('./DashboardCharts.jsx').then((m) => ({ default: m.SectorPie })));
@@ -143,7 +143,7 @@ export default function App() {
 
 // Area privat (hanya saat sudah login): Dashboard, Sobat AI, Portfolio
 function PrivateArea({ tab, userId, ihsgQuote, goAnalisis }) {
-  const { stocks, addHolding, updateHolding, deleteHolding, deleteAll, sellHolding, settings, adjustRdn, saveFees } = usePortfolio(userId);
+  const { stocks, addHolding, updateHolding, deleteHolding, deleteAll, sellHolding, settings, adjustRdn, saveFees, exportCSV, importData } = usePortfolio(userId);
   const [editing, setEditing] = useState(null);
   const [selling, setSelling] = useState(null);
 
@@ -163,11 +163,13 @@ function PrivateArea({ tab, userId, ihsgQuote, goAnalisis }) {
             onEdit={(s) => setEditing(s)}
             onDelete={deleteHolding}
             onSell={(s) => setSelling(s)}
-            onDeleteAll={deleteAll}
+            onExport={exportCSV}
+            onImport={importData}
             onSymbol={goAnalisis}
           />
         </div>
         <div id="sec-rdn" style={{ scrollMarginTop: 70 }}><RdnCard settings={settings} onAdjust={adjustRdn} onSaveFees={saveFees} userId={userId} /></div>
+        {(stocks.length > 0 || Number(settings.rdn) !== 0) && <DeleteAllPortfolio count={stocks.length} onDeleteAll={deleteAll} />}
         <div id="sec-berita" style={{ scrollMarginTop: 70 }}><StockNews stocks={stocks} /></div>
         {userId === ADMIN_UID && <div id="sec-admin" style={{ scrollMarginTop: 70 }}><DividendAdmin userId={userId} /></div>}
       </div>
@@ -324,7 +326,7 @@ function HomeTab({ stocks, setTab, goTo }) {
           {[
             { num: '01', title: 'Backtest', desc: 'Backtest strategi SMA dengan Python asli yang jalan di browser-mu. Data harga & dividen IDX real — khusus member.', bg: C.forest, fg: C.cream, tab: 'analisis', page: 'backtest' },
             { num: '02', title: 'Analisis AI', desc: 'Analisis emiten oleh AI: model bisnis, katalis, dan risiko. Plus halaman khusus saham di portofoliomu.', bg: C.cream2, fg: C.ink, tab: 'analisis' },
-            { num: '03', title: 'Excel Export', desc: 'Export portofolio ke CSV — buka langsung di Excel untuk laporan atau arsip pribadi.', bg: C.cream2, fg: C.ink, tab: 'portfolio' },
+            { num: '03', title: 'Export & Import', desc: 'Export portofolio + RDN ke CSV untuk laporan di Excel — atau impor untuk memulihkan seluruh data kapan saja.', bg: C.cream2, fg: C.ink, tab: 'portfolio' },
             { num: '04', title: 'Live Dashboard', desc: 'P/L live, alokasi sektor, dan proyeksi dividen 12 bulan di satu layar.', bg: C.cream2, fg: C.ink, tab: 'portfolio' },
           ].map((f) => (
             <button
@@ -847,27 +849,129 @@ export function ChatTab({ stocks, active = true }) {
   );
 }
 
-function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onDeleteAll, onSymbol }) {
-  const [confirmDel, setConfirmDel] = useState(null); // stock yang mau dihapus
-  const [wipeStep, setWipeStep] = useState(0);        // 0=off, 1=dialog 1, 2=dialog final
-  const [wipeText, setWipeText] = useState('');
-  function exportCSV() {
-    const headers = ['Symbol', 'Nama', 'Qty', 'Avg Price', 'Current Price', 'Market Value', 'P/L', 'P/L %', 'Sector'];
-    const rows = stocks.map(s => {
-      const mv = s.price * s.qty;
-      const pl = mv - s.avg * s.qty;
-      const plPct = ((s.price - s.avg) / s.avg) * 100;
-      return [s.symbol, `"${s.name}"`, s.qty, Math.round(s.avg), Math.round(s.price), Math.round(mv), Math.round(pl), plPct.toFixed(2), s.sector];
-    });
-    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `sobat-portfolio-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+function ImportButton({ onApply }) {
+  const fileRef = useRef(null);
+  const [parsed, setParsed] = useState(null); // { holdings, rdn }
+  const [busy, setBusy] = useState(false);
+
+  async function onFile(e) {
+    const f = e.target.files && e.target.files[0];
+    if (e.target) e.target.value = '';
+    if (!f) return;
+    try {
+      const text = await f.text();
+      const r = parseSobatCSV(text);
+      if (!r.ok) { alert(r.error || 'File tidak dikenali.'); return; }
+      setParsed(r);
+    } catch (err) { alert('Gagal membaca file: ' + err.message); }
   }
+
+  async function apply() {
+    setBusy(true);
+    try {
+      const res = await onApply(parsed);
+      setParsed(null);
+      alert(`Impor selesai: ${res.holdings} saham & ${res.rdn} transaksi RDN dipulihkan.`);
+    } catch (err) { alert('Gagal impor: ' + err.message); }
+    setBusy(false);
+  }
+
+  return (
+    <>
+      <button
+        onClick={() => fileRef.current && fileRef.current.click()}
+        style={{ background: 'transparent', color: C.ink, border: `1.5px solid rgba(26,42,32,0.25)`, padding: '10px 16px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+      >
+        <Upload size={14} /> Import
+      </button>
+      <input ref={fileRef} type="file" accept=".csv,text/csv" onChange={onFile} style={{ display: 'none' }} />
+
+      {parsed && (
+        <div onClick={() => !busy && setParsed(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(26,42,32,0.45)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: C.cream, borderRadius: 20, padding: 24, maxWidth: 400, width: '100%' }}>
+            <h3 className="serif" style={{ fontSize: 20, fontWeight: 600, marginBottom: 8 }}>Impor &amp; ganti total?</h3>
+            <p style={{ fontSize: 14, color: C.inkSoft, lineHeight: 1.55, marginBottom: 10 }}>
+              File berisi <strong style={{ color: C.ink }}>{parsed.holdings.length} saham</strong> dan <strong style={{ color: C.ink }}>{parsed.rdn.length} transaksi RDN</strong>.
+            </p>
+            <p style={{ fontSize: 13, color: C.rust, fontWeight: 600, lineHeight: 1.5, marginBottom: 18 }}>
+              Seluruh portofolio &amp; RDN-mu yang sekarang akan diganti dengan isi file ini. Tindakan ini tidak bisa dibatalkan.
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button disabled={busy} onClick={() => setParsed(null)} style={{ background: 'transparent', color: C.ink, border: `1.5px solid rgba(26,42,32,0.2)`, padding: '10px 18px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: busy ? 'default' : 'pointer' }}>Batal</button>
+              <button disabled={busy} onClick={apply} style={{ background: busy ? 'rgba(31,59,45,0.5)' : C.forest, color: C.cream, border: 'none', padding: '10px 18px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: busy ? 'default' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                {busy ? <><Loader2 size={14} className="spin" /> Memproses…</> : 'Ganti & Impor'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function DeleteAllPortfolio({ count, onDeleteAll }) {
+  const [step, setStep] = useState(0); // 0=off, 1=konfirmasi, 2=ketik HAPUS
+  const [text, setText] = useState('');
+  return (
+    <div style={{ maxWidth: 1100, margin: '0 auto', padding: '4px 20px 8px' }}>
+      <div style={{ textAlign: 'right' }}>
+        <button
+          onClick={() => { setText(''); setStep(1); }}
+          style={{ background: 'transparent', color: C.rust, border: `1.5px solid ${C.rust}`, padding: '8px 16px', borderRadius: 100, fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+        >
+          <Trash2 size={13} /> Hapus Semua Portofolio & RDN
+        </button>
+      </div>
+
+      {step === 1 && (
+        <div onClick={() => setStep(0)} style={{ position: 'fixed', inset: 0, background: 'rgba(26,42,32,0.45)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: C.cream, borderRadius: 20, padding: 24, maxWidth: 380, width: '100%' }}>
+            <h3 className="serif" style={{ fontSize: 20, fontWeight: 600, marginBottom: 8 }}>Hapus semua data portofolio?</h3>
+            <p style={{ fontSize: 14, color: C.inkSoft, lineHeight: 1.55, marginBottom: 18 }}>
+              Seluruh <strong style={{ color: C.ink }}>{count} saham</strong>, riwayat dividen, grafik, <strong style={{ color: C.ink }}>serta saldo &amp; riwayat RDN</strong> akan dihapus permanen.
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setStep(0)} style={{ background: 'transparent', color: C.ink, border: `1.5px solid rgba(26,42,32,0.2)`, padding: '10px 18px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Batal</button>
+              <button onClick={() => setStep(2)} style={{ background: C.rust, color: C.cream, border: 'none', padding: '10px 18px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Lanjut</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {step === 2 && (
+        <div onClick={() => setStep(0)} style={{ position: 'fixed', inset: 0, background: 'rgba(26,42,32,0.45)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: C.cream, borderRadius: 20, padding: 24, maxWidth: 380, width: '100%' }}>
+            <h3 className="serif" style={{ fontSize: 20, fontWeight: 600, marginBottom: 8 }}>Konfirmasi terakhir</h3>
+            <p style={{ fontSize: 13, color: C.rust, fontWeight: 600, marginBottom: 12 }}>Tindakan ini tidak bisa dibatalkan.</p>
+            <p style={{ fontSize: 14, color: C.inkSoft, lineHeight: 1.55, marginBottom: 10 }}>
+              Ketik <strong className="mono" style={{ color: C.ink }}>HAPUS</strong> untuk menghapus portofolio &amp; RDN:
+            </p>
+            <input
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="HAPUS"
+              autoFocus
+              style={{ width: '100%', padding: '10px 14px', borderRadius: 12, border: `1.5px solid rgba(26,42,32,0.2)`, background: C.cream2, fontSize: 14, marginBottom: 16 }}
+            />
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setStep(0)} style={{ background: 'transparent', color: C.ink, border: `1.5px solid rgba(26,42,32,0.2)`, padding: '10px 18px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Batal</button>
+              <button
+                disabled={text.trim().toUpperCase() !== 'HAPUS'}
+                onClick={() => { onDeleteAll(); setStep(0); }}
+                style={{ background: text.trim().toUpperCase() === 'HAPUS' ? C.red : 'rgba(192,57,43,0.35)', color: C.cream, border: 'none', padding: '10px 18px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: text.trim().toUpperCase() === 'HAPUS' ? 'pointer' : 'not-allowed' }}
+              >
+                Hapus Semua
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImport, onSymbol }) {
+  const [confirmDel, setConfirmDel] = useState(null); // stock yang mau dihapus
 
   return (
     <div className="fade-up" style={{ padding: '24px 20px', maxWidth: 1100, margin: '0 auto' }}>
@@ -882,12 +986,13 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onDeleteAll, on
           </button>
           {stocks.length > 0 && (
             <button
-              onClick={exportCSV}
+              onClick={onExport}
               style={{ background: C.cuan, color: C.ink, border: 'none', padding: '10px 16px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
             >
               <Download size={14} /> Export
             </button>
           )}
+          {onImport && <ImportButton onApply={onImport} />}
         </div>
       </div>
 
@@ -944,63 +1049,6 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onDeleteAll, on
       )}
 
       {stocks.length > 0 && <div id="sec-dividen" style={{ scrollMarginTop: 70 }}><DividendCard stocks={stocks} onSymbol={onSymbol} /></div>}
-
-      {stocks.length > 0 && (
-        <div style={{ marginTop: 16, textAlign: 'right' }}>
-          <button
-            onClick={() => { setWipeText(''); setWipeStep(1); }}
-            style={{ background: 'transparent', color: C.rust, border: `1.5px solid ${C.rust}`, padding: '8px 16px', borderRadius: 100, fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-          >
-            <Trash2 size={13} /> Hapus Semua Portofolio
-          </button>
-        </div>
-      )}
-
-      {/* Hapus semua — konfirmasi tahap 1 */}
-      {wipeStep === 1 && (
-        <div onClick={() => setWipeStep(0)} style={{ position: 'fixed', inset: 0, background: 'rgba(26,42,32,0.45)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ background: C.cream, borderRadius: 20, padding: 24, maxWidth: 380, width: '100%' }}>
-            <h3 className="serif" style={{ fontSize: 20, fontWeight: 600, marginBottom: 8 }}>Hapus semua portofolio?</h3>
-            <p style={{ fontSize: 14, color: C.inkSoft, lineHeight: 1.55, marginBottom: 18 }}>
-              Seluruh <strong style={{ color: C.ink }}>{stocks.length} saham</strong> di portofoliomu akan dihapus permanen. Riwayat dividen & grafik ikut kosong.
-            </p>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button onClick={() => setWipeStep(0)} style={{ background: 'transparent', color: C.ink, border: `1.5px solid rgba(26,42,32,0.2)`, padding: '10px 18px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Batal</button>
-              <button onClick={() => setWipeStep(2)} style={{ background: C.rust, color: C.cream, border: 'none', padding: '10px 18px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Lanjut</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Hapus semua — konfirmasi final (ketik HAPUS) */}
-      {wipeStep === 2 && (
-        <div onClick={() => setWipeStep(0)} style={{ position: 'fixed', inset: 0, background: 'rgba(26,42,32,0.45)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ background: C.cream, borderRadius: 20, padding: 24, maxWidth: 380, width: '100%' }}>
-            <h3 className="serif" style={{ fontSize: 20, fontWeight: 600, marginBottom: 8 }}>Konfirmasi terakhir</h3>
-            <p style={{ fontSize: 13, color: C.rust, fontWeight: 600, marginBottom: 12 }}>Tindakan ini tidak bisa dibatalkan.</p>
-            <p style={{ fontSize: 14, color: C.inkSoft, lineHeight: 1.55, marginBottom: 10 }}>
-              Ketik <strong className="mono" style={{ color: C.ink }}>HAPUS</strong> untuk menghapus seluruh portofolio:
-            </p>
-            <input
-              value={wipeText}
-              onChange={(e) => setWipeText(e.target.value)}
-              placeholder="HAPUS"
-              autoFocus
-              style={{ width: '100%', padding: '10px 14px', borderRadius: 12, border: `1.5px solid rgba(26,42,32,0.2)`, background: C.cream2, fontSize: 14, marginBottom: 16 }}
-            />
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button onClick={() => setWipeStep(0)} style={{ background: 'transparent', color: C.ink, border: `1.5px solid rgba(26,42,32,0.2)`, padding: '10px 18px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Batal</button>
-              <button
-                disabled={wipeText.trim().toUpperCase() !== 'HAPUS'}
-                onClick={() => { onDeleteAll(); setWipeStep(0); }}
-                style={{ background: wipeText.trim().toUpperCase() === 'HAPUS' ? C.red : 'rgba(192,57,43,0.35)', color: C.cream, border: 'none', padding: '10px 18px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: wipeText.trim().toUpperCase() === 'HAPUS' ? 'pointer' : 'not-allowed' }}
-              >
-                Hapus Semua
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <div style={{ marginTop: 16, padding: 14, background: 'rgba(196,155,60,0.1)', borderRadius: 12, fontSize: 12, color: C.inkSoft, lineHeight: 1.5 }}>
         💡 <strong style={{ color: C.ink }}>Privat:</strong> Hanya kamu yang bisa melihat portofolio ini. Tersimpan di akunmu &amp; sinkron lintas perangkat. Harga live (delayed) dari pasar.

@@ -195,12 +195,67 @@ export function usePortfolio(userId) {
 
   async function deleteAll() {
     const { error } = await supabase.from('holdings').delete().eq('user_id', userId);
-    if (error) alert('Gagal hapus: ' + error.message);
-    else {
-      await supabase.from('lots').delete().eq('user_id', userId);
-      window.dispatchEvent(new Event('sobat-lots-changed'));
-    }
+    if (error) { alert('Gagal hapus: ' + error.message); return; }
+    await supabase.from('lots').delete().eq('user_id', userId);
+    const { error: rerr } = await supabase.rpc('reset_rdn'); // bersihkan ledger + saldo RDN
+    if (rerr) console.warn('RDN tidak terreset:', rerr.message);
+    setSettings((p) => ({ ...p, rdn: 0 }));
+    window.dispatchEvent(new Event('sobat-lots-changed'));
+    window.dispatchEvent(new Event('sobat-rdn-changed'));
     await loadHoldings();
+  }
+
+  // Export CSV: portofolio + RDN (saldo & riwayat). Format ber-section agar bisa diimpor balik.
+  async function exportCSV() {
+    const esc = (v) => { const s = String(v == null ? '' : v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    const lines = [];
+    lines.push('SOBATINVESTOR EXPORT,v1');
+    lines.push('Saldo RDN,' + Math.round(Number(settings.rdn || 0)));
+    lines.push('');
+    lines.push('[PORTOFOLIO]');
+    lines.push(['Symbol', 'Nama', 'Qty', 'Avg Price', 'Harga Kini', 'Nilai Pasar', 'P/L', 'P/L %', 'Sektor', 'Tgl Beli'].join(','));
+    stocks.forEach((s) => {
+      const mv = s.price * s.qty, pl = mv - s.avg * s.qty, plPct = s.avg ? ((s.price - s.avg) / s.avg) * 100 : 0;
+      lines.push([s.symbol, esc(s.name), s.qty, Math.round(s.avg), s.hasLive ? Math.round(s.price) : '', Math.round(mv), Math.round(pl), plPct.toFixed(2), esc(s.sector), s.buyDate || ''].join(','));
+    });
+    lines.push('');
+    lines.push('[RDN]');
+    lines.push(['Tanggal', 'Catatan', 'Nominal'].join(','));
+    const { data: ledger } = await supabase.from('rdn_ledger').select('delta,note,event_date,created_at').order('created_at', { ascending: true });
+    (ledger || []).forEach((l) => {
+      const tgl = l.event_date || (l.created_at ? l.created_at.slice(0, 10) : '');
+      lines.push([tgl, esc(l.note), Math.round(Number(l.delta))].join(','));
+    });
+    const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `sobatinvestor-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // Impor CSV (restore — GANTI TOTAL). `parsed` dari parseSobatCSV().
+  async function importData({ holdings = [], rdn = [] }) {
+    await supabase.from('holdings').delete().eq('user_id', userId);
+    await supabase.from('lots').delete().eq('user_id', userId);
+    await supabase.rpc('reset_rdn');
+    for (const h of holdings) {
+      const { error } = await supabase.from('holdings').insert({
+        user_id: userId, symbol: h.symbol, name: h.name || h.symbol, sector: h.sector || null,
+        qty: h.qty, avg_price: h.avg, buy_date: h.buyDate || null,
+      });
+      if (error) { console.warn('Impor holding gagal:', h.symbol, error.message); continue; }
+      await supabase.from('lots').insert({ user_id: userId, symbol: h.symbol, qty: h.qty, price: h.avg, buy_date: h.buyDate || null, side: 'buy' });
+    }
+    for (const r of rdn) {
+      await supabase.rpc('adjust_rdn', { p_delta: Math.round(r.delta), p_note: r.note || null, p_event_date: r.tgl || null });
+    }
+    window.dispatchEvent(new Event('sobat-lots-changed'));
+    window.dispatchEvent(new Event('sobat-rdn-changed'));
+    await loadSettings();
+    await loadHoldings();
+    return { holdings: holdings.length, rdn: rdn.length };
   }
 
   return {
@@ -208,7 +263,7 @@ export function usePortfolio(userId) {
     ihsg: ihsg ? ihsg.value : 7800,
     ihsgChange: ihsg ? ihsg.change : 0,
     addHolding, updateHolding, deleteHolding, deleteAll, sellHolding,
-    settings, adjustRdn, saveFees,
+    settings, adjustRdn, saveFees, exportCSV, importData,
   };
 }
 
@@ -697,4 +752,56 @@ export function StockNews({ stocks }) {
       </div>
     </div>
   );
+}
+
+// ── Parser CSV hasil Export Sobat Investor (section [PORTOFOLIO] & [RDN]) ──
+function splitCSVLine(line) {
+  const out = []; let cur = ''; let q = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (q) {
+      if (ch === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else q = false; }
+      else cur += ch;
+    } else {
+      if (ch === '"') q = true;
+      else if (ch === ',') { out.push(cur); cur = ''; }
+      else cur += ch;
+    }
+  }
+  out.push(cur);
+  return out;
+}
+
+export function parseSobatCSV(text) {
+  try {
+    const clean = String(text || '').replace(/^\uFEFF/, '');
+    const lines = clean.split(/\r?\n/);
+    let section = null;
+    const holdings = [], rdn = [];
+    for (const raw of lines) {
+      const t = raw.trim();
+      if (!t) continue;
+      if (t === '[PORTOFOLIO]') { section = 'p'; continue; }
+      if (t === '[RDN]') { section = 'r'; continue; }
+      const c = splitCSVLine(raw);
+      if (section === 'p') {
+        if ((c[0] || '').trim() === 'Symbol') continue;
+        const symbol = (c[0] || '').trim().toUpperCase();
+        if (!/^[A-Z]{4}$/.test(symbol)) continue;
+        const qty = Number(c[2]), avg = Number(c[3]);
+        if (!(qty > 0) || !(avg > 0)) continue;
+        holdings.push({ symbol, name: (c[1] || '').trim(), qty, avg, sector: (c[8] || '').trim(), buyDate: (c[9] || '').trim() || null });
+      } else if (section === 'r') {
+        if ((c[0] || '').trim() === 'Tanggal') continue;
+        const delta = Number(c[2]);
+        if (!isFinite(delta) || delta === 0) continue;
+        rdn.push({ tgl: (c[0] || '').trim() || null, note: (c[1] || '').trim(), delta });
+      }
+    }
+    if (holdings.length === 0 && rdn.length === 0)
+      return { ok: false, error: 'File tidak berisi data yang dikenali. Pastikan ini CSV hasil Export dari Sobat Investor.' };
+    return { ok: true, holdings, rdn };
+  } catch (e) {
+    return { ok: false, error: 'Gagal membaca file: ' + (e.message || e) };
+  }
 }
