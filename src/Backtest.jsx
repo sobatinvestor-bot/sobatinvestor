@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ComposedChart, Area, Scatter, XAxis, YAxis, ResponsiveContainer, Tooltip, Legend, ReferenceLine } from 'recharts';
 import { Loader2, Play } from 'lucide-react';
+import { supabase } from './lib/supabase';
 
 const C = {
   cream: '#F4EFE6', cream2: '#EBE3D3', ink: '#1A2A20', inkSoft: '#3A4A40',
@@ -94,8 +95,36 @@ result = json.dumps({
 result
 `;
 
-export default function Backtest() {
+// Bangun deret NAV portofolio: Σ(qty × harga) per hari, berbobot jumlah lembar.
+// Forward-fill harga terakhir; mulai dari tanggal saat SEMUA saham sudah punya data.
+function buildPortfolioNav(history, holdings) {
+  const syms = holdings.filter((h) => Array.isArray(history[h.symbol]) && history[h.symbol].length);
+  if (syms.length === 0) return [];
+  const maps = {}, firstT = {};
+  syms.forEach((h) => {
+    const arr = history[h.symbol].slice().sort((a, b) => a.t - b.t);
+    const m = new Map();
+    arr.forEach((p) => m.set(p.t, p.close));
+    maps[h.symbol] = m; firstT[h.symbol] = arr[0].t;
+  });
+  const allT = [...new Set(syms.flatMap((h) => [...maps[h.symbol].keys()]))].sort((a, b) => a - b);
+  const startT = Math.max(...syms.map((h) => firstT[h.symbol]));
+  const last = {}, out = [];
+  for (const t of allT) {
+    syms.forEach((h) => { const c = maps[h.symbol].get(t); if (c != null) last[h.symbol] = c; });
+    if (t < startT) continue;
+    if (syms.some((h) => last[h.symbol] == null)) continue;
+    let nav = 0;
+    syms.forEach((h) => { nav += h.qty * last[h.symbol]; });
+    out.push({ t, close: nav });
+  }
+  return out;
+}
+
+export default function Backtest({ userId }) {
   const [symbol, setSymbol] = useState('ADRO');
+  const [mode, setMode] = useState('single'); // 'single' | 'porto'
+  const [myHoldings, setMyHoldings] = useState([]); // {symbol, qty} dari portofolio (pilih cepat / NAV gabungan)
   const [range, setRange] = useState('2y');
   const [fast, setFast] = useState(20);
   const [slow, setSlow] = useState(50);
@@ -105,35 +134,60 @@ export default function Backtest() {
   const [err, setErr] = useState('');
   const [res, setRes] = useState(null);
 
+  // Ambil holdings (symbol + qty) untuk pilih-cepat & NAV gabungan
+  useEffect(() => {
+    if (!userId) return;
+    let alive = true;
+    supabase.from('holdings').select('symbol,qty').then(({ data }) => {
+      if (!alive || !data) return;
+      const m = new Map();
+      data.forEach((h) => { if (h.symbol) m.set(h.symbol, (m.get(h.symbol) || 0) + Number(h.qty || 0)); });
+      setMyHoldings([...m.entries()].map(([symbol, qty]) => ({ symbol, qty })));
+    });
+    return () => { alive = false; };
+  }, [userId]);
+
   async function run() {
     setBusy(true); setErr(''); setRes(null);
     try {
-      if (!symbol.trim()) throw new Error('Isi kode saham dulu.');
       if (fast >= slow) throw new Error('SMA cepat harus lebih kecil dari SMA lambat.');
+      let series, divs = [], label;
 
-      setStatus('Mengambil data harga...');
-      const sym = symbol.trim().toUpperCase();
-      const r = await fetch(`/api/history?symbols=${encodeURIComponent(sym)}&range=${range}`);
-      if (!r.ok) throw new Error('Gagal mengambil data harga.');
-      const d = await r.json();
-      const series = (d.history || {})[sym];
-      if (!series || series.length < slow + 10) throw new Error(`Data ${sym} tidak cukup (butuh > ${slow + 10} hari). Cek kode saham.`);
-
-      // Dividen (hanya saat mode reinvest): petakan ex-date ke indeks hari di series
-      let divs = [];
-      if (divMode === 'reinvest') {
-        setStatus('Mengambil data dividen...');
-        try {
-          const rd = await fetch(`/api/dividends?symbols=${encodeURIComponent(sym)}&range=${range}`);
-          if (rd.ok) {
-            const dd = await rd.json();
-            (dd.dividends || []).forEach((dv) => {
-              const exT = new Date(dv.exDate).getTime();
-              const idx = series.findIndex((p) => p.t >= exT);
-              if (idx > 0 && dv.amount > 0) divs.push({ i: idx, amount: dv.amount });
-            });
-          }
-        } catch { /* tanpa dividen jika gagal — hasil tetap valid sebagai price-return */ }
+      if (mode === 'porto') {
+        if (myHoldings.length === 0) throw new Error('Portofoliomu masih kosong — tambah saham dulu.');
+        setStatus('Mengambil data harga portofolio...');
+        const syms = myHoldings.map((h) => h.symbol).join(',');
+        const r = await fetch(`/api/history?symbols=${encodeURIComponent(syms)}&range=${range}`);
+        if (!r.ok) throw new Error('Gagal mengambil data harga.');
+        const d = await r.json();
+        series = buildPortfolioNav(d.history || {}, myHoldings);
+        if (!series || series.length < slow + 10) throw new Error(`Data portofolio belum cukup (butuh > ${slow + 10} hari bersama). Coba periode lebih panjang.`);
+        label = 'PORTOFOLIO';
+      } else {
+        if (!symbol.trim()) throw new Error('Isi kode saham dulu.');
+        setStatus('Mengambil data harga...');
+        const sym = symbol.trim().toUpperCase();
+        const r = await fetch(`/api/history?symbols=${encodeURIComponent(sym)}&range=${range}`);
+        if (!r.ok) throw new Error('Gagal mengambil data harga.');
+        const d = await r.json();
+        series = (d.history || {})[sym];
+        if (!series || series.length < slow + 10) throw new Error(`Data ${sym} tidak cukup (butuh > ${slow + 10} hari). Cek kode saham.`);
+        label = sym;
+        // Dividen (hanya mode satu saham + reinvest): petakan ex-date ke indeks hari
+        if (divMode === 'reinvest') {
+          setStatus('Mengambil data dividen...');
+          try {
+            const rd = await fetch(`/api/dividends?symbols=${encodeURIComponent(sym)}&range=${range}`);
+            if (rd.ok) {
+              const dd = await rd.json();
+              (dd.dividends || []).forEach((dv) => {
+                const exT = new Date(dv.exDate).getTime();
+                const idx = series.findIndex((p) => p.t >= exT);
+                if (idx > 0 && dv.amount > 0) divs.push({ i: idx, amount: dv.amount });
+              });
+            }
+          } catch { /* tanpa dividen jika gagal — hasil tetap valid sebagai price-return */ }
+        }
       }
 
       const pyodide = await ensurePyodide(setStatus);
@@ -149,7 +203,7 @@ export default function Backtest() {
       const parsed = JSON.parse(out);
       const fullDates = series.map((p) => new Date(p.t).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }));
       const divIdx = [...new Set(divs.map((d) => d.i))].sort((a, b) => a - b);
-      setRes({ ...parsed, symbol: sym, fullDates, divIdx });
+      setRes({ ...parsed, symbol: label, fullDates, divIdx, isPorto: mode === 'porto', nStocks: myHoldings.length });
       setStatus('');
     } catch (e) {
       setErr(e.message || 'Terjadi kesalahan.');
@@ -179,17 +233,50 @@ export default function Backtest() {
     <div>
       <div style={{ background: C.cream2, borderRadius: 18, padding: 18, marginBottom: 14 }}>
         <div className="mono" style={{ fontSize: 10, color: C.rust, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>// Python Engine — jalan di browser kamu</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10, marginBottom: 12 }}>
-          <div>
-            <label style={lbl}>Kode saham</label>
-            <input value={symbol} onChange={(e) => setSymbol(e.target.value.toUpperCase())} placeholder="BBCA" style={inp} />
+
+        <div style={{ display: 'flex', gap: 6, marginBottom: 14, background: C.cream, borderRadius: 100, padding: 4, width: 'fit-content' }}>
+          {[['single', 'Satu Saham'], ['porto', 'Portofolio']].map(([k, t]) => (
+            <button key={k} onClick={() => setMode(k)} style={{ background: mode === k ? C.forest : 'transparent', color: mode === k ? C.cream : C.inkSoft, border: 'none', borderRadius: 100, padding: '7px 16px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{t}</button>
+          ))}
+        </div>
+
+        {mode === 'single' && myHoldings.length > 0 && (
+          <div style={{ marginBottom: 12 }}>
+            <label style={lbl}>Pilih cepat dari portofoliomu</label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+              {myHoldings.map((h) => h.symbol).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setSymbol(s)}
+                  style={{ background: symbol === s ? C.forest : C.cream, color: symbol === s ? C.cream : C.ink, border: `1px solid ${symbol === s ? C.forest : 'rgba(26,42,32,0.2)'}`, borderRadius: 100, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
           </div>
+        )}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10, marginBottom: 12 }}>
+          {mode === 'porto' ? (
+            <div>
+              <label style={lbl}>Portofolio</label>
+              <div style={{ ...inp, display: 'flex', alignItems: 'center', minHeight: 42, fontWeight: 600, color: myHoldings.length ? C.ink : C.inkSoft }}>
+                {myHoldings.length ? `${myHoldings.length} saham` : 'kosong'}
+              </div>
+            </div>
+          ) : (
+            <div>
+              <label style={lbl}>Kode saham</label>
+              <input value={symbol} onChange={(e) => setSymbol(e.target.value.toUpperCase())} placeholder="BBCA" style={inp} />
+            </div>
+          )}
           <div>
             <label style={lbl}>Periode</label>
             <select value={range} onChange={(e) => setRange(e.target.value)} style={inp}>
               <option value="1y">1 tahun</option>
               <option value="2y">2 tahun</option>
               <option value="5y">5 tahun</option>
+              <option value="10y">10 tahun</option>
             </select>
           </div>
           <div>
@@ -200,14 +287,21 @@ export default function Backtest() {
             <label style={lbl}>SMA lambat</label>
             <input type="number" min={5} max={250} value={slow} onChange={(e) => setSlow(+e.target.value)} style={inp} />
           </div>
-          <div>
-            <label style={lbl}>Dividen</label>
-            <select value={divMode} onChange={(e) => setDivMode(e.target.value)} style={inp}>
-              <option value="tanpa">Tanpa</option>
-              <option value="reinvest">Dengan Reinvest</option>
-            </select>
-          </div>
+          {mode === 'single' && (
+            <div>
+              <label style={lbl}>Dividen</label>
+              <select value={divMode} onChange={(e) => setDivMode(e.target.value)} style={inp}>
+                <option value="tanpa">Tanpa</option>
+                <option value="reinvest">Dengan Reinvest</option>
+              </select>
+            </div>
+          )}
         </div>
+        {mode === 'porto' && (
+          <div style={{ fontSize: 11, color: C.inkSoft, lineHeight: 1.55, marginBottom: 12 }}>
+            Menguji <strong style={{ color: C.ink }}>NAV gabungan {myHoldings.length} saham</strong> ({myHoldings.map((h) => h.symbol).join(', ') || '—'}), berbobot jumlah lembar. Hanya pergerakan harga (tanpa dividen). Periode mengikuti rentang data bersama semua saham.
+          </div>
+        )}
         <button onClick={run} disabled={busy}
           style={{ background: busy ? 'rgba(26,42,32,0.25)' : C.forest, color: C.cream, border: 'none', padding: '12px 22px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: busy ? 'default' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
           {busy ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> : <Play size={15} />}

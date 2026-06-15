@@ -190,7 +190,7 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
         </div>
       ) : page === 'backtest' ? (
         <Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', gap: 8, color: C.inkSoft, fontSize: 14, padding: '12px 0' }}><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Memuat Backtest…</div>}>
-          <Backtest />
+          <Backtest userId={userId} />
         </Suspense>
       ) : isPorto && !userId ? (
         <div style={{ background: C.cream2, borderRadius: 18, padding: 24, textAlign: 'center' }}>
