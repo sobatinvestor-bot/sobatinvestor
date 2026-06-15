@@ -1,5 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { ChevronLeft, Send, Trash2, Loader2, TrendingUp, TrendingDown, MessageCircle, Search, X } from 'lucide-react';
+import { ChevronLeft, Send, Trash2, Loader2, TrendingUp, TrendingDown, MessageCircle, Search, X, Briefcase } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell } from 'recharts';
 import { supabase } from './lib/supabase';
 const Backtest = lazy(() => import('./Backtest.jsx'));
@@ -23,7 +23,7 @@ const fmtTime = (s) =>
 const fmtDate = (s) =>
   new Date(s).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
 
-export default function AnalisisTab({ userId, userName, onRequireLogin, initialPage, onPageConsumed, initialSymbol, onSymbolConsumed }) {
+export default function AnalisisTab({ userId, userName, onRequireLogin, initialPage, onPageConsumed, initialSymbol, onSymbolConsumed, onGoPortfolio }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(null);
@@ -58,6 +58,11 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
     }
     if (onSymbolConsumed) onSymbolConsumed();
   }, [initialSymbol, loading]);
+
+  // Saat detail analisis dibuka, mulai dari ATAS (bukan posisi scroll sebelumnya)
+  useEffect(() => {
+    if (open) window.scrollTo({ top: 0, behavior: 'auto' });
+  }, [open]);
 
   useEffect(() => {
     let active = true;
@@ -104,7 +109,7 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
 
   if (open) {
     const a = items.find((x) => x.symbol === open);
-    if (a) return <AnalisisDetail a={a} onBack={() => setOpen(null)} userId={userId} userName={userName} onRequireLogin={onRequireLogin} />;
+    if (a) return <AnalisisDetail a={a} onBack={() => setOpen(null)} onPortfolio={onGoPortfolio ? () => { setOpen(null); onGoPortfolio(); } : null} userId={userId} userName={userName} onRequireLogin={onRequireLogin} />;
   }
 
   const isPorto = page === 'porto';
@@ -257,7 +262,7 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
   );
 }
 
-function AnalisisDetail({ a, onBack, userId, userName, onRequireLogin }) {
+function AnalisisDetail({ a, onBack, onPortfolio, userId, userName, onRequireLogin }) {
   const updated = a.updated_at && a.created_at && (new Date(a.updated_at).getTime() - new Date(a.created_at).getTime() > 60000);
   return (
     <div className="fade-up" style={{ padding: '20px 20px 40px', maxWidth: 800, margin: '0 auto' }}>
@@ -292,9 +297,16 @@ function AnalisisDetail({ a, onBack, userId, userName, onRequireLogin }) {
 
       <Comments symbol={a.symbol} userId={userId} userName={userName} onRequireLogin={onRequireLogin} />
 
-      <button onClick={onBack} style={{ marginTop: 28, background: C.cream2, border: 'none', cursor: 'pointer', color: C.ink, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, padding: '10px 18px', borderRadius: 100 }}>
-        <ChevronLeft size={16} /> Kembali ke semua analisis
-      </button>
+      <div style={{ marginTop: 28, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <button onClick={onBack} style={{ background: C.cream2, border: 'none', cursor: 'pointer', color: C.ink, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, padding: '10px 18px', borderRadius: 100 }}>
+          <ChevronLeft size={16} /> Kembali ke semua analisis
+        </button>
+        {onPortfolio && (
+          <button onClick={onPortfolio} style={{ background: C.cream2, border: 'none', cursor: 'pointer', color: C.ink, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, padding: '10px 18px', borderRadius: 100 }}>
+            <Briefcase size={15} /> Kembali ke portofolio
+          </button>
+        )}
+      </div>
     </div>
   );
 }

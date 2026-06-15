@@ -123,6 +123,7 @@ export default function App() {
               onPageConsumed={() => setAnalisisPage(null)}
               initialSymbol={analisisSymbol}
               onSymbolConsumed={() => setAnalisisSymbol(null)}
+              onGoPortfolio={() => setTab('portfolio')}
             />
           </Suspense>
         </div>
