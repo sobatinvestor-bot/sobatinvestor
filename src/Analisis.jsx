@@ -23,7 +23,7 @@ const fmtTime = (s) =>
 const fmtDate = (s) =>
   new Date(s).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
 
-export default function AnalisisTab({ userId, userName, onRequireLogin, initialPage, onPageConsumed }) {
+export default function AnalisisTab({ userId, userName, onRequireLogin, initialPage, onPageConsumed, initialSymbol, onSymbolConsumed }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(null);
@@ -40,6 +40,24 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
       if (onPageConsumed) onPageConsumed();
     }
   }, [initialPage]);
+
+  // Permintaan buka analisis emiten tertentu dari luar (mis. klik simbol di Portofolio)
+  useEffect(() => {
+    if (!initialSymbol || loading) return; // tunggu daftar analisis termuat
+    const sym = initialSymbol.toUpperCase();
+    setPage('umum');
+    const found = items.find((a) => (a.symbol || '').toUpperCase() === sym);
+    if (found) {
+      setQuery('');
+      setOpen(found.symbol);
+      supabase.rpc('increment_analysis_view', { p_symbol: found.symbol });
+    } else {
+      // belum ada analisis untuk emiten ini → tampilkan pencarian (user lihat status kosong)
+      setOpen(null);
+      setQuery(sym);
+    }
+    if (onSymbolConsumed) onSymbolConsumed();
+  }, [initialSymbol, loading]);
 
   useEffect(() => {
     let active = true;

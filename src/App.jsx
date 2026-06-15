@@ -62,11 +62,13 @@ export default function App() {
   const [session, setSession] = useState(undefined); // undefined = masih cek
   const [tab, setTab] = useState('home');
   const [analisisPage, setAnalisisPage] = useState(null); // permintaan buka page tertentu di tab Analisis
+  const [analisisSymbol, setAnalisisSymbol] = useState(null); // permintaan buka analisis emiten tertentu
 
   function goTo(tabId, page) {
     setAnalisisPage(page || null);
     setTab(tabId);
   }
+  const goAnalisis = (sym) => { if (!sym) return; setAnalisisSymbol(sym.toUpperCase()); setTab('analisis'); };
   const [market, setMarket] = useState({ quotes: [], ihsg: null });
 
   useEffect(() => {
@@ -119,6 +121,8 @@ export default function App() {
               onRequireLogin={() => setTab('portfolio')}
               initialPage={analisisPage}
               onPageConsumed={() => setAnalisisPage(null)}
+              initialSymbol={analisisSymbol}
+              onSymbolConsumed={() => setAnalisisSymbol(null)}
             />
           </Suspense>
         </div>
@@ -126,7 +130,7 @@ export default function App() {
         {session && (
           <div style={{ display: isPrivateTab ? 'block' : 'none' }}>
             <ErrorBoundary>
-              <PrivateArea tab={tab} userId={session.user.id} ihsgQuote={market.ihsg} />
+              <PrivateArea tab={tab} userId={session.user.id} ihsgQuote={market.ihsg} goAnalisis={goAnalisis} />
             </ErrorBoundary>
           </div>
         )}
@@ -137,7 +141,7 @@ export default function App() {
 }
 
 // Area privat (hanya saat sudah login): Dashboard, Sobat AI, Portfolio
-function PrivateArea({ tab, userId, ihsgQuote }) {
+function PrivateArea({ tab, userId, ihsgQuote, goAnalisis }) {
   const { stocks, addHolding, updateHolding, deleteHolding, deleteAll, sellHolding, settings, adjustRdn, saveFees } = usePortfolio(userId);
   const [editing, setEditing] = useState(null);
   const [selling, setSelling] = useState(null);
@@ -159,6 +163,7 @@ function PrivateArea({ tab, userId, ihsgQuote }) {
             onDelete={deleteHolding}
             onSell={(s) => setSelling(s)}
             onDeleteAll={deleteAll}
+            onSymbol={goAnalisis}
           />
         </div>
         <div id="sec-rdn" style={{ scrollMarginTop: 70 }}><RdnCard settings={settings} onAdjust={adjustRdn} onSaveFees={saveFees} userId={userId} /></div>
@@ -842,7 +847,7 @@ export function ChatTab({ stocks, active = true }) {
   );
 }
 
-function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onDeleteAll }) {
+function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onDeleteAll, onSymbol }) {
   const [confirmDel, setConfirmDel] = useState(null); // stock yang mau dihapus
   const [wipeStep, setWipeStep] = useState(0);        // 0=off, 1=dialog 1, 2=dialog final
   const [wipeText, setWipeText] = useState('');
@@ -909,7 +914,7 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onDeleteAll }) 
             return (
               <div key={s.id || s.symbol} style={{ display: 'grid', gridTemplateColumns: '1fr 48px 72px 86px 100px', padding: '14px 16px', borderBottom: `1px solid rgba(26,42,32,0.06)`, alignItems: 'center' }}>
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: 14 }}>{s.symbol}</div>
+                  <div onClick={onSymbol ? () => onSymbol(s.symbol) : undefined} title={onSymbol ? `Lihat analisis ${s.symbol}` : undefined} style={{ fontWeight: 700, fontSize: 14, cursor: onSymbol ? 'pointer' : 'default', textDecoration: onSymbol ? 'underline' : 'none', textDecorationStyle: 'dotted', textDecorationColor: 'rgba(26,42,32,0.35)', textUnderlineOffset: 3, display: 'inline-block' }}>{s.symbol}</div>
                   <div style={{ fontSize: 11, color: C.inkSoft, marginTop: 2 }}>{s.name}</div>
                   <div className="mono" style={{ fontSize: 10, color: C.inkSoft, marginTop: 2 }}>
                     avg Rp{Math.round(s.avg).toLocaleString('id-ID')}{s.buyDate ? ` · beli ${new Date(s.buyDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}
@@ -938,7 +943,7 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onDeleteAll }) 
         </div>
       )}
 
-      {stocks.length > 0 && <div id="sec-dividen" style={{ scrollMarginTop: 70 }}><DividendCard stocks={stocks} /></div>}
+      {stocks.length > 0 && <div id="sec-dividen" style={{ scrollMarginTop: 70 }}><DividendCard stocks={stocks} onSymbol={onSymbol} /></div>}
 
       {stocks.length > 0 && (
         <div style={{ marginTop: 16, textAlign: 'right' }}>
@@ -1074,7 +1079,7 @@ function DividendAdmin({ userId }) {
 
 // Cash from Dividend — jumlah real dari Yahoo; tanggal bayar = resmi dari tabel
 // dividend_schedule (bila diumumkan) atau perkiraan (ex-date + offset).
-export function DividendCard({ stocks }) {
+export function DividendCard({ stocks, onSymbol }) {
   const symKey = stocks.map((s) => s.symbol).join(',');
   const [raw, setRaw] = useState([]);   // [{ symbol, amount, exDate }]
   const [loading, setLoading] = useState(true);
@@ -1242,7 +1247,7 @@ export function DividendCard({ stocks }) {
           {hist.map((r, i) => (
             <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 8, alignItems: 'center', padding: '10px 0', borderBottom: `1px solid rgba(26,42,32,0.06)` }}>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 13 }}>{r.symbol}</div>
+                <div onClick={onSymbol ? () => onSymbol(r.symbol) : undefined} title={onSymbol ? `Lihat analisis ${r.symbol}` : undefined} style={{ fontWeight: 700, fontSize: 13, cursor: onSymbol ? 'pointer' : 'default', textDecoration: onSymbol ? 'underline' : 'none', textDecorationStyle: 'dotted', textDecorationColor: 'rgba(26,42,32,0.35)', textUnderlineOffset: 3, display: 'inline-block' }}>{r.symbol}</div>
                 <div style={{ fontSize: 11, color: C.inkSoft }}>{fmtRp(r.amount)}/lembar × {r.qty.toLocaleString('id-ID')} berhak</div>
               </div>
               <div style={{ textAlign: 'right' }}>
@@ -1275,7 +1280,7 @@ export function DividendCard({ stocks }) {
           {rows.map((r, i) => (
             <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 8, alignItems: 'center', padding: '10px 0', borderBottom: `1px solid rgba(26,42,32,0.06)` }}>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 13 }}>{r.symbol}</div>
+                <div onClick={onSymbol ? () => onSymbol(r.symbol) : undefined} title={onSymbol ? `Lihat analisis ${r.symbol}` : undefined} style={{ fontWeight: 700, fontSize: 13, cursor: onSymbol ? 'pointer' : 'default', textDecoration: onSymbol ? 'underline' : 'none', textDecorationStyle: 'dotted', textDecorationColor: 'rgba(26,42,32,0.35)', textUnderlineOffset: 3, display: 'inline-block' }}>{r.symbol}</div>
                 <div style={{ fontSize: 11, color: C.inkSoft }}>{fmtRp(r.amount)}/lembar × {r.qty.toLocaleString('id-ID')}</div>
               </div>
               <div style={{ textAlign: 'right' }}>
