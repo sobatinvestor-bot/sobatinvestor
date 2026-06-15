@@ -32,6 +32,7 @@ const initialStocks = [
 
 const fmtRp = (n) => 'Rp ' + Math.round(n).toLocaleString('id-ID');
 const fmtPct = (n) => (n >= 0 ? '+' : '') + n.toFixed(2) + '%';
+const ADMIN_UID = 'fb34e91b-dde7-42ce-83e9-ff70a2eaf52f';
 
 // Menangkap error render agar satu komponen bermasalah tidak memblank seluruh app.
 class ErrorBoundary extends React.Component {
@@ -163,6 +164,7 @@ function PrivateArea({ tab, userId, ihsgQuote }) {
         <div id="sec-rdn" style={{ scrollMarginTop: 70 }}><RdnCard settings={settings} onAdjust={adjustRdn} onSaveFees={saveFees} userId={userId} /></div>
         <div id="sec-riwayat" style={{ scrollMarginTop: 70 }}><LotsHistory userId={userId} /></div>
         <div id="sec-berita" style={{ scrollMarginTop: 70 }}><StockNews stocks={stocks} /></div>
+        {userId === ADMIN_UID && <div id="sec-admin" style={{ scrollMarginTop: 70 }}><DividendAdmin userId={userId} /></div>}
       </div>
       <ChatTab stocks={stocks} active={tab === 'chat'} />
       {editing && <Editor holding={editing} onSave={handleSave} onClose={() => setEditing(null)} />}
@@ -182,7 +184,7 @@ export function Nav({ ihsg, ihsgChange, session, setTab, tab }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           {session && tab === 'portfolio' && (
             <div style={{ display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: 'center' }}>
-              {[['sec-saham', 'Saham'], ['sec-dividen', 'Dividen'], ['sec-rdn', 'RDN'], ['sec-berita', 'Berita']].map(([id, lbl]) => (
+              {[['sec-saham', 'Saham'], ['sec-dividen', 'Dividen'], ['sec-rdn', 'RDN'], ['sec-berita', 'Berita'], ...((session && session.user && session.user.id === ADMIN_UID) ? [['sec-admin', 'Admin']] : [])].map(([id, lbl]) => (
                 <button key={id} onClick={() => { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
                   className="mono"
                   style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: C.inkSoft, fontSize: 11, fontWeight: 600, padding: '4px 7px', borderRadius: 100, fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
@@ -1020,19 +1022,104 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onDeleteAll }) 
   );
 }
 
-// Cash from Dividend — jumlah real dari Yahoo, tanggal bayar = perkiraan (ex-date + offset)
+// Panel admin: konfirmasi tanggal bayar dividen yang masih pending (confirmed=false).
+// Hanya untuk admin. RLS tetap melindungi penulisan di sisi server.
+function DividendAdmin({ userId }) {
+  const [rows, setRows] = useState(null);
+  const [edits, setEdits] = useState({});
+  const [busy, setBusy] = useState('');
+
+  async function load() {
+    const { data } = await supabase.from('dividend_schedule')
+      .select('id,symbol,ex_date,pay_date,source')
+      .eq('confirmed', false)
+      .order('ex_date', { ascending: true });
+    setRows(data || []);
+    const e = {};
+    (data || []).forEach((r) => { e[r.id] = { pay_date: r.pay_date, source: '' }; });
+    setEdits(e);
+  }
+  useEffect(() => { load(); }, []);
+  function setEdit(id, k, v) { setEdits((p) => ({ ...p, [id]: { ...p[id], [k]: v } })); }
+
+  async function confirm(r) {
+    const e = edits[r.id] || {};
+    const pay = e.pay_date || r.pay_date;
+    if (!pay) return;
+    setBusy(r.id);
+    const { error } = await supabase.from('dividend_schedule')
+      .update({ pay_date: pay, source: (e.source || '').trim() || 'admin', confirmed: true })
+      .eq('id', r.id);
+    setBusy('');
+    if (!error) load();
+  }
+
+  if (userId !== ADMIN_UID) return null;
+
+  return (
+    <div style={{ background: C.cream2, borderRadius: 20, padding: 20, marginTop: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+        <h3 className="serif" style={{ fontSize: 18, fontWeight: 600 }}>Admin · Antrean Dividen</h3>
+        <button onClick={load} className="mono" style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: C.inkSoft, fontSize: 11, fontWeight: 600 }}>MUAT ULANG</button>
+      </div>
+      <div style={{ fontSize: 12, color: C.inkSoft, marginBottom: 12 }}>Dividen terdeteksi worker yang perlu tanggal bayar resmi. Isi tanggal lalu konfirmasi — setelahnya dipakai tampilan & kredit RDN.</div>
+      {rows === null ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: C.inkSoft, fontSize: 13 }}><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Memuat…</div>
+      ) : rows.length === 0 ? (
+        <div style={{ fontSize: 13, color: C.inkSoft }}>Tidak ada antrean — semua dividen sudah punya tanggal resmi. ✓</div>
+      ) : rows.map((r) => {
+        const e = edits[r.id] || {};
+        return (
+          <div key={r.id} style={{ padding: '12px 0', borderBottom: '1px solid rgba(26,42,32,0.06)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+              <span style={{ fontWeight: 700, fontSize: 14 }}>{r.symbol}</span>
+              <span className="mono" style={{ fontSize: 11, color: C.inkSoft }}>ex {r.ex_date}</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 8, alignItems: 'center' }}>
+              <input type="date" value={e.pay_date || ''} onChange={(ev) => setEdit(r.id, 'pay_date', ev.target.value)}
+                style={{ padding: '8px 10px', borderRadius: 10, border: 'none', background: C.cream, fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box', width: '100%' }} />
+              <input value={e.source || ''} onChange={(ev) => setEdit(r.id, 'source', ev.target.value)} placeholder="sumber (mis. RUPST)"
+                style={{ padding: '8px 10px', borderRadius: 10, border: 'none', background: C.cream, fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box', width: '100%' }} />
+              <button onClick={() => confirm(r)} disabled={busy === r.id || !e.pay_date}
+                style={{ background: (busy === r.id || !e.pay_date) ? 'rgba(31,59,45,0.3)' : C.forest, color: C.cream, border: 'none', padding: '8px 14px', borderRadius: 100, fontSize: 12, fontWeight: 600, cursor: busy === r.id ? 'default' : 'pointer', whiteSpace: 'nowrap' }}>
+                {busy === r.id ? '…' : 'Konfirmasi'}
+              </button>
+            </div>
+            <div className="mono" style={{ fontSize: 10, color: C.inkSoft, marginTop: 4 }}>estimasi sekarang: {r.pay_date}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Cash from Dividend — jumlah real dari Yahoo; tanggal bayar = resmi dari tabel
+// dividend_schedule (bila diumumkan) atau perkiraan (ex-date + offset).
 export function DividendCard({ stocks }) {
   const symKey = stocks.map((s) => s.symbol).join(',');
   const [raw, setRaw] = useState([]);   // [{ symbol, amount, exDate }]
   const [loading, setLoading] = useState(true);
   const OFFSET_DAYS = 21; // perkiraan jeda ex-date → tanggal bayar (pola umum IDX)
   const [lots, setLots] = useState(null); // riwayat pembelian utk hitung kelayakan ex-date
+  const [schedule, setSchedule] = useState([]); // [{ symbol, ex_date, pay_date }] tanggal bayar resmi
 
   useEffect(() => {
     let active = true;
     supabase.from('lots').select('symbol,qty,buy_date,created_at,side')
       .then(({ data }) => { if (active) setLots(data || []); })
       .catch(() => { if (active) setLots([]); });
+    return () => { active = false; };
+  }, [symKey]);
+
+  // Jadwal dividen resmi (tanggal bayar yang sudah diumumkan) untuk saham yang dipegang
+  useEffect(() => {
+    if (!symKey) { setSchedule([]); return; }
+    let active = true;
+    supabase.from('dividend_schedule').select('symbol,ex_date,pay_date')
+      .eq('confirmed', true)
+      .in('symbol', stocks.map((s) => s.symbol))
+      .then(({ data }) => { if (active) setSchedule(data || []); })
+      .catch(() => { if (active) setSchedule([]); });
     return () => { active = false; };
   }, [symKey]);
 
@@ -1059,13 +1146,23 @@ export function DividendCard({ stocks }) {
   const YEAR = 365 * DAY;
   const OFFSET = OFFSET_DAYS * DAY;
   const NEAR = 45 * DAY;
+
+  // Cari tanggal bayar resmi dari tabel; toleransi 2 hari (tanggal feed bisa bergeser
+  // sehari akibat zona waktu). Null bila belum ada → pakai estimasi ex-date + offset.
+  function lookupPayDate(symbol, exTime) {
+    const TOL = 2 * DAY;
+    const ov = schedule.find((o) => o.symbol === symbol && Math.abs(new Date(o.ex_date + 'T00:00:00Z').getTime() - exTime) <= TOL);
+    return ov ? new Date(ov.pay_date + 'T00:00:00Z').getTime() : null;
+  }
+
   const now = Date.now();
   const horizon = now + YEAR;
 
   const real = raw.map((d) => {
     const exTime = new Date(d.exDate).getTime();
     const qty = qtyMap[d.symbol] || 0;
-    return { symbol: d.symbol, amount: d.amount, qty, cash: d.amount * qty, exTime, payTime: exTime + OFFSET, fix: true };
+    const ov = lookupPayDate(d.symbol, exTime);
+    return { symbol: d.symbol, amount: d.amount, qty, cash: d.amount * qty, exTime, payTime: ov != null ? ov : exTime + OFFSET, fix: true, exact: ov != null };
   }).filter((r) => r.cash > 0 && r.exTime > now && r.exTime <= horizon);
 
   const proj = raw.map((d) => {
@@ -1115,7 +1212,8 @@ export function DividendCard({ stocks }) {
   const hist = raw.map((d) => {
     const exTime = new Date(d.exDate).getTime();
     const q = eligibleQty(d.symbol, exTime);
-    return { symbol: d.symbol, amount: d.amount, qty: q, cash: d.amount * q, exTime, payEst: new Date(exTime + OFFSET) };
+    const ov = lookupPayDate(d.symbol, exTime);
+    return { symbol: d.symbol, amount: d.amount, qty: q, cash: d.amount * q, exTime, payEst: new Date(ov != null ? ov : exTime + OFFSET), exact: ov != null };
   })
     .filter((r) => r.exTime <= now && r.exTime >= now - YEAR && r.cash > 0)
     .sort((a, b) => b.exTime - a.exTime);
@@ -1169,7 +1267,7 @@ export function DividendCard({ stocks }) {
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div className="mono" style={{ fontSize: 11, color: C.inkSoft }}>ex {fmtDate(new Date(r.exTime))}</div>
-                <div className="mono" style={{ fontSize: 8, letterSpacing: '0.06em', color: C.inkSoft }}>±DIBAYAR {fmtDate(r.payEst).toUpperCase()}</div>
+                <div className="mono" style={{ fontSize: 8, letterSpacing: '0.06em', color: r.exact ? C.green : C.inkSoft }}>{r.exact ? 'DIBAYAR ' : '±DIBAYAR '}{fmtDate(r.payEst).toUpperCase()}</div>
               </div>
               <div className="mono" style={{ fontSize: 13, fontWeight: 600, color: C.green, textAlign: 'right', minWidth: 84 }}>{fmtRp(r.cash)}</div>
             </div>
@@ -1211,7 +1309,7 @@ export function DividendCard({ stocks }) {
       )}
 
       <div style={{ marginTop: 12, fontSize: 11, color: C.inkSoft, lineHeight: 1.5 }}>
-        ⓘ <strong style={{ color: C.ink }}>FIX</strong> = dividen yang tanggalnya sudah diumumkan. <strong style={{ color: C.ink }}>PERKIRAAN</strong> = proyeksi dari pola tahun lalu (+~1 tahun). Jumlah &amp; tanggal final bergantung keputusan RUPS emiten. Riwayat: ex-date adalah tanggal aktual; tanggal bayar estimasi (+21 hari); lembar yang berhak dihitung dari kepemilikan sebelum ex-date berdasarkan riwayat pembelian.
+        ⓘ <strong style={{ color: C.ink }}>FIX</strong> = dividen yang tanggalnya sudah diumumkan. <strong style={{ color: C.ink }}>PERKIRAAN</strong> = proyeksi dari pola tahun lalu (+~1 tahun). Jumlah &amp; tanggal final bergantung keputusan RUPS emiten. Riwayat: ex-date adalah tanggal aktual; tanggal bayar memakai jadwal resmi emiten bila sudah diumumkan (tanpa tanda ±), selain itu diperkirakan ±21 hari dari ex-date; lembar yang berhak dihitung dari kepemilikan sebelum ex-date berdasarkan riwayat pembelian.
       </div>
     </div>
   );
