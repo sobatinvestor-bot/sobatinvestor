@@ -1,0 +1,27 @@
+# GitHub Actions — sinkron jadwal dividen GRATIS (pengganti Cloudflare Workers Paid).
+# Taruh file ini di:  .github/workflows/dividend-sync.yml
+# Skrip ada di:        scripts/dividend-sync.mjs
+#
+# Set rahasia (sekali): repo GitHub -> Settings -> Secrets and variables -> Actions
+#   -> New repository secret -> nama: SUPABASE_SERVICE_ROLE_KEY, value: <service_role key>
+name: Dividend Schedule Sync
+
+on:
+  schedule:
+    - cron: '0 15 * * 6'    # Sabtu 15:00 UTC = Sabtu 22:00 WIB
+  workflow_dispatch:         # tombol "Run workflow" untuk jalankan manual / uji
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Jalankan sinkron dividen
+        env:
+          SUPABASE_URL: https://hmkeqvxcifggxownzrhx.supabase.co
+          APP_BASE_URL: https://sobatinvestor.com
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/dividend-sync.mjs
