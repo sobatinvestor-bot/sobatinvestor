@@ -93,6 +93,7 @@ export function usePortfolio(userId) {
       avg: Number(h.avg_price),
       buyDate: h.buy_date || null,
       price: live ? live.price : Number(h.avg_price),
+      hasLive: !!live,
       change: live ? live.change : 0,
     };
   });

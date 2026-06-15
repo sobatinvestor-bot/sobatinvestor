@@ -904,17 +904,29 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onDeleteAll }) 
             <span></span>
           </div>
           {stocks.map((s) => {
-            const pl = s.avg ? (s.price - s.avg) / s.avg * 100 : 0;
+            const plPct = (s.hasLive && s.avg) ? (s.price - s.avg) / s.avg * 100 : null;
+            const plRp = s.hasLive ? (s.price - s.avg) * s.qty : null;
             return (
               <div key={s.id || s.symbol} style={{ display: 'grid', gridTemplateColumns: '1fr 70px 90px 80px 64px', padding: '14px 16px', borderBottom: `1px solid rgba(26,42,32,0.06)`, alignItems: 'center' }}>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 14 }}>{s.symbol}</div>
                   <div style={{ fontSize: 11, color: C.inkSoft, marginTop: 2 }}>{s.name}</div>
-                  {s.buyDate && <div className="mono" style={{ fontSize: 10, color: C.inkSoft, marginTop: 2 }}>beli {new Date(s.buyDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</div>}
+                  <div className="mono" style={{ fontSize: 10, color: C.inkSoft, marginTop: 2 }}>
+                    avg Rp{Math.round(s.avg).toLocaleString('id-ID')}{s.buyDate ? ` · beli ${new Date(s.buyDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}
+                  </div>
                 </div>
                 <div className="mono" style={{ fontSize: 13, textAlign: 'right' }}>{s.qty.toLocaleString('id-ID')}</div>
-                <div className="mono" style={{ fontSize: 13, textAlign: 'right', fontWeight: 600 }}>{Math.round(s.price).toLocaleString('id-ID')}</div>
-                <div className="mono" style={{ fontSize: 13, textAlign: 'right', fontWeight: 600, color: pl >= 0 ? C.green : C.red }}>{fmtPct(pl)}</div>
+                <div className="mono" style={{ fontSize: 13, textAlign: 'right', fontWeight: 600 }}>
+                  {s.hasLive ? Math.round(s.price).toLocaleString('id-ID') : <span style={{ color: C.inkSoft }} title="harga live tak tersedia">—</span>}
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  {plPct != null ? (
+                    <>
+                      <div className="mono" style={{ fontSize: 13, fontWeight: 600, color: plPct >= 0 ? C.green : C.red }}>{fmtPct(plPct)}</div>
+                      <div className="mono" style={{ fontSize: 9, color: plPct >= 0 ? C.green : C.red }}>{plRp >= 0 ? '+' : '-'}Rp{Math.abs(Math.round(plRp)).toLocaleString('id-ID')}</div>
+                    </>
+                  ) : <span className="mono" style={{ fontSize: 13, color: C.inkSoft }}>—</span>}
+                </div>
                 <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
                   <button onClick={() => onSell(s)} title="Jual saham ini" style={{ background: C.cuan, border: 'none', cursor: 'pointer', padding: '5px 12px', borderRadius: 100, color: '#fff', fontSize: 12, fontWeight: 700, fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Minus size={13} /> Jual</button>
                   <button onClick={() => onEdit(s)} title="Edit" style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 4 }}><Pencil size={15} color={C.inkSoft} /></button>
