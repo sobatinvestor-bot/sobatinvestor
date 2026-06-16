@@ -16,6 +16,8 @@ const ITEMS = [
   { sym: "ETH-USD",   group: "Kripto (dalam IDR)",  label: "Ethereum",           sub: "ETH / IDR",       fmt: "idr", fx: true },
   { sym: "BZ=F",      group: "Komoditas",           label: "Minyak Brent",       sub: "US$ / barel",     fmt: "usd2" },
   { sym: "GC=F",      group: "Komoditas",           label: "Emas",               sub: "US$ / troy oz",   fmt: "usd2" },
+  { sym: "HG=F",      group: "Komoditas",           label: "Tembaga",            sub: "US$ / lb",        fmt: "usd2" },
+  { sym: "^TNX",      group: "Imbal Hasil & Suku Bunga", label: "US Treasury 10Y", sub: "Imbal hasil tahunan", fmt: "pct" },
 ];
 
 const FX_SYMBOL = "USDIDR=X";
@@ -73,6 +75,7 @@ function round2(n) { return Math.round(n * 100) / 100; }
 function formatVal(n, fmt) {
   if (fmt === "idr") return "Rp " + Math.round(n).toLocaleString("id-ID");
   if (fmt === "usd2") return "US$ " + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (fmt === "pct") return n.toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "%";
   // num2 (indeks)
   return n.toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }

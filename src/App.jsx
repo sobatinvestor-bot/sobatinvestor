@@ -217,6 +217,8 @@ function PrivateArea({ tab, userId, ihsgQuote, goAnalisis }) {
 function MarketsTab({ active }) {
   const [data, setData] = useState(null);
   const [err, setErr] = useState(false);
+  const [commodities, setCommodities] = useState([]);
+  const [indicators, setIndicators] = useState([]);
   const loadedRef = useRef(false);
 
   useEffect(() => {
@@ -232,10 +234,65 @@ function MarketsTab({ active }) {
         if (alive && !loadedRef.current) setErr(true);
       }
     }
+    async function loadCommodities() {
+      try {
+        const { data: rows } = await supabase.from('commodity_prices').select('*');
+        if (alive && rows) setCommodities(rows);
+      } catch (e) { /* abaikan — bagian live tetap tampil */ }
+    }
+    async function loadIndicators() {
+      try {
+        const { data: rows } = await supabase.from('economic_indicators').select('*');
+        if (alive && rows) setIndicators(rows);
+      } catch (e) { /* abaikan */ }
+    }
     load();
+    loadCommodities();
+    loadIndicators();
     const id = setInterval(load, 60000);
     return () => { alive = false; clearInterval(id); };
   }, [active]);
+
+  const ORDER = { coal: 0, nickel: 1, cpo: 2 };
+  const liveGroups = data ? data.groups.map((g) => ({ ...g, items: [...g.items] })) : [];
+  const commodityItems = commodities.slice()
+    .filter((c) => c.value != null)
+    .sort((a, b) => (ORDER[a.key] ?? 9) - (ORDER[b.key] ?? 9))
+    .map((c) => {
+      const v = c.value == null ? null : Number(c.value);
+      const pv = c.prev_value == null ? null : Number(c.prev_value);
+      const change = (v != null && pv) ? ((v - pv) / pv) * 100 : null;
+      return {
+        label: c.label,
+        sub: `${c.unit || 'US$ / ton'}${c.as_of ? ' · ' + c.as_of : ''}`,
+        display: v == null ? '—' : 'US$ ' + v.toLocaleString('id-ID', { maximumFractionDigits: 2 }),
+        change,
+        url: c.url || 'https://www.worldbank.org/en/research/commodity-markets',
+      };
+    });
+  const commodityGroup = commodityItems.length ? { title: 'Komoditas (bulanan · sumber Bank Dunia)', items: commodityItems } : null;
+
+  // Indikator manual (BI Rate, Fed Funds, Japan 10Y) → digabung ke grup imbal hasil/suku bunga.
+  const RATE_GROUP = 'Imbal Hasil & Suku Bunga';
+  const ECON_ORDER = { bi_rate: 0, fed_funds: 1, jp_10y: 2 };
+  const econItems = indicators.slice()
+    .filter((c) => c.display || c.value != null)
+    .sort((a, b) => (ECON_ORDER[a.key] ?? 9) - (ECON_ORDER[b.key] ?? 9))
+    .map((c) => ({
+      label: c.label,
+      sub: c.source || '',
+      display: c.display || (c.value != null ? Number(c.value).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%' : '—'),
+      metaText: c.as_of ? 'per ' + c.as_of : '—',
+      url: c.url || undefined,
+    }));
+  if (econItems.length) {
+    const rg = liveGroups.find((g) => g.title === RATE_GROUP);
+    if (rg) rg.items = [...rg.items, ...econItems];
+    else liveGroups.push({ title: RATE_GROUP, items: econItems });
+  }
+
+  const allGroups = [...liveGroups, ...(commodityGroup ? [commodityGroup] : [])];
+  const showLoading = !data && !err && commodityItems.length === 0 && econItems.length === 0;
 
   return (
     <div className="fade-up">
@@ -250,16 +307,16 @@ function MarketsTab({ active }) {
           Indeks saham global, kripto dalam rupiah, dan komoditas acuan. Data delayed dari sumber publik.
         </p>
 
-        {!data && !err && (
+        {showLoading && (
           <div style={{ color: C.inkSoft, fontSize: 13, padding: '20px 0', display: 'flex', alignItems: 'center', gap: 8 }}>
             <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Memuat data pasar…
           </div>
         )}
-        {!data && err && (
+        {!data && err && commodityItems.length === 0 && (
           <div style={{ color: C.inkSoft, fontSize: 13, padding: '20px 0' }}>Gagal memuat data pasar. Coba lagi sebentar.</div>
         )}
 
-        {data && data.groups.map((g) => (
+        {allGroups.map((g) => (
           <div key={g.title} style={{ marginBottom: 22 }}>
             <div className="mono" style={{ fontSize: 11, letterSpacing: '0.1em', color: C.inkSoft, marginBottom: 8, fontWeight: 600 }}>{g.title.toUpperCase()}</div>
             <div style={{ background: C.cream2, borderRadius: 16, overflow: 'hidden' }}>
@@ -275,8 +332,8 @@ function MarketsTab({ active }) {
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div className="mono" style={{ fontSize: 15, fontWeight: 600, color: C.ink }}>{it.display}</div>
-                    <div className="mono" style={{ fontSize: 12, fontWeight: 600, color: it.change == null ? C.inkSoft : (it.change >= 0 ? C.green : C.red) }}>
-                      {it.change == null ? '—' : (it.change >= 0 ? '\u25B2 +' : '\u25BC ') + it.change.toFixed(2) + '%'}
+                    <div className="mono" style={{ fontSize: 12, fontWeight: 600, color: it.metaText != null ? C.inkSoft : (it.change == null ? C.inkSoft : (it.change >= 0 ? C.green : C.red)) }}>
+                      {it.metaText != null ? it.metaText : (it.change == null ? '—' : (it.change >= 0 ? '\u25B2 +' : '\u25BC ') + it.change.toFixed(2) + '%')}
                     </div>
                   </div>
                 </a>
@@ -285,9 +342,9 @@ function MarketsTab({ active }) {
           </div>
         ))}
 
-        {data && (
+        {(data || commodityItems.length > 0 || econItems.length > 0) && (
           <div style={{ fontSize: 11, color: C.inkSoft, lineHeight: 1.5, marginTop: 4 }}>
-            Indeks mengikuti jam bursa masing-masing (dapat tertinggal / harga penutupan terakhir); kripto 24 jam. Nilai BTC/ETH dalam rupiah memakai kurs USD/IDR berjalan{data.usdidr ? ` (sekitar Rp${Math.round(data.usdidr).toLocaleString('id-ID')} per US$)` : ''}. Harga batu bara, nikel, dan sawit belum disertakan karena belum ada sumber gratis yang andal.
+            Indeks mengikuti jam bursa masing-masing (dapat tertinggal / harga penutupan terakhir); kripto 24 jam. Nilai BTC/ETH dalam rupiah memakai kurs USD/IDR berjalan{data && data.usdidr ? ` (sekitar Rp${Math.round(data.usdidr).toLocaleString('id-ID')} per US$)` : ''}. Harga batu bara, nikel, dan sawit adalah rata-rata bulanan World Bank Pink Sheet; klik tiap komoditas untuk grafik harga berjalannya (benchmark yang sama). US Treasury 10Y bersifat harian; BI Rate, Fed Funds, dan imbal hasil 10Y Jepang diperbarui berkala (manual) — lihat tanggalnya pada tiap baris.
           </div>
         )}
       </div>

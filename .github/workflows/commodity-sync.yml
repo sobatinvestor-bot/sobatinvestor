@@ -1,0 +1,29 @@
+name: Commodity Sync (World Bank Pink Sheet)
+
+on:
+  schedule:
+    # Tiap tanggal 5 jam 02:00 UTC (Pink Sheet biasanya rilis awal bulan).
+    - cron: "0 2 5 * *"
+  workflow_dispatch: {}   # bisa dijalankan manual dari tab Actions untuk validasi
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install deps
+        run: npm install xlsx
+
+      - name: Sync commodity prices
+        env:
+          # URL Supabase bukan rahasia (sama seperti worker dividen) → hardcode.
+          SUPABASE_URL: https://hmkeqvxcifggxownzrhx.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # Opsional: WB_XLSX_URL bila link otomatis gagal ditemukan.
+          # WB_XLSX_URL: ${{ secrets.WB_XLSX_URL }}
+        run: node scripts/commodity-sync.mjs
