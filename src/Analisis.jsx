@@ -135,7 +135,7 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
     : [];
 
   return (
-    <div className="fade-up" style={{ padding: '24px 20px', maxWidth: 800, margin: '0 auto' }}>
+    <div className="fade-up" style={{ padding: '24px 20px', maxWidth: 1100, margin: '0 auto' }}>
       <h2 className="serif" style={{ fontSize: 32, fontWeight: 500, letterSpacing: '-0.02em', marginBottom: 6 }}>Analisis</h2>
       <p style={{ fontSize: 14, color: C.inkSoft, lineHeight: 1.55, marginBottom: 14 }}>
         Analisis emiten IDX oleh AI - model bisnis, katalis, dan risiko. Diskusikan di kolom komentar tiap analisis.
@@ -270,7 +270,7 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
 function AnalisisDetail({ a, onBack, onPortfolio, userId, userName, onRequireLogin }) {
   const updated = a.updated_at && a.created_at && (new Date(a.updated_at).getTime() - new Date(a.created_at).getTime() > 60000);
   return (
-    <div className="fade-up" style={{ padding: '20px 20px 40px', maxWidth: 800, margin: '0 auto' }}>
+    <div className="fade-up" style={{ padding: '20px 20px 40px', maxWidth: 1100, margin: '0 auto' }}>
       <button onClick={onBack} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: C.inkSoft, display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 600, marginBottom: 16, padding: 0 }}>
         <ChevronLeft size={16} /> Semua analisis
       </button>

@@ -301,7 +301,7 @@ function MarketsTab({ active }) {
 
   return (
     <div className="fade-up">
-      <div style={{ padding: '40px 20px 24px', maxWidth: 760, margin: '0 auto' }}>
+      <div style={{ padding: '40px 20px 24px', maxWidth: 1100, margin: '0 auto' }}>
         <div className="mono" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.15em', color: C.rust, marginBottom: 12, fontWeight: 500 }}>
           // Pasar global
         </div>
@@ -994,7 +994,7 @@ export function ChatTab({ stocks, active = true }) {
   const suggestions = ['Apa itu dividen yield?', 'Jelaskan rasio PER sederhana', 'Tips diversifikasi portofolio'];
 
   return (
-    <div className="fade-up" style={{ display: active ? 'flex' : 'none', maxWidth: 760, margin: '0 auto', padding: '24px 16px 40px', flexDirection: 'column', minHeight: 'calc(100vh - 60px - 80px)' }}>
+    <div className="fade-up" style={{ display: active ? 'flex' : 'none', maxWidth: 1100, margin: '0 auto', padding: '24px 16px 40px', flexDirection: 'column', minHeight: 'calc(100vh - 60px - 80px)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
         <div style={{ width: 40, height: 40, borderRadius: 12, background: C.forest, color: C.cuanBright, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Sparkles size={20} />
