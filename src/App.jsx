@@ -155,7 +155,7 @@ function PrivateArea({ tab, userId, ihsgQuote, goAnalisis }) {
   return (
     <>
       <div style={{ display: tab === 'portfolio' ? 'block' : 'none' }}>
-        <DashboardTab stocks={stocks} ihsgQuote={ihsgQuote} />
+        <DashboardTab stocks={stocks} ihsgQuote={ihsgQuote} onSymbol={goAnalisis} />
         <div id="sec-saham" style={{ scrollMarginTop: 70 }}>
           <PortfolioTab
             stocks={stocks}
@@ -272,14 +272,16 @@ function HomeTab({ stocks, setTab, goTo }) {
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: C.cream2, padding: '6px 12px', borderRadius: 100, fontSize: 12, fontWeight: 500, color: C.inkSoft, marginBottom: 20 }}>
           <span style={{ color: C.rust, fontWeight: 700 }}>●</span> Live • Powered by AI
         </div>
-        <h1 className="serif" style={{ fontSize: 'clamp(38px, 7.5vw, 72px)', lineHeight: 1.05, letterSpacing: '-0.03em', fontWeight: 500, marginBottom: 20 }}>
-          Sobat AI,{' '}
-          <em style={{ color: C.forest, fontStyle: 'italic', backgroundImage: `linear-gradient(transparent 70%, ${C.cuan}66 70%)`, WebkitBoxDecorationBreak: 'clone', boxDecorationBreak: 'clone', paddingBottom: 1 }}>
-            asisten saham pribadimu
+        <h1 className="serif" style={{ fontSize: 'clamp(40px, 8vw, 72px)', lineHeight: 0.96, letterSpacing: '-0.03em', fontWeight: 500, marginBottom: 20 }}>
+          Sobat AI yang bantu kamu{' '}
+          <em style={{ color: C.forest, position: 'relative', display: 'inline-block' }}>
+            cuan
+            <span style={{ position: 'absolute', bottom: 4, left: 0, right: 0, height: 6, background: C.cuan, opacity: 0.4, zIndex: -1 }} />
           </em>
+          .
         </h1>
         <p style={{ fontSize: 17, color: C.inkSoft, lineHeight: 1.55, maxWidth: 540, marginBottom: 28 }}>
-          Analisis saham IDX bertenaga AI. Tanya apa saja, dapat wawasan berbasis data — bukan tebak-tebakan.
+          Analisis saham IDX otomatis. Tanya apa aja, dapat insight berbasis data — bukan tebak-tebakan.
         </p>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button
@@ -365,7 +367,7 @@ function PerfTooltip({ active, payload }) {
   );
 }
 
-function DashboardTab({ stocks, ihsgQuote }) {
+function DashboardTab({ stocks, ihsgQuote, onSymbol }) {
   const ihsgChange = ihsgQuote && typeof ihsgQuote.change === 'number' ? ihsgQuote.change : null;
   const ihsgLive = ihsgQuote && typeof ihsgQuote.value === 'number' ? ihsgQuote.value : null;
   const totalValue = stocks.reduce((sum, s) => sum + s.price * s.qty, 0);
@@ -540,9 +542,9 @@ function DashboardTab({ stocks, ihsgQuote }) {
   const sectorData = Object.entries(sectorMap).map(([name, value]) => ({ name, value }));
   const sectorColors = [C.forest, C.cuan, C.rust, C.sage, C.inkSoft];
 
-  const sortedByChange = [...stocks].sort((a, b) => b.change - a.change);
-  const gainers = sortedByChange.slice(0, 3);
-  const losers = sortedByChange.slice(-3).reverse();
+  const withChange = stocks.filter((s) => typeof s.change === 'number' && s.hasLive);
+  const gainers = withChange.filter((s) => s.change > 0).sort((a, b) => b.change - a.change).slice(0, 3);
+  const losers = withChange.filter((s) => s.change < 0).sort((a, b) => a.change - b.change).slice(0, 3);
 
   return (
     <div className="fade-up" style={{ padding: '24px 20px', maxWidth: 1100, margin: '0 auto' }}>
@@ -606,18 +608,22 @@ function DashboardTab({ stocks, ihsgQuote }) {
           <h3 className="serif" style={{ fontSize: 18, fontWeight: 600, marginBottom: 12 }}>Top Movers</h3>
           <div style={{ marginBottom: 16 }}>
             <div className="mono" style={{ fontSize: 10, color: C.green, marginBottom: 6, letterSpacing: '0.1em' }}>▲ GAINERS</div>
-            {gainers.map((s) => (
+            {gainers.length === 0 ? (
+              <div style={{ fontSize: 12, color: C.inkSoft, padding: '6px 0' }}>Belum ada yang naik hari ini.</div>
+            ) : gainers.map((s) => (
               <div key={s.symbol} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: 13 }}>
-                <span style={{ fontWeight: 600 }}>{s.symbol}</span>
+                <span onClick={onSymbol ? () => onSymbol(s.symbol) : undefined} title={onSymbol ? `Lihat analisis ${s.symbol}` : undefined} style={{ fontWeight: 600, cursor: onSymbol ? 'pointer' : 'default', textDecoration: onSymbol ? 'underline' : 'none', textDecorationStyle: 'dotted', textDecorationColor: 'rgba(26,42,32,0.35)', textUnderlineOffset: 3 }}>{s.symbol}</span>
                 <span style={{ color: C.green, fontWeight: 600 }} className="mono">{fmtPct(s.change)}</span>
               </div>
             ))}
           </div>
           <div>
             <div className="mono" style={{ fontSize: 10, color: C.red, marginBottom: 6, letterSpacing: '0.1em' }}>▼ LOSERS</div>
-            {losers.map((s) => (
+            {losers.length === 0 ? (
+              <div style={{ fontSize: 12, color: C.inkSoft, padding: '6px 0' }}>Belum ada yang turun hari ini.</div>
+            ) : losers.map((s) => (
               <div key={s.symbol} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: 13 }}>
-                <span style={{ fontWeight: 600 }}>{s.symbol}</span>
+                <span onClick={onSymbol ? () => onSymbol(s.symbol) : undefined} title={onSymbol ? `Lihat analisis ${s.symbol}` : undefined} style={{ fontWeight: 600, cursor: onSymbol ? 'pointer' : 'default', textDecoration: onSymbol ? 'underline' : 'none', textDecorationStyle: 'dotted', textDecorationColor: 'rgba(26,42,32,0.35)', textUnderlineOffset: 3 }}>{s.symbol}</span>
                 <span style={{ color: C.red, fontWeight: 600 }} className="mono">{fmtPct(s.change)}</span>
               </div>
             ))}
