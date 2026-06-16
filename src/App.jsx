@@ -90,7 +90,7 @@ export default function App() {
   }
   const goAnalisis = (sym) => { if (!sym) return; setAnalisisSymbol(sym.toUpperCase()); setTab('analisis'); };
   const [market, setMarket] = useState({ quotes: [], ihsg: null });
-  const [visitStats, setVisitStats] = useState(null); // { today, yesterday, delta }
+  const [visitStats, setVisitStats] = useState(null); // { total, today }
 
   // Catat satu kunjungan (unik per perangkat per hari) lalu ambil statistik.
   // Penulisan via RPC security-definer; tabel site_visits tetap terkunci utk anon.
@@ -111,7 +111,7 @@ export default function App() {
         await supabase.rpc('record_visit', { p_visitor: vid });
         const { data } = await supabase.rpc('visit_stats');
         const row = Array.isArray(data) ? data[0] : data;
-        if (active && row) setVisitStats({ today: Number(row.today), yesterday: Number(row.yesterday), delta: Number(row.delta) });
+        if (active && row) setVisitStats({ total: Number(row.total ?? row.today ?? 0), today: Number(row.today ?? 0) });
       } catch (e) { /* statistik bersifat opsional; abaikan bila gagal */ }
     })();
     return () => { active = false; };
@@ -561,8 +561,8 @@ function HomeTab({ stocks, setTab, goTo, visitStats }) {
       </div>
       {visitStats && (
         <div className="mono" style={{ textAlign: 'center', padding: '8px 20px 36px', fontSize: 12, color: C.inkSoft }}>
-          total pengunjung : <span style={{ fontWeight: 600, color: C.ink }}>{visitStats.today.toLocaleString('id-ID')}</span>{' '}
-          (<span style={{ color: visitStats.delta >= 0 ? C.green : C.red, fontWeight: 600 }}>{visitStats.delta >= 0 ? '+' : '−'}{Math.abs(visitStats.delta).toLocaleString('id-ID')} dari kemarin</span>)
+          total pengunjung : <span style={{ fontWeight: 600, color: C.ink }}>{visitStats.total.toLocaleString('id-ID')}</span>{' '}
+          (<span style={{ color: C.green, fontWeight: 600 }}>+{visitStats.today.toLocaleString('id-ID')} hari ini</span>)
         </div>
       )}
     </div>
