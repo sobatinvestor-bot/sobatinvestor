@@ -283,6 +283,15 @@ export function Auth({ inline }) {
   const [askBusy, setAskBusy] = useState(false);
   const [askSent, setAskSent] = useState(false);
   const [askErr, setAskErr] = useState('');
+  const [remember, setRemember] = useState(false);
+
+  // Muat email yang diingat (jika ada). Hanya email — tidak pernah password.
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('sb_remember_email');
+      if (saved) { setEmail(saved); setRemember(true); }
+    } catch { /* localStorage bisa terblokir; abaikan */ }
+  }, []);
 
   async function sendAsk() {
     setAskBusy(true); setAskErr('');
@@ -306,6 +315,12 @@ export function Auth({ inline }) {
       if (mode === 'login') {
         const { error } = await supabase.auth.signInWithPassword({ email, password: pw });
         if (error) setMsg(error.message);
+        else {
+          try {
+            if (remember) localStorage.setItem('sb_remember_email', email);
+            else localStorage.removeItem('sb_remember_email');
+          } catch { /* abaikan bila localStorage terblokir */ }
+        }
       } else {
         const { data, error } = await supabase.auth.signUp({ email, password: pw });
         if (error) setMsg(error.message);
@@ -333,6 +348,14 @@ export function Auth({ inline }) {
         </p>
         <Field icon={Mail} placeholder="email@kamu.com" value={email} onChange={setEmail} />
         <Field icon={Lock} placeholder={mode === 'login' ? 'password' : 'password (min 8: huruf besar, kecil & angka)'} type="password" value={pw} onChange={setPw} />
+        {mode === 'login' && (
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: C.inkSoft, margin: '2px 2px 0', cursor: 'pointer', userSelect: 'none' }}>
+            <input type="checkbox" checked={remember}
+              onChange={(e) => { const v = e.target.checked; setRemember(v); try { if (!v) localStorage.removeItem('sb_remember_email'); } catch {} }}
+              style={{ width: 16, height: 16, accentColor: C.forest, cursor: 'pointer' }} />
+            Ingat email saya
+          </label>
+        )}
         {msg && <div style={{ fontSize: 13, color: C.rust, margin: '6px 2px 0' }}>{msg}</div>}
         <button onClick={submit} disabled={busy || !email || pw.length < (mode === 'login' ? 6 : 8)}
           style={{ width: '100%', background: (busy || !email || pw.length < (mode === 'login' ? 6 : 8)) ? 'rgba(26,42,32,0.25)' : C.forest, color: C.cream, border: 'none', padding: 14, borderRadius: 100, fontSize: 14, fontWeight: 600, cursor: 'pointer', marginTop: 12 }}>
