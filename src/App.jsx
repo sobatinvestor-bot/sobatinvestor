@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
-import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Upload, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus, Users } from 'lucide-react';
+import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Upload, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus, Users, Globe } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import useBackGuard from './useBackGuard.js';
 import { Auth, usePortfolio, Editor, logout, SellEditor, RdnCard, StockNews, parseSobatCSV } from './Account.jsx';
@@ -134,7 +134,7 @@ export default function App() {
 
   const ihsg = market.ihsg ? market.ihsg.value : 7800;
   const ihsgChange = market.ihsg ? market.ihsg.change : 0;
-  const publicTabs = ['home', 'analisis'];
+  const publicTabs = ['home', 'analisis', 'global'];
   const isPrivateTab = !publicTabs.includes(tab);
 
   return (
@@ -157,6 +157,9 @@ export default function App() {
               onGoPortfolio={() => setTab('portfolio')}
             />
           </Suspense>
+        </div>
+        <div style={{ display: tab === 'global' ? 'block' : 'none' }}>
+          <MarketsTab active={tab === 'global'} />
         </div>
         {isPrivateTab && !session && <Auth inline />}
         {session && (
@@ -208,6 +211,87 @@ function PrivateArea({ tab, userId, ihsgQuote, goAnalisis }) {
       {editing && <Editor holding={editing} onSave={handleSave} onClose={() => setEditing(null)} />}
       {selling && <SellEditor holding={selling} onSell={sellHolding} onClose={() => setSelling(null)} fees={settings} />}
     </>
+  );
+}
+
+function MarketsTab({ active }) {
+  const [data, setData] = useState(null);
+  const [err, setErr] = useState(false);
+  const loadedRef = useRef(false);
+
+  useEffect(() => {
+    if (!active) return;
+    let alive = true;
+    async function load() {
+      try {
+        const res = await fetch('/api/markets');
+        if (!res.ok) throw new Error('http ' + res.status);
+        const d = await res.json();
+        if (alive) { setData(d); loadedRef.current = true; setErr(false); }
+      } catch (e) {
+        if (alive && !loadedRef.current) setErr(true);
+      }
+    }
+    load();
+    const id = setInterval(load, 60000);
+    return () => { alive = false; clearInterval(id); };
+  }, [active]);
+
+  return (
+    <div className="fade-up">
+      <div style={{ padding: '40px 20px 24px', maxWidth: 760, margin: '0 auto' }}>
+        <div className="mono" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.15em', color: C.rust, marginBottom: 12, fontWeight: 500 }}>
+          // Pasar global
+        </div>
+        <h1 className="serif" style={{ fontSize: 'clamp(28px, 6vw, 44px)', fontWeight: 500, letterSpacing: '-0.02em', lineHeight: 1.05, marginBottom: 8 }}>
+          Pasar dunia hari ini
+        </h1>
+        <p style={{ fontSize: 14, color: C.inkSoft, lineHeight: 1.55, marginBottom: 24 }}>
+          Indeks saham global, kripto dalam rupiah, dan komoditas acuan. Data delayed dari sumber publik.
+        </p>
+
+        {!data && !err && (
+          <div style={{ color: C.inkSoft, fontSize: 13, padding: '20px 0', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Memuat data pasar…
+          </div>
+        )}
+        {!data && err && (
+          <div style={{ color: C.inkSoft, fontSize: 13, padding: '20px 0' }}>Gagal memuat data pasar. Coba lagi sebentar.</div>
+        )}
+
+        {data && data.groups.map((g) => (
+          <div key={g.title} style={{ marginBottom: 22 }}>
+            <div className="mono" style={{ fontSize: 11, letterSpacing: '0.1em', color: C.inkSoft, marginBottom: 8, fontWeight: 600 }}>{g.title.toUpperCase()}</div>
+            <div style={{ background: C.cream2, borderRadius: 16, overflow: 'hidden' }}>
+              {g.items.map((it, i) => (
+                <a key={it.label} href={it.url || undefined} target="_blank" rel="noopener noreferrer"
+                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', borderTop: i === 0 ? 'none' : `1px solid rgba(26,42,32,0.06)`, textDecoration: 'none', color: 'inherit', cursor: it.url ? 'pointer' : 'default' }}>
+                  <div>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: C.ink, display: 'flex', alignItems: 'center', gap: 5 }}>
+                      {it.label}
+                      {it.url && <span aria-hidden="true" style={{ color: C.inkSoft, fontSize: 11 }}>{'\u2197'}</span>}
+                    </div>
+                    <div style={{ fontSize: 12, color: C.inkSoft }}>{it.sub}</div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div className="mono" style={{ fontSize: 15, fontWeight: 600, color: C.ink }}>{it.display}</div>
+                    <div className="mono" style={{ fontSize: 12, fontWeight: 600, color: it.change == null ? C.inkSoft : (it.change >= 0 ? C.green : C.red) }}>
+                      {it.change == null ? '—' : (it.change >= 0 ? '\u25B2 +' : '\u25BC ') + it.change.toFixed(2) + '%'}
+                    </div>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </div>
+        ))}
+
+        {data && (
+          <div style={{ fontSize: 11, color: C.inkSoft, lineHeight: 1.5, marginTop: 4 }}>
+            Indeks mengikuti jam bursa masing-masing (dapat tertinggal / harga penutupan terakhir); kripto 24 jam. Nilai BTC/ETH dalam rupiah memakai kurs USD/IDR berjalan{data.usdidr ? ` (sekitar Rp${Math.round(data.usdidr).toLocaleString('id-ID')} per US$)` : ''}. Harga batu bara, nikel, dan sawit belum disertakan karena belum ada sumber gratis yang andal.
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -280,6 +364,7 @@ function BottomNav({ tab, setTab }) {
     { id: 'analisis', label: 'Analisis', icon: FileText },
     { id: 'portfolio', label: 'Portofolio', icon: Briefcase },
     { id: 'chat', label: 'Sobat AI', icon: Sparkles },
+    { id: 'global', label: 'Global', icon: Globe },
   ];
   return (
     <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'rgba(244,239,230,0.95)', backdropFilter: 'blur(12px)', borderTop: `1px solid rgba(26,42,32,0.1)`, zIndex: 50 }}>
@@ -295,7 +380,7 @@ function BottomNav({ tab, setTab }) {
                 background: active ? C.forest : 'transparent',
                 color: active ? C.cream : C.inkSoft,
                 border: 'none',
-                padding: '8px 14px',
+                padding: '8px 10px',
                 borderRadius: 12,
                 display: 'flex',
                 flexDirection: 'column',
@@ -305,7 +390,7 @@ function BottomNav({ tab, setTab }) {
                 fontSize: 11,
                 fontWeight: 600,
                 transition: 'all 0.2s',
-                minWidth: 64,
+                minWidth: 56,
               }}
             >
               <Icon size={18} />
