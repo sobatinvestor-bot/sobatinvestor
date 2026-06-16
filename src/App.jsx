@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
-import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Upload, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus } from 'lucide-react';
+import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Upload, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus, Users } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import useBackGuard from './useBackGuard.js';
 import { Auth, usePortfolio, Editor, logout, SellEditor, RdnCard, StockNews, parseSobatCSV } from './Account.jsx';
@@ -71,6 +71,32 @@ export default function App() {
   }
   const goAnalisis = (sym) => { if (!sym) return; setAnalisisSymbol(sym.toUpperCase()); setTab('analisis'); };
   const [market, setMarket] = useState({ quotes: [], ihsg: null });
+  const [visitStats, setVisitStats] = useState(null); // { today, yesterday, delta }
+
+  // Catat satu kunjungan (unik per perangkat per hari) lalu ambil statistik.
+  // Penulisan via RPC security-definer; tabel site_visits tetap terkunci utk anon.
+  useEffect(() => {
+    let active = true;
+    let vid;
+    try {
+      vid = localStorage.getItem('sb_vid');
+      if (!vid) {
+        vid = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2);
+        localStorage.setItem('sb_vid', vid);
+      }
+    } catch (e) {
+      vid = String(Date.now()) + Math.random().toString(36).slice(2);
+    }
+    (async () => {
+      try {
+        await supabase.rpc('record_visit', { p_visitor: vid });
+        const { data } = await supabase.rpc('visit_stats');
+        const row = Array.isArray(data) ? data[0] : data;
+        if (active && row) setVisitStats({ today: Number(row.today), yesterday: Number(row.yesterday), delta: Number(row.delta) });
+      } catch (e) { /* statistik bersifat opsional; abaikan bila gagal */ }
+    })();
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -116,7 +142,7 @@ export default function App() {
       <Nav ihsg={ihsg} ihsgChange={ihsgChange} session={session} setTab={setTab} tab={tab} />
       <div style={{ paddingBottom: 100 }}>
         <div style={{ display: tab === 'home' ? 'block' : 'none' }}>
-          <HomeTab stocks={market.quotes} setTab={setTab} goTo={goTo} />
+          <HomeTab stocks={market.quotes} setTab={setTab} goTo={goTo} visitStats={visitStats} />
         </div>
         <div style={{ display: tab === 'analisis' ? 'block' : 'none' }}>
           <Suspense fallback={<div style={{ padding: '40px 20px', textAlign: 'center', color: C.inkSoft, fontSize: 13 }}>Memuat analisis…</div>}>
@@ -292,7 +318,7 @@ function BottomNav({ tab, setTab }) {
   );
 }
 
-function HomeTab({ stocks, setTab, goTo }) {
+function HomeTab({ stocks, setTab, goTo, visitStats }) {
   return (
     <div className="fade-up">
       <div style={{ padding: '40px 20px 24px', maxWidth: 1100, margin: '0 auto' }}>
@@ -308,6 +334,15 @@ function HomeTab({ stocks, setTab, goTo }) {
         <p style={{ fontSize: 17, color: C.inkSoft, lineHeight: 1.55, maxWidth: 540, marginBottom: 28 }}>
           Analisis saham IDX berbasis data, memahami peluang, risiko, dan keputusan investasi dengan lebih percaya diri.
         </p>
+        {visitStats && (
+          <div className="mono" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12, color: C.inkSoft, background: C.cream2, padding: '6px 12px', borderRadius: 100, marginBottom: 24 }}>
+            <Users size={13} />
+            <span><span style={{ fontWeight: 600, color: C.ink }}>{visitStats.today.toLocaleString('id-ID')}</span> pengunjung hari ini</span>
+            <span style={{ color: visitStats.delta >= 0 ? C.green : C.red, fontWeight: 600 }}>
+              {visitStats.delta >= 0 ? '+' : '−'}{Math.abs(visitStats.delta).toLocaleString('id-ID')} dari kemarin
+            </span>
+          </div>
+        )}
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button
             onClick={() => setTab('chat')}
