@@ -3,9 +3,28 @@ import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Upload, Loader2, 
 import { supabase } from './lib/supabase';
 import useBackGuard from './useBackGuard.js';
 import { Auth, usePortfolio, Editor, logout, SellEditor, RdnCard, StockNews, parseSobatCSV } from './Account.jsx';
-const AnalisisTab = lazy(() => import('./Analisis.jsx'));
-const PerfChart = lazy(() => import('./DashboardCharts.jsx').then((m) => ({ default: m.PerfChart })));
-const SectorPie = lazy(() => import('./DashboardCharts.jsx').then((m) => ({ default: m.SectorPie })));
+// Bila chunk lama hilang setelah deploy (browser pakai index.html basi), ambil
+// versi terbaru dengan reload sekali — mencegah layar blank "Failed to fetch module".
+function lazyReload(factory) {
+  return lazy(() =>
+    factory().catch((err) => {
+      if (typeof window !== 'undefined') {
+        const key = 'sb_chunk_reload';
+        const last = Number(sessionStorage.getItem(key) || 0);
+        if (Date.now() - last > 10000) {
+          sessionStorage.setItem(key, String(Date.now()));
+          window.location.reload();
+          return new Promise(() => {}); // tahan render sampai halaman dimuat ulang
+        }
+      }
+      throw err;
+    })
+  );
+}
+
+const AnalisisTab = lazyReload(() => import('./Analisis.jsx'));
+const PerfChart = lazyReload(() => import('./DashboardCharts.jsx').then((m) => ({ default: m.PerfChart })));
+const SectorPie = lazyReload(() => import('./DashboardCharts.jsx').then((m) => ({ default: m.SectorPie })));
 
 const C = {
   cream: '#F4EFE6',
