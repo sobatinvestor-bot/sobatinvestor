@@ -11,6 +11,7 @@ const YAHOO_HOSTS = ["query1.finance.yahoo.com", "query2.finance.yahoo.com"];
 const RATE_GROUP = "Kurs, Imbal Hasil & Suku Bunga";
 
 const ITEMS = [
+  { sym: "^JKSE",     group: "Indeks Saham Global", label: "IHSG",               sub: "Indonesia",       fmt: "num2" },
   { sym: "^GSPC",     group: "Indeks Saham Global", label: "S&P 500",            sub: "Amerika Serikat", fmt: "num2" },
   { sym: "000001.SS", group: "Indeks Saham Global", label: "Shanghai Composite", sub: "China",           fmt: "num2" },
   { sym: "^N225",     group: "Indeks Saham Global", label: "Nikkei 225",         sub: "Jepang",          fmt: "num2" },
