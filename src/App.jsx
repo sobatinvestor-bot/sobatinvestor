@@ -300,13 +300,13 @@ function HomeTab({ stocks, setTab, goTo }) {
           <span style={{ color: C.rust, fontWeight: 700 }}>●</span> Live • Powered by AI
         </div>
         <h1 className="serif" style={{ fontSize: 'clamp(38px, 7.5vw, 72px)', lineHeight: 1.05, letterSpacing: '-0.03em', fontWeight: 500, marginBottom: 20 }}>
-          Sobat AI,{' '}
+          Sobat Investor,{' '}
           <em style={{ color: C.forest, fontStyle: 'italic', backgroundImage: `linear-gradient(transparent 70%, ${C.cuan}66 70%)`, WebkitBoxDecorationBreak: 'clone', boxDecorationBreak: 'clone', paddingBottom: 1 }}>
             asisten saham pribadimu
           </em>
         </h1>
         <p style={{ fontSize: 17, color: C.inkSoft, lineHeight: 1.55, maxWidth: 540, marginBottom: 28 }}>
-          Analisis saham IDX bertenaga AI. Tanya apa saja, dapat wawasan berbasis data — bukan tebak-tebakan.
+          Analisis saham IDX berbasis data, memahami peluang, risiko, dan keputusan investasi dengan lebih percaya diri.
         </p>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button
