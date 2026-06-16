@@ -334,15 +334,6 @@ function HomeTab({ stocks, setTab, goTo, visitStats }) {
         <p style={{ fontSize: 17, color: C.inkSoft, lineHeight: 1.55, maxWidth: 540, marginBottom: 28 }}>
           Analisis saham IDX berbasis data, memahami peluang, risiko, dan keputusan investasi dengan lebih percaya diri.
         </p>
-        {visitStats && (
-          <div className="mono" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12, color: C.inkSoft, background: C.cream2, padding: '6px 12px', borderRadius: 100, marginBottom: 24 }}>
-            <Users size={13} />
-            <span><span style={{ fontWeight: 600, color: C.ink }}>{visitStats.today.toLocaleString('id-ID')}</span> pengunjung hari ini</span>
-            <span style={{ color: visitStats.delta >= 0 ? C.green : C.red, fontWeight: 600 }}>
-              {visitStats.delta >= 0 ? '+' : '−'}{Math.abs(visitStats.delta).toLocaleString('id-ID')} dari kemarin
-            </span>
-          </div>
-        )}
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button
             onClick={() => setTab('chat')}
@@ -402,6 +393,12 @@ function HomeTab({ stocks, setTab, goTo, visitStats }) {
           ))}
         </div>
       </div>
+      {visitStats && (
+        <div className="mono" style={{ textAlign: 'center', padding: '8px 20px 36px', fontSize: 12, color: C.inkSoft }}>
+          total pengunjung : <span style={{ fontWeight: 600, color: C.ink }}>{visitStats.today.toLocaleString('id-ID')}</span>{' '}
+          (<span style={{ color: visitStats.delta >= 0 ? C.green : C.red, fontWeight: 600 }}>{visitStats.delta >= 0 ? '+' : '−'}{Math.abs(visitStats.delta).toLocaleString('id-ID')} dari kemarin</span>)
+        </div>
+      )}
     </div>
   );
 }
