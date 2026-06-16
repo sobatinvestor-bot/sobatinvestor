@@ -279,7 +279,7 @@ function HomeTab({ stocks, setTab, goTo }) {
           </em>
         </h1>
         <p style={{ fontSize: 17, color: C.inkSoft, lineHeight: 1.55, maxWidth: 540, marginBottom: 28 }}>
-          Analisis saham IDX. Tanya apa aja, dapat insight berbasis data — bukan tebak-tebakan.
+          Analisis saham IDX bertenaga AI. Tanya apa saja, dapat wawasan berbasis data — bukan tebak-tebakan.
         </p>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button
