@@ -15,6 +15,9 @@ const STOCKS = {
   "GOTO.JK": { name: "GoTo Gojek Tokopedia", sector: "Tech" },
   "BMRI.JK": { name: "Bank Mandiri", sector: "Banking" },
   "UNVR.JK": { name: "Unilever Indonesia", sector: "Consumer" },
+  "MSTI.JK": { name: "Mastersystem Infotama", sector: "Tech" },
+  "NCKL.JK": { name: "Trimegah Bangun Persada", sector: "Basic Materials" },
+  "MBMA.JK": { name: "Merdeka Battery Materials", sector: "Basic Materials" },
 };
 
 const INDEX_SYMBOL = "^JKSE"; // IHSG
@@ -53,13 +56,27 @@ export async function onRequestGet(context) {
     ? { value: indexResult.price, change: indexResult.changePct }
     : null;
 
+  // Mode debug: /api/quotes?debug=1 → status tiap simbol (untuk diagnosa throttling Yahoo).
+  const body = {
+    asOf: new Date().toISOString(),
+    delayed: true,
+    ihsg,
+    quotes,
+  };
+  if (url.searchParams.get("debug")) {
+    body.requested = symbols.length;
+    body.ok = quotes.length;
+    body.detail = symbols.map((sym, i) => {
+      const r = stockResults[i];
+      return r.status === "fulfilled" && r.value
+        ? { symbol: sym, status: "ok" }
+        : { symbol: sym, status: "gagal", reason: r.reason ? String(r.reason.message || r.reason) : "unknown" };
+    });
+    body.ihsgStatus = ihsg ? "ok" : "gagal";
+  }
+
   return new Response(
-    JSON.stringify({
-      asOf: new Date().toISOString(),
-      delayed: true,
-      ihsg,
-      quotes,
-    }),
+    JSON.stringify(body),
     {
       headers: {
         "Content-Type": "application/json",
@@ -71,9 +88,12 @@ export async function onRequestGet(context) {
   );
 }
 
-async function fetchQuote(symbol) {
+// Host Yahoo bergantian — bila salah satu memblokir IP Cloudflare, coba yang lain.
+const YAHOO_HOSTS = ["query1.finance.yahoo.com", "query2.finance.yahoo.com"];
+
+async function fetchOnce(symbol, host) {
   const url =
-    `https://query1.finance.yahoo.com/v8/finance/chart/` +
+    `https://${host}/v8/finance/chart/` +
     `${encodeURIComponent(symbol)}?interval=1d&range=1d`;
 
   const res = await fetch(url, {
@@ -85,11 +105,11 @@ async function fetchQuote(symbol) {
     cf: { cacheTtl: 60, cacheEverything: true },
   });
 
-  if (!res.ok) throw new Error(`Yahoo ${symbol} HTTP ${res.status}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
   const data = await res.json();
   const result = data?.chart?.result?.[0];
-  if (!result || !result.meta) throw new Error(`No data for ${symbol}`);
+  if (!result || !result.meta) throw new Error("No data");
 
   const meta = result.meta;
   const price = meta.regularMarketPrice;
@@ -102,4 +122,18 @@ async function fetchQuote(symbol) {
     prevClose,
     changePct,
   };
+}
+
+// Coba tiap host (query1 lalu query2). Hanya gagal bila SEMUA host gagal,
+// sehingga satu simbol tidak mudah hilang dari ticker karena throttling sesaat.
+async function fetchQuote(symbol) {
+  let lastErr;
+  for (const host of YAHOO_HOSTS) {
+    try {
+      return await fetchOnce(symbol, host);
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw new Error(`Yahoo ${symbol}: ${lastErr ? lastErr.message : "gagal"}`);
 }
