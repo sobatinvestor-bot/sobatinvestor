@@ -2,6 +2,7 @@ import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { ChevronLeft, Send, Trash2, Loader2, TrendingUp, TrendingDown, MessageCircle, Search, X, Briefcase } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell } from 'recharts';
 import { supabase } from './lib/supabase';
+import useBackGuard from './useBackGuard.js';
 const Backtest = lazy(() => import('./Backtest.jsx'));
 
 const C = {
@@ -63,6 +64,10 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
   useEffect(() => {
     if (open) window.scrollTo({ top: 0, behavior: 'auto' });
   }, [open]);
+
+  // Tombol Back browser: saat detail terbuka, Back menutup detail dulu
+  // (kembali ke daftar) alih-alih meninggalkan situs.
+  useBackGuard(!!open, () => setOpen(null));
 
   useEffect(() => {
     let active = true;

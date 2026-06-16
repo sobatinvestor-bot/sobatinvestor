@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Upload, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus } from 'lucide-react';
 import { supabase } from './lib/supabase';
+import useBackGuard from './useBackGuard.js';
 import { Auth, usePortfolio, Editor, logout, SellEditor, RdnCard, StockNews, parseSobatCSV } from './Account.jsx';
 const AnalisisTab = lazy(() => import('./Analisis.jsx'));
 const PerfChart = lazy(() => import('./DashboardCharts.jsx').then((m) => ({ default: m.PerfChart })));
@@ -92,6 +93,10 @@ export default function App() {
     const id = setInterval(load, 60000);
     return () => { active = false; clearInterval(id); };
   }, []);
+
+  // Tombol Back browser: dari tab mana pun (selain Beranda) kembali ke Beranda
+  // dulu, bukan langsung keluar situs. (Detail analisis ditangani di Analisis.jsx.)
+  useBackGuard(tab !== 'home', () => setTab('home'));
 
   if (session === undefined) {
     return (
