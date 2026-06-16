@@ -185,42 +185,64 @@ function PrivateArea({ tab, userId, ihsgQuote, goAnalisis }) {
   );
 }
 
+function useIsMobile(bp = 768) {
+  const [m, setM] = useState(typeof window !== 'undefined' && window.innerWidth < bp);
+  useEffect(() => {
+    const on = () => setM(window.innerWidth < bp);
+    window.addEventListener('resize', on);
+    return () => window.removeEventListener('resize', on);
+  }, [bp]);
+  return m;
+}
+
 export function Nav({ ihsg, ihsgChange, session, setTab, tab }) {
+  const isMobile = useIsMobile();
+  const links = (session && tab === 'portfolio')
+    ? [['sec-saham', 'Saham'], ['sec-dividen', 'Dividen'], ['sec-rdn', 'RDN'], ['sec-berita', 'Berita'], ...((session.user && session.user.id === ADMIN_UID) ? [['sec-admin', 'Admin']] : [])]
+    : [];
+  const goSec = (id) => { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+  const linkBtn = ([id, lbl], chip) => (
+    <button key={id} onClick={() => goSec(id)} className="mono"
+      style={{ background: chip ? C.cream2 : 'transparent', border: 'none', cursor: 'pointer', color: C.inkSoft, fontSize: 11, fontWeight: 600, padding: chip ? '6px 12px' : '4px 7px', borderRadius: 100, fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+      {lbl}
+    </button>
+  );
   return (
     <div style={{ borderBottom: `1px solid rgba(26,42,32,0.08)`, background: 'rgba(244,239,230,0.9)', backdropFilter: 'blur(12px)', position: 'sticky', top: 0, zIndex: 50 }}>
-      <div style={{ padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', maxWidth: 1280, margin: '0 auto' }}>
-        <div className="serif" style={{ fontSize: 20, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span className="pulse-dot" style={{ width: 9, height: 9, borderRadius: '50%', background: C.cuan, display: 'inline-block' }} />
-          sobat<span style={{ color: C.cuan, fontWeight: 700 }}>.</span>investor
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          {session && tab === 'portfolio' && (
-            <div style={{ display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: 'center' }}>
-              {[['sec-saham', 'Saham'], ['sec-dividen', 'Dividen'], ['sec-rdn', 'RDN'], ['sec-berita', 'Berita'], ...((session && session.user && session.user.id === ADMIN_UID) ? [['sec-admin', 'Admin']] : [])].map(([id, lbl]) => (
-                <button key={id} onClick={() => { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
-                  className="mono"
-                  style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: C.inkSoft, fontSize: 11, fontWeight: 600, padding: '4px 7px', borderRadius: 100, fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
-                  {lbl}
-                </button>
-              ))}
-            </div>
-          )}
-          <div className="mono" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: C.inkSoft }}>
-            <span style={{ fontWeight: 600, color: C.ink }}>{ihsg.toFixed(2)}</span>
-            <span style={{ color: ihsgChange >= 0 ? C.green : C.red, fontWeight: 600 }}>{fmtPct(ihsgChange)}</span>
+      <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+        <div style={{ padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="serif" style={{ fontSize: 20, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span className="pulse-dot" style={{ width: 9, height: 9, borderRadius: '50%', background: C.cuan, display: 'inline-block' }} />
+            sobat<span style={{ color: C.cuan, fontWeight: 700 }}>.</span>investor
           </div>
-          {session ? (
-            <button onClick={logout} title="Keluar"
-              style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: C.inkSoft, display: 'flex', alignItems: 'center' }}>
-              <LogOut size={16} />
-            </button>
-          ) : (
-            <button onClick={() => setTab('portfolio')}
-              style={{ background: C.forest, color: C.cream, border: 'none', padding: '7px 16px', borderRadius: 100, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-              Masuk
-            </button>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            {!isMobile && links.length > 0 && (
+              <div style={{ display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: 'center' }}>
+                {links.map((l) => linkBtn(l, false))}
+              </div>
+            )}
+            <div className="mono" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: C.inkSoft }}>
+              <span style={{ fontWeight: 600, color: C.ink }}>{ihsg.toFixed(2)}</span>
+              <span style={{ color: ihsgChange >= 0 ? C.green : C.red, fontWeight: 600 }}>{fmtPct(ihsgChange)}</span>
+            </div>
+            {session ? (
+              <button onClick={logout} title="Keluar"
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: C.inkSoft, display: 'flex', alignItems: 'center' }}>
+                <LogOut size={16} />
+              </button>
+            ) : (
+              <button onClick={() => setTab('portfolio')}
+                style={{ background: C.forest, color: C.cream, border: 'none', padding: '7px 16px', borderRadius: 100, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                Masuk
+              </button>
+            )}
+          </div>
         </div>
+        {isMobile && links.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '0 20px 10px' }}>
+            {links.map((l) => linkBtn(l, true))}
+          </div>
+        )}
       </div>
     </div>
   );
