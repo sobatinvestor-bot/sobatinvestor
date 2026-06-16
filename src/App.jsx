@@ -291,7 +291,12 @@ function MarketsTab({ active }) {
     else liveGroups.push({ title: RATE_GROUP, items: econItems });
   }
 
-  const allGroups = [...liveGroups, ...(commodityGroup ? [commodityGroup] : [])];
+  const allGroups = [...liveGroups];
+  if (commodityGroup) {
+    const ki = allGroups.findIndex((g) => g.title === 'Komoditas');
+    if (ki >= 0) allGroups.splice(ki + 1, 0, commodityGroup);
+    else allGroups.push(commodityGroup);
+  }
   const showLoading = !data && !err && commodityItems.length === 0 && econItems.length === 0;
 
   return (
