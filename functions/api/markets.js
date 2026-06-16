@@ -8,6 +8,8 @@
 
 const YAHOO_HOSTS = ["query1.finance.yahoo.com", "query2.finance.yahoo.com"];
 
+const RATE_GROUP = "Kurs, Imbal Hasil & Suku Bunga";
+
 const ITEMS = [
   { sym: "^GSPC",     group: "Indeks Saham Global", label: "S&P 500",            sub: "Amerika Serikat", fmt: "num2" },
   { sym: "000001.SS", group: "Indeks Saham Global", label: "Shanghai Composite", sub: "China",           fmt: "num2" },
@@ -17,7 +19,9 @@ const ITEMS = [
   { sym: "BZ=F",      group: "Komoditas",           label: "Minyak Brent",       sub: "US$ / barel",     fmt: "usd2" },
   { sym: "GC=F",      group: "Komoditas",           label: "Emas",               sub: "US$ / troy oz",   fmt: "usd2" },
   { sym: "HG=F",      group: "Komoditas",           label: "Tembaga",            sub: "US$ / lb",        fmt: "usd2" },
-  { sym: "^TNX",      group: "Imbal Hasil & Suku Bunga", label: "US Treasury 10Y", sub: "Imbal hasil tahunan", fmt: "pct" },
+  { sym: "USDIDR=X",  group: RATE_GROUP,            label: "Dolar AS",           sub: "USD / IDR",       fmt: "idr" },
+  { sym: "CNYIDR=X",  group: RATE_GROUP,            label: "Yuan Tiongkok",      sub: "CNY / IDR",       fmt: "idr", cross: "USDCNY=X" },
+  { sym: "^TNX",      group: RATE_GROUP,            label: "US Treasury 10Y",    sub: "Imbal hasil tahunan", fmt: "pct" },
 ];
 
 const FX_SYMBOL = "USDIDR=X";
@@ -26,25 +30,43 @@ export async function onRequestGet(context) {
   const url = new URL(context.request.url);
   const debug = url.searchParams.get("debug");
 
-  const symbols = ITEMS.map((it) => it.sym).concat([FX_SYMBOL]);
+  const symbols = [...new Set(
+    ITEMS.flatMap((it) => (it.cross ? [it.cross] : [it.sym])).concat([FX_SYMBOL])
+  )];
   const results = await Promise.allSettled(symbols.map(fetchQuote));
   const bySym = {};
   results.forEach((r, i) => { bySym[symbols[i]] = r.status === "fulfilled" ? r.value : null; });
 
-  const fx = bySym[FX_SYMBOL] ? bySym[FX_SYMBOL].price : null; // USD -> IDR
+  const fxObj = bySym[FX_SYMBOL];
+  const fx = fxObj ? fxObj.price : null; // USD -> IDR
 
   // Susun per grup, menjaga urutan kemunculan.
   const order = [];
   const map = {};
   for (const it of ITEMS) {
-    const q = bySym[it.sym];
-    let value = q ? q.price : null;
-    if (it.fx) value = (q && fx) ? q.price * fx : null;
+    let value = null;
+    let change = null;
+    if (it.cross) {
+      // Kurs silang X/IDR = (USD/IDR) / (USD/X). Mis. CNY/IDR = USDIDR / USDCNY.
+      const den = bySym[it.cross];
+      if (fx && den && den.price) {
+        value = fx / den.price;
+        if (fxObj && fxObj.prevClose && den.prevClose) {
+          const prevCross = fxObj.prevClose / den.prevClose;
+          change = round2(((value - prevCross) / prevCross) * 100);
+        }
+      }
+    } else {
+      const q = bySym[it.sym];
+      value = q ? q.price : null;
+      change = q ? round2(q.changePct) : null;
+      if (it.fx) value = (q && fx) ? q.price * fx : null;
+    }
     const item = {
       label: it.label,
       sub: it.sub,
       display: value == null ? "—" : formatVal(value, it.fmt),
-      change: q ? round2(q.changePct) : null,
+      change,
       url: "https://finance.yahoo.com/quote/" + encodeURIComponent(it.sym),
     };
     if (!map[it.group]) { map[it.group] = { title: it.group, items: [] }; order.push(it.group); }

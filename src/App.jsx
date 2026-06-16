@@ -273,8 +273,8 @@ function MarketsTab({ active }) {
   const commodityGroup = commodityItems.length ? { title: 'Komoditas (bulanan · sumber Bank Dunia)', items: commodityItems } : null;
 
   // Indikator manual (BI Rate, Fed Funds, Japan 10Y) → digabung ke grup imbal hasil/suku bunga.
-  const RATE_GROUP = 'Imbal Hasil & Suku Bunga';
-  const ECON_ORDER = { bi_rate: 0, fed_funds: 1, jp_10y: 2 };
+  const RATE_GROUP = 'Kurs, Imbal Hasil & Suku Bunga';
+  const ECON_ORDER = { jp_10y: 0, bi_rate: 1, fed_funds: 2 };
   const econItems = indicators.slice()
     .filter((c) => c.display || c.value != null)
     .sort((a, b) => (ECON_ORDER[a.key] ?? 9) - (ECON_ORDER[b.key] ?? 9))
@@ -349,7 +349,7 @@ function MarketsTab({ active }) {
 
         {(data || commodityItems.length > 0 || econItems.length > 0) && (
           <div style={{ fontSize: 11, color: C.inkSoft, lineHeight: 1.5, marginTop: 4 }}>
-            Indeks mengikuti jam bursa masing-masing (dapat tertinggal / harga penutupan terakhir); kripto 24 jam. Nilai BTC/ETH dalam rupiah memakai kurs USD/IDR berjalan{data && data.usdidr ? ` (sekitar Rp${Math.round(data.usdidr).toLocaleString('id-ID')} per US$)` : ''}. Harga batu bara, nikel, dan sawit adalah rata-rata bulanan World Bank Pink Sheet; klik tiap komoditas untuk grafik harga berjalannya (benchmark yang sama). US Treasury 10Y bersifat harian; BI Rate, Fed Funds, dan imbal hasil 10Y Jepang diperbarui berkala (manual) — lihat tanggalnya pada tiap baris.
+            Indeks saham dan kurs mengikuti jam pasar masing-masing — di luar jam itu menampilkan harga penutupan terakhir; kripto bergerak 24 jam. Nilai BTC dan ETH ke rupiah dihitung dari kurs USD/IDR berjalan{data && data.usdidr ? ` (sekitar Rp${Math.round(data.usdidr).toLocaleString('id-ID')} per US$)` : ''}, dan kurs CNY/IDR diturunkan dari USD/IDR serta USD/CNY. Harga batu bara, nikel, dan sawit adalah rata-rata bulanan World Bank Pink Sheet — klik tiap komoditas untuk grafik harga berjalannya (benchmark yang sama). US Treasury 10Y dan kurs bersifat harian; BI Rate, Fed Funds, dan imbal hasil 10Y Jepang diperbarui manual secara berkala (lihat tanggal pada tiap baris). Seluruh data delayed dan disajikan untuk informasi, bukan rekomendasi investasi.
           </div>
         )}
       </div>
