@@ -5,15 +5,13 @@
   Strict-Transport-Security: max-age=31536000; includeSubDomains
   Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=()
 
-# Entry HTML: jangan pernah sajikan versi lama dari cache.
-# Selalu revalidasi ke server supaya tidak menunjuk bundle yang sudah dihapus
-# setelah deploy (penyebab layar blank).
+# index.html JANGAN di-cache permanen — selalu revalidasi supaya selalu menunjuk
+# file JS/CSS terbaru. Ini mencegah layar blank setiap kali ada deploy baru.
 /
   Cache-Control: no-cache
-
 /index.html
   Cache-Control: no-cache
 
-# Aset ber-hash (nama unik tiap build) aman di-cache lama.
+# Aset ber-hash (nama berubah tiap build) boleh di-cache selamanya.
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
