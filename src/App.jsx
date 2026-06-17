@@ -490,17 +490,16 @@ function PortfolioMacroAnalysis({ userId, onRequireLogin, marketSummary, marketR
   const [text, setText] = useState('');
   const [savedAt, setSavedAt] = useState(null);
   const [err, setErr] = useState('');
-  const lsKey = userId ? `sb_macro_analysis_${userId}` : null;
 
   useEffect(() => {
     if (!userId) { setHoldings(null); setText(''); setSavedAt(null); setErr(''); return; }
     let alive = true;
-    // Tampilkan analisis terakhir yang tersimpan — tak perlu klik ulang tiap masuk.
-    try {
-      const raw = localStorage.getItem(`sb_macro_analysis_${userId}`);
-      if (raw) { const o = JSON.parse(raw); if (o && o.text) { setText(o.text); setSavedAt(o.at || null); } }
-    } catch { /* abaikan */ }
     (async () => {
+      // Analisis terakhir tersimpan di DB → tampil di mana pun user login (lintas perangkat).
+      try {
+        const { data: saved } = await supabase.from('macro_analyses').select('content,created_at').eq('user_id', userId).maybeSingle();
+        if (alive && saved && saved.content) { setText(saved.content); setSavedAt(saved.created_at ? new Date(saved.created_at).getTime() : null); }
+      } catch { /* abaikan */ }
       try {
         const { data } = await supabase.from('holdings').select('symbol,name,sector,qty,avg_price').eq('user_id', userId);
         if (alive) setHoldings(data || []);
@@ -560,9 +559,9 @@ Gunakan format agar enak dibaca: **tebal** untuk penekanan, *miring* untuk istil
       } else {
         const reply = (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim();
         const finalText = reply || '(kosong)';
-        const at = Date.now();
-        setText(finalText); setSavedAt(at);
-        try { if (lsKey) localStorage.setItem(lsKey, JSON.stringify({ text: finalText, at })); } catch { /* abaikan */ }
+        const nowIso = new Date().toISOString();
+        setText(finalText); setSavedAt(Date.now());
+        try { await supabase.from('macro_analyses').upsert({ user_id: userId, content: finalText, created_at: nowIso }, { onConflict: 'user_id' }); } catch { /* tetap tampil sesi ini meski gagal simpan */ }
       }
       try { const { data: q } = await supabase.rpc('ai_quota_status'); if (q) setQuota(q); } catch { /* abaikan */ }
     } catch (e) {
