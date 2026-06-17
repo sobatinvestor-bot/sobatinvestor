@@ -818,8 +818,7 @@ function HomeTab({ stocks, setTab, goTo, visitStats }) {
           {[
             { num: '01', title: 'Backtest', desc: 'Backtest strategi SMA dengan Python asli yang jalan di browser-mu. Data harga & dividen IDX real — khusus member.', bg: C.forest, fg: C.cream, tab: 'analisis', page: 'backtest' },
             { num: '02', title: 'Analisis AI', desc: 'Analisis emiten oleh AI: model bisnis, katalis, dan risiko. Plus halaman khusus saham di portofoliomu.', bg: C.cream2, fg: C.ink, tab: 'analisis' },
-            { num: '03', title: 'Export & Import', desc: 'Export portofolio + RDN ke CSV untuk laporan di Excel — atau impor untuk memulihkan seluruh data kapan saja.', bg: C.cream2, fg: C.ink, tab: 'portfolio' },
-            { num: '04', title: 'Live Dashboard', desc: 'P/L live, alokasi sektor, dan proyeksi dividen 12 bulan di satu layar.', bg: C.cream2, fg: C.ink, tab: 'portfolio' },
+            { num: '03', title: 'Live Dashboard', desc: 'P/L live, alokasi sektor, dan proyeksi dividen 12 bulan di satu layar — termasuk export/import portofolio & RDN ke CSV kapan saja.', bg: C.cream2, fg: C.ink, tab: 'portfolio' },
           ].map((f) => (
             <button
               key={f.num}
