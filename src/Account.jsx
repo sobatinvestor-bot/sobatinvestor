@@ -2,7 +2,7 @@
 // Login/daftar (Supabase Auth) + hook portofolio per-user (CRUD ke tabel holdings,
 // digabung harga live dari /api/quotes) + modal tambah/edit saham.
 import React, { useState, useEffect, useCallback } from 'react';
-import { Mail, Lock, X, LogOut } from 'lucide-react';
+import { Mail, Lock, X, LogOut, Eye, EyeOff } from 'lucide-react';
 import { supabase } from './lib/supabase';
 
 const C = {
@@ -409,11 +409,22 @@ export function Auth({ inline }) {
 }
 
 function Field({ icon: Icon, placeholder, value, onChange, type = 'text' }) {
+  const [show, setShow] = useState(false);
+  const isPassword = type === 'password';
+  const inputType = isPassword ? (show ? 'text' : 'password') : type;
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: C.cream, borderRadius: 12, padding: '12px 14px', marginBottom: 12 }}>
       <Icon size={16} color={C.inkSoft} />
-      <input type={type} placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)}
+      <input type={inputType} placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)}
         style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontSize: 14, color: C.ink, fontFamily: 'inherit' }} />
+      {isPassword && (
+        <button type="button" onClick={() => setShow((s) => !s)}
+          aria-label={show ? 'Sembunyikan password' : 'Lihat password'}
+          title={show ? 'Sembunyikan password' : 'Lihat password'}
+          style={{ border: 'none', background: 'transparent', padding: 0, margin: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', color: C.inkSoft }}>
+          {show ? <EyeOff size={16} /> : <Eye size={16} />}
+        </button>
+      )}
     </div>
   );
 }
