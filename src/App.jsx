@@ -123,6 +123,31 @@ export default function App() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  // Auto sign-out setelah idle (keamanan). Aktif hanya saat sudah login.
+  // Pemicu: 3 menit tanpa aktivitas, ATAU tab tersembunyi/minimize ≥ 3 menit.
+  // Setelah keluar, layar Masuk muncul dengan email yang diingat → cukup password.
+  useEffect(() => {
+    if (!session) return;
+    const LOCK_MS = 3 * 60 * 1000;
+    let last = Date.now();
+    const bump = () => { last = Date.now(); };
+    const lock = () => {
+      try { sessionStorage.setItem('sb_autolocked', '1'); } catch {}
+      logout();
+    };
+    const check = () => { if (Date.now() - last >= LOCK_MS) lock(); };
+    const onVis = () => { if (document.visibilityState === 'visible') check(); };
+    const evs = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
+    evs.forEach((e) => window.addEventListener(e, bump, { passive: true }));
+    document.addEventListener('visibilitychange', onVis);
+    const iv = setInterval(check, 20000);
+    return () => {
+      evs.forEach((e) => window.removeEventListener(e, bump));
+      document.removeEventListener('visibilitychange', onVis);
+      clearInterval(iv);
+    };
+  }, [session]);
+
   // Data pasar publik (ticker Beranda + IHSG di header) — tanpa login
   useEffect(() => {
     let active = true;

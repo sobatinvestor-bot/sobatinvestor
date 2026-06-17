@@ -284,13 +284,21 @@ export function Auth({ inline }) {
   const [askSent, setAskSent] = useState(false);
   const [askErr, setAskErr] = useState('');
   const [remember, setRemember] = useState(false);
+  const [autoLocked, setAutoLocked] = useState(false);
 
   // Muat email yang diingat (jika ada). Hanya email — tidak pernah password.
+  // Sekaligus cek apakah sesi sebelumnya berakhir otomatis karena idle.
   useEffect(() => {
     try {
       const saved = localStorage.getItem('sb_remember_email');
       if (saved) { setEmail(saved); setRemember(true); }
     } catch { /* localStorage bisa terblokir; abaikan */ }
+    try {
+      if (sessionStorage.getItem('sb_autolocked') === '1') {
+        setAutoLocked(true);
+        sessionStorage.removeItem('sb_autolocked');
+      }
+    } catch { /* abaikan */ }
   }, []);
 
   async function sendAsk() {
@@ -346,6 +354,11 @@ export function Auth({ inline }) {
         <p style={{ fontSize: 14, color: C.inkSoft, marginBottom: 22 }}>
           {mode === 'login' ? 'Dashboard portofolio pribadimu.' : 'Buat akun, simpan portofolio sendiri.'}
         </p>
+        {autoLocked && mode === 'login' && (
+          <div style={{ fontSize: 13, color: C.inkSoft, background: C.cream, borderRadius: 10, padding: '10px 12px', marginBottom: 14 }}>
+            Sesi terkunci otomatis karena tidak aktif. Masuk lagi dengan password kamu.
+          </div>
+        )}
         <Field icon={Mail} placeholder="email@kamu.com" value={email} onChange={setEmail} />
         <Field icon={Lock} placeholder={mode === 'login' ? 'password' : 'password (min 8: huruf besar, kecil & angka)'} type="password" value={pw} onChange={setPw} />
         {mode === 'login' && (
