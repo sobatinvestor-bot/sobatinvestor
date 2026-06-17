@@ -489,16 +489,17 @@ function PortfolioMacroAnalysis({ userId, onRequireLogin, marketSummary, marketR
   const [loading, setLoading] = useState(false);
   const [text, setText] = useState('');
   const [savedAt, setSavedAt] = useState(null);
+  const [savedMarket, setSavedMarket] = useState('');
   const [err, setErr] = useState('');
 
   useEffect(() => {
-    if (!userId) { setHoldings(null); setText(''); setSavedAt(null); setErr(''); return; }
+    if (!userId) { setHoldings(null); setText(''); setSavedAt(null); setSavedMarket(''); setErr(''); return; }
     let alive = true;
     (async () => {
       // Analisis terakhir tersimpan di DB → tampil di mana pun user login (lintas perangkat).
       try {
-        const { data: saved } = await supabase.from('macro_analyses').select('content,created_at').eq('user_id', userId).maybeSingle();
-        if (alive && saved && saved.content) { setText(saved.content); setSavedAt(saved.created_at ? new Date(saved.created_at).getTime() : null); }
+        const { data: saved } = await supabase.from('macro_analyses').select('content,market,created_at').eq('user_id', userId).maybeSingle();
+        if (alive && saved && saved.content) { setText(saved.content); setSavedAt(saved.created_at ? new Date(saved.created_at).getTime() : null); setSavedMarket(saved.market || ''); }
       } catch { /* abaikan */ }
       try {
         const { data } = await supabase.from('holdings').select('symbol,name,sector,qty,avg_price').eq('user_id', userId);
@@ -560,8 +561,8 @@ Gunakan format agar enak dibaca: **tebal** untuk penekanan, *miring* untuk istil
         const reply = (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim();
         const finalText = reply || '(kosong)';
         const nowIso = new Date().toISOString();
-        setText(finalText); setSavedAt(Date.now());
-        try { await supabase.from('macro_analyses').upsert({ user_id: userId, content: finalText, created_at: nowIso }, { onConflict: 'user_id' }); } catch { /* tetap tampil sesi ini meski gagal simpan */ }
+        setText(finalText); setSavedAt(Date.now()); setSavedMarket(marketSummary);
+        try { await supabase.from('macro_analyses').upsert({ user_id: userId, content: finalText, market: marketSummary, created_at: nowIso }, { onConflict: 'user_id' }); } catch { /* tetap tampil sesi ini meski gagal simpan */ }
       }
       try { const { data: q } = await supabase.rpc('ai_quota_status'); if (q) setQuota(q); } catch { /* abaikan */ }
     } catch (e) {
@@ -623,6 +624,12 @@ Gunakan format agar enak dibaca: **tebal** untuk penekanan, *miring* untuk istil
                 <div style={{ fontSize: 12, color: C.inkSoft, marginBottom: 6 }}>
                   Dianalisis {fmtWIB(savedAt)} · berdasarkan data pasar saat itu (kondisi sekarang bisa berbeda).
                 </div>
+              )}
+              {(savedMarket || marketSummary) && (
+                <details style={{ marginBottom: 10 }}>
+                  <summary style={{ cursor: 'pointer', fontSize: 12, color: C.inkSoft, userSelect: 'none' }}>Lihat data pasar acuan analisis ini</summary>
+                  <pre style={{ marginTop: 8, whiteSpace: 'pre-wrap', fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, lineHeight: 1.5, color: C.inkSoft, background: C.cream, borderRadius: 12, padding: '12px 14px', overflowX: 'auto' }}>{savedMarket || marketSummary}</pre>
+                </details>
               )}
               <div style={{ background: C.cream2, borderRadius: 16, padding: '16px 18px' }}>
                 <RichText text={text} />
