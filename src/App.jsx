@@ -203,7 +203,7 @@ export default function App() {
           </Suspense>
         </div>
         <div style={{ display: tab === 'global' ? 'block' : 'none' }}>
-          <MarketsTab active={tab === 'global'} />
+          <MarketsTab active={tab === 'global'} userId={session ? session.user.id : null} onRequireLogin={() => setTab('portfolio')} />
         </div>
         {isPrivateTab && !session && <Auth inline />}
         {session && (
@@ -258,7 +258,7 @@ function PrivateArea({ tab, userId, ihsgQuote, goAnalisis }) {
   );
 }
 
-function MarketsTab({ active }) {
+function MarketsTab({ active, userId, onRequireLogin }) {
   const [data, setData] = useState(null);
   const [err, setErr] = useState(false);
   const [commodities, setCommodities] = useState([]);
@@ -343,6 +343,15 @@ function MarketsTab({ active }) {
   }
   const showLoading = !data && !err && commodityItems.length === 0 && econItems.length === 0;
 
+  // Ringkasan teks seluruh indikator makro → dipakai sebagai konteks analisis portofolio.
+  const marketSummary = allGroups.map((g) => {
+    const lines = g.items.map((it) => {
+      const chg = it.metaText != null ? it.metaText : (it.change == null ? '' : (it.change >= 0 ? '+' : '') + it.change.toFixed(2) + '%');
+      return `- ${it.label}: ${it.display}${chg ? ` (${chg})` : ''}`;
+    }).join('\n');
+    return `${g.title}:\n${lines}`;
+  }).join('\n\n');
+
   return (
     <div className="fade-up">
       <div style={{ padding: '40px 20px 24px', maxWidth: 1100, margin: '0 auto' }}>
@@ -396,7 +405,203 @@ function MarketsTab({ active }) {
             Indeks saham dan kurs mengikuti jam pasar masing-masing — di luar jam itu menampilkan harga penutupan terakhir; kripto bergerak 24 jam. Nilai BTC dan ETH ke rupiah dihitung dari kurs USD/IDR berjalan{data && data.usdidr ? ` (sekitar Rp${Math.round(data.usdidr).toLocaleString('id-ID')} per US$)` : ''}, dan kurs CNY/IDR diturunkan dari USD/IDR serta USD/CNY. Harga batu bara, nikel, dan sawit adalah rata-rata bulanan World Bank Pink Sheet — klik tiap komoditas untuk grafik harga berjalannya (benchmark yang sama). US Treasury 10Y dan kurs bersifat harian; BI Rate, Fed Funds, dan imbal hasil 10Y Jepang diperbarui manual secara berkala (lihat tanggal pada tiap baris). Seluruh data delayed dan disajikan untuk informasi, bukan rekomendasi investasi.
           </div>
         )}
+
+        <PortfolioMacroAnalysis userId={userId} onRequireLogin={onRequireLogin} marketSummary={marketSummary} marketReady={allGroups.length > 0} />
       </div>
+    </div>
+  );
+}
+
+// ── Renderer markdown ringan (tanpa library): tebal **x**, `kode`, sub-judul #,
+//    poin (- * •) dan penomoran (1.). Dipakai untuk menampilkan jawaban AI dgn rapi.
+function mdInline(text, kb) {
+  const parts = [];
+  const re = /\*\*([^*]+)\*\*|`([^`]+)`/g;
+  let last = 0, m, k = 0;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) parts.push(text.slice(last, m.index));
+    if (m[1] != null) parts.push(<strong key={`${kb}-b${k++}`} style={{ fontWeight: 700, color: C.ink }}>{m[1]}</strong>);
+    else parts.push(<code key={`${kb}-c${k++}`} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, background: 'rgba(26,42,32,0.07)', padding: '1px 5px', borderRadius: 5 }}>{m[2]}</code>);
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return parts;
+}
+
+function mdBlocks(md) {
+  const lines = String(md || '').replace(/\r/g, '').split('\n');
+  const blocks = [];
+  let para = [], list = null;
+  const flushPara = () => { if (para.length) { blocks.push({ type: 'p', text: para.join(' ') }); para = []; } };
+  const flushList = () => { if (list) { blocks.push(list); list = null; } };
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) { flushPara(); flushList(); continue; }
+    const h = line.match(/^(#{1,6})\s+(.*)$/);
+    if (h) { flushPara(); flushList(); blocks.push({ type: 'h', level: h[1].length, text: h[2] }); continue; }
+    const ul = line.match(/^[-*•]\s+(.*)$/);
+    if (ul) { flushPara(); if (!list || list.type !== 'ul') { flushList(); list = { type: 'ul', items: [] }; } list.items.push(ul[1]); continue; }
+    const ol = line.match(/^\d+[.)]\s+(.*)$/);
+    if (ol) { flushPara(); if (!list || list.type !== 'ol') { flushList(); list = { type: 'ol', items: [] }; } list.items.push(ol[1]); continue; }
+    flushList();
+    para.push(line);
+  }
+  flushPara(); flushList();
+  return blocks;
+}
+
+function RichText({ text }) {
+  const blocks = mdBlocks(text);
+  return (
+    <div style={{ fontSize: 14, lineHeight: 1.65, color: C.ink }}>
+      {blocks.map((b, i) => {
+        if (b.type === 'h') {
+          return <div key={i} className="serif" style={{ fontSize: b.level <= 2 ? 18 : 15, fontWeight: 700, color: C.ink, margin: i ? '14px 0 6px' : '0 0 6px' }}>{mdInline(b.text, `h${i}`)}</div>;
+        }
+        if (b.type === 'ul' || b.type === 'ol') {
+          const Tag = b.type === 'ul' ? 'ul' : 'ol';
+          return (
+            <Tag key={i} style={{ margin: '8px 0', paddingLeft: 22 }}>
+              {b.items.map((it, j) => <li key={j} style={{ margin: '4px 0' }}>{mdInline(it, `l${i}-${j}`)}</li>)}
+            </Tag>
+          );
+        }
+        return <p key={i} style={{ margin: i ? '8px 0 0' : 0 }}>{mdInline(b.text, `p${i}`)}</p>;
+      })}
+    </div>
+  );
+}
+
+// Analisis dampak kondisi makro/global ke portofolio user — memakai mesin Sobat AI
+// (lewat /api/chat), jadi setiap analisis memotong kuota Sobat AI harian.
+function PortfolioMacroAnalysis({ userId, onRequireLogin, marketSummary, marketReady }) {
+  const [holdings, setHoldings] = useState(null); // null = belum dimuat
+  const [quota, setQuota] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [text, setText] = useState('');
+  const [err, setErr] = useState('');
+
+  useEffect(() => {
+    if (!userId) { setHoldings(null); setText(''); setErr(''); return; }
+    let alive = true;
+    (async () => {
+      try {
+        const { data } = await supabase.from('holdings').select('symbol,name,sector,qty,avg_price').eq('user_id', userId);
+        if (alive) setHoldings(data || []);
+      } catch { if (alive) setHoldings([]); }
+      try {
+        const { data: q } = await supabase.rpc('ai_quota_status');
+        if (alive && q) setQuota(q);
+      } catch { /* abaikan */ }
+    })();
+    return () => { alive = false; };
+  }, [userId]);
+
+  async function analyze() {
+    if (loading || !holdings || holdings.length === 0) return;
+    setErr(''); setText(''); setLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) { setErr('Harus login untuk memakai analisis ini.'); setLoading(false); return; }
+
+      const port = holdings.map((h) => ({
+        sym: h.symbol, name: h.name || h.symbol, sector: h.sector || 'Lainnya',
+        val: Number(h.qty) * Number(h.avg_price),
+      }));
+      const total = port.reduce((s, p) => s + (p.val || 0), 0) || 1;
+      const bySector = {};
+      port.forEach((p) => { bySector[p.sector] = (bySector[p.sector] || 0) + (p.val || 0); });
+      const sectorLines = Object.entries(bySector).sort((a, b) => b[1] - a[1])
+        .map(([s, v]) => `${s}: ~${Math.round((v / total) * 100)}%`).join(', ');
+      const portLines = port.slice().sort((a, b) => b.val - a.val)
+        .map((p) => `${p.sym} (${p.name}) — sektor ${p.sector}, bobot ~${Math.round((p.val / total) * 100)}%`).join('\n');
+
+      const userMsg = `KONDISI MAKRO/GLOBAL TERKINI (dari halaman Global, data delayed):
+${marketSummary}
+
+PORTOFOLIO SAYA (bobot = perkiraan dari modal: qty × harga rata-rata):
+Komposisi sektor: ${sectorLines}
+Rincian emiten:
+${portLines}
+
+Tolong analisis ringkas dan terstruktur: bagaimana kondisi makro/global di atas berpotensi memengaruhi portofolio saya, per sektor dan emiten yang relevan. Soroti keterkaitan yang masuk akal (mis. arah suku bunga (BI Rate/Fed) terhadap bank, properti, dan emiten berutang; harga komoditas terhadap emiten komoditas terkait; pergerakan USD/IDR terhadap eksportir/importir; imbal hasil obligasi terhadap valuasi). Sebutkan mana yang paling terdampak dan kenapa. Jangan mengarang angka di luar yang diberikan. Tutup dengan pengingat singkat bahwa ini bukan rekomendasi investasi.`;
+
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ messages: [{ role: 'user', content: userMsg }] }),
+      });
+      const data = await res.json();
+      if (res.status === 429 || data.quota_exceeded) {
+        setErr(data.error || 'Kuota Sobat AI habis. Coba lagi besok.');
+      } else if (!res.ok) {
+        setErr(data.error || 'Gagal memuat analisis.');
+      } else {
+        const reply = (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim();
+        setText(reply || '(kosong)');
+      }
+      try { const { data: q } = await supabase.rpc('ai_quota_status'); if (q) setQuota(q); } catch { /* abaikan */ }
+    } catch (e) {
+      setErr(e.message || 'Terjadi kesalahan.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const noQuota = quota && quota.login && !quota.admin && quota.sisa_harian === 0;
+  const disabled = loading || !marketReady || !holdings || holdings.length === 0 || noQuota;
+
+  return (
+    <div style={{ marginTop: 30, paddingTop: 22, borderTop: `1px solid rgba(26,42,32,0.10)` }}>
+      <div className="mono" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.15em', color: C.rust, marginBottom: 10, fontWeight: 500 }}>
+        // Dampak ke portofoliomu
+      </div>
+      <h2 className="serif" style={{ fontSize: 'clamp(20px, 4vw, 28px)', fontWeight: 500, letterSpacing: '-0.01em', lineHeight: 1.1, marginBottom: 8 }}>
+        Bagaimana kondisi global ini memengaruhi portofoliomu?
+      </h2>
+
+      {!userId && (
+        <div>
+          <p style={{ fontSize: 14, color: C.inkSoft, lineHeight: 1.55, marginBottom: 14 }}>
+            Masuk dan isi portofoliomu untuk melihat analisis dampak kondisi global di atas terhadap saham yang kamu pegang.
+          </p>
+          <button onClick={onRequireLogin}
+            style={{ background: C.forest, color: C.cream, border: 'none', padding: '11px 20px', borderRadius: 100, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+            Masuk
+          </button>
+        </div>
+      )}
+
+      {userId && holdings && holdings.length === 0 && (
+        <p style={{ fontSize: 14, color: C.inkSoft, lineHeight: 1.55 }}>
+          Portofoliomu masih kosong. Tambah saham dulu di tab Portofolio, lalu kembali ke sini.
+        </p>
+      )}
+
+      {userId && holdings && holdings.length > 0 && (
+        <div>
+          <p style={{ fontSize: 14, color: C.inkSoft, lineHeight: 1.55, marginBottom: 14 }}>
+            Sobat AI akan menelaah {holdings.length} saham di portofoliomu terhadap kondisi makro/global di atas.
+          </p>
+          <button onClick={analyze} disabled={disabled}
+            style={{ background: disabled ? 'rgba(26,42,32,0.25)' : C.forest, color: C.cream, border: 'none', padding: '12px 22px', borderRadius: 100, fontSize: 14, fontWeight: 600, cursor: disabled ? 'default' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            {loading ? <><Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> Menganalisis…</> : <><Sparkles size={15} /> Analisis dampak ke portofolioku</>}
+          </button>
+          <div style={{ fontSize: 12, color: noQuota ? C.rust : C.inkSoft, marginTop: 8 }}>
+            {noQuota ? 'Kuota Sobat AI hari ini sudah habis.' : (quota && quota.login
+              ? (quota.admin ? 'Memakai Sobat AI · admin tanpa batas' : `Memakai jatah Sobat AI · sisa ${quota.sisa_harian}/${quota.limit_harian} hari ini`)
+              : 'Memakai jatah Sobat AI harian.')}
+          </div>
+
+          {err && <div style={{ fontSize: 13, color: C.rust, marginTop: 12 }}>{err}</div>}
+          {text && (
+            <div style={{ marginTop: 16, background: C.cream2, borderRadius: 16, padding: '16px 18px' }}>
+              <RichText text={text} />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
