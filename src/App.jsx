@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
-import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Upload, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus, Users, Globe } from 'lucide-react';
+import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Upload, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus, Users, Globe, ArrowDown } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import useBackGuard from './useBackGuard.js';
 import { Auth, usePortfolio, Editor, logout, SellEditor, RdnCard, StockNews, parseSobatCSV } from './Account.jsx';
@@ -355,15 +355,24 @@ function MarketsTab({ active, userId, onRequireLogin }) {
   return (
     <div className="fade-up">
       <div style={{ padding: '40px 20px 24px', maxWidth: 1100, margin: '0 auto' }}>
-        <div className="mono" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.15em', color: C.rust, marginBottom: 12, fontWeight: 500 }}>
-          // Pasar global
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap', marginBottom: 24 }}>
+          <div style={{ flex: '1 1 280px', minWidth: 0 }}>
+            <div className="mono" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.15em', color: C.rust, marginBottom: 12, fontWeight: 500 }}>
+              // Pasar global
+            </div>
+            <h1 className="serif" style={{ fontSize: 'clamp(28px, 6vw, 44px)', fontWeight: 500, letterSpacing: '-0.02em', lineHeight: 1.05, marginBottom: 8 }}>
+              Pasar dunia hari ini
+            </h1>
+            <p style={{ fontSize: 14, color: C.inkSoft, lineHeight: 1.55, margin: 0 }}>
+              Indeks saham global, kripto dalam rupiah, dan komoditas acuan. Data delayed dari sumber publik.
+            </p>
+          </div>
+          <button onClick={() => { const el = document.getElementById('dampak-portofolio'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
+            title="Lihat analisis dampak ke portofoliomu"
+            style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 8, background: C.forest, color: C.cream, border: 'none', padding: '10px 16px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 2px 10px rgba(31,59,45,0.20)' }}>
+            <Sparkles size={14} /> Dampak ke portofoliomu <ArrowDown size={14} />
+          </button>
         </div>
-        <h1 className="serif" style={{ fontSize: 'clamp(28px, 6vw, 44px)', fontWeight: 500, letterSpacing: '-0.02em', lineHeight: 1.05, marginBottom: 8 }}>
-          Pasar dunia hari ini
-        </h1>
-        <p style={{ fontSize: 14, color: C.inkSoft, lineHeight: 1.55, marginBottom: 24 }}>
-          Indeks saham global, kripto dalam rupiah, dan komoditas acuan. Data delayed dari sumber publik.
-        </p>
 
         {showLoading && (
           <div style={{ color: C.inkSoft, fontSize: 13, padding: '20px 0', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -576,7 +585,7 @@ Gunakan format agar enak dibaca: **tebal** untuk penekanan, *miring* untuk istil
   const disabled = loading || !marketReady || !holdings || holdings.length === 0 || noQuota;
 
   return (
-    <div style={{ marginTop: 30, paddingTop: 22, borderTop: `1px solid rgba(26,42,32,0.10)` }}>
+    <div id="dampak-portofolio" style={{ marginTop: 30, paddingTop: 22, borderTop: `1px solid rgba(26,42,32,0.10)`, scrollMarginTop: 80 }}>
       <div className="mono" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.15em', color: C.rust, marginBottom: 10, fontWeight: 500 }}>
         // Dampak ke portofoliomu
       </div>
