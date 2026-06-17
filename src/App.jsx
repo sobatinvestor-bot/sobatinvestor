@@ -123,9 +123,9 @@ export default function App() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  // Auto sign-out setelah idle (keamanan). Aktif hanya saat sudah login.
-  // Pemicu: 3 menit tanpa aktivitas, ATAU tab tersembunyi/minimize ≥ 3 menit.
-  // Setelah keluar, layar Masuk muncul dengan email yang diingat → cukup password.
+  // Auto sign-out (keamanan). Aktif hanya saat sudah login.
+  // Keluar bila: 3 menit TANPA aktivitas, ATAU tab tersembunyi/minimize ≥ 3 menit.
+  // Selama aktif, tetap login. Tutup browser/tab juga = keluar (sesi di sessionStorage).
   useEffect(() => {
     if (!session) return;
     const LOCK_MS = 3 * 60 * 1000;
@@ -140,7 +140,7 @@ export default function App() {
     const evs = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
     evs.forEach((e) => window.addEventListener(e, bump, { passive: true }));
     document.addEventListener('visibilitychange', onVis);
-    const iv = setInterval(check, 20000);
+    const iv = setInterval(check, 15000);
     return () => {
       evs.forEach((e) => window.removeEventListener(e, bump));
       document.removeEventListener('visibilitychange', onVis);
