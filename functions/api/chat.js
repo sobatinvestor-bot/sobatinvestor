@@ -59,10 +59,14 @@ export async function onRequestPost(context) {
       return jsonResponse({ error: 'Percakapan terlalu panjang, mulai chat baru ya.' }, 400);
     }
 
-    // 3) Paksa parameter aman di server (client TIDAK bisa override model/system/token)
+    // 3) Paksa parameter aman di server (model & persona terkunci; token dibatasi plafon server)
+    //    Klien boleh meminta lebih (mis. analisis portofolio yang panjang), tapi server
+    //    tetap memegang plafon agar budget terkendali.
+    const reqTokens = Number(body.max_tokens);
+    const maxTokens = Number.isFinite(reqTokens) ? Math.min(Math.max(Math.round(reqTokens), 100), 1200) : 600;
     const safeBody = {
       model: 'claude-haiku-4-5-20251001', // model termurah — kunci budget
-      max_tokens: 600,                     // chat saham cukup pendek
+      max_tokens: maxTokens,               // default 600; plafon 1200
       system: buildSystemPrompt(),               // persona terkunci di server
       messages,
     };

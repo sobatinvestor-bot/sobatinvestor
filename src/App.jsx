@@ -416,12 +416,15 @@ function MarketsTab({ active, userId, onRequireLogin }) {
 //    poin (- * •) dan penomoran (1.). Dipakai untuk menampilkan jawaban AI dgn rapi.
 function mdInline(text, kb) {
   const parts = [];
-  const re = /\*\*([^*]+)\*\*|`([^`]+)`/g;
+  //   **tebal**  |  <u>garis bawah</u>  |  *miring*  |  `kode`
+  const re = /\*\*([\s\S]+?)\*\*|<u>([\s\S]+?)<\/u>|\*([^*\n]+?)\*|`([^`]+?)`/g;
   let last = 0, m, k = 0;
   while ((m = re.exec(text)) !== null) {
     if (m.index > last) parts.push(text.slice(last, m.index));
-    if (m[1] != null) parts.push(<strong key={`${kb}-b${k++}`} style={{ fontWeight: 700, color: C.ink }}>{m[1]}</strong>);
-    else parts.push(<code key={`${kb}-c${k++}`} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, background: 'rgba(26,42,32,0.07)', padding: '1px 5px', borderRadius: 5 }}>{m[2]}</code>);
+    if (m[1] != null) parts.push(<strong key={`${kb}-b${k++}`} style={{ fontWeight: 700, color: C.ink }}>{mdInline(m[1], `${kb}-b${k}`)}</strong>);
+    else if (m[2] != null) parts.push(<u key={`${kb}-u${k++}`} style={{ textUnderlineOffset: 2 }}>{mdInline(m[2], `${kb}-u${k}`)}</u>);
+    else if (m[3] != null) parts.push(<em key={`${kb}-i${k++}`} style={{ fontStyle: 'italic' }}>{m[3]}</em>);
+    else parts.push(<code key={`${kb}-c${k++}`} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, background: 'rgba(26,42,32,0.07)', padding: '1px 5px', borderRadius: 5 }}>{m[4]}</code>);
     last = m.index + m[0].length;
   }
   if (last < text.length) parts.push(text.slice(last));
@@ -472,6 +475,12 @@ function RichText({ text }) {
   );
 }
 
+function fmtWIB(ts) {
+  try {
+    return new Date(ts).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' WIB';
+  } catch { return ''; }
+}
+
 // Analisis dampak kondisi makro/global ke portofolio user — memakai mesin Sobat AI
 // (lewat /api/chat), jadi setiap analisis memotong kuota Sobat AI harian.
 function PortfolioMacroAnalysis({ userId, onRequireLogin, marketSummary, marketReady }) {
@@ -479,11 +488,18 @@ function PortfolioMacroAnalysis({ userId, onRequireLogin, marketSummary, marketR
   const [quota, setQuota] = useState(null);
   const [loading, setLoading] = useState(false);
   const [text, setText] = useState('');
+  const [savedAt, setSavedAt] = useState(null);
   const [err, setErr] = useState('');
+  const lsKey = userId ? `sb_macro_analysis_${userId}` : null;
 
   useEffect(() => {
-    if (!userId) { setHoldings(null); setText(''); setErr(''); return; }
+    if (!userId) { setHoldings(null); setText(''); setSavedAt(null); setErr(''); return; }
     let alive = true;
+    // Tampilkan analisis terakhir yang tersimpan — tak perlu klik ulang tiap masuk.
+    try {
+      const raw = localStorage.getItem(`sb_macro_analysis_${userId}`);
+      if (raw) { const o = JSON.parse(raw); if (o && o.text) { setText(o.text); setSavedAt(o.at || null); } }
+    } catch { /* abaikan */ }
     (async () => {
       try {
         const { data } = await supabase.from('holdings').select('symbol,name,sector,qty,avg_price').eq('user_id', userId);
@@ -499,7 +515,7 @@ function PortfolioMacroAnalysis({ userId, onRequireLogin, marketSummary, marketR
 
   async function analyze() {
     if (loading || !holdings || holdings.length === 0) return;
-    setErr(''); setText(''); setLoading(true);
+    setErr(''); setLoading(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
@@ -525,12 +541,16 @@ Komposisi sektor: ${sectorLines}
 Rincian emiten:
 ${portLines}
 
-Tolong analisis ringkas dan terstruktur: bagaimana kondisi makro/global di atas berpotensi memengaruhi portofolio saya, per sektor dan emiten yang relevan. Soroti keterkaitan yang masuk akal (mis. arah suku bunga (BI Rate/Fed) terhadap bank, properti, dan emiten berutang; harga komoditas terhadap emiten komoditas terkait; pergerakan USD/IDR terhadap eksportir/importir; imbal hasil obligasi terhadap valuasi). Sebutkan mana yang paling terdampak dan kenapa. Jangan mengarang angka di luar yang diberikan. Tutup dengan pengingat singkat bahwa ini bukan rekomendasi investasi.`;
+Tolong buat analisis SINGKAT, rapi, dan mudah dibaca dalam Bahasa Indonesia memakai format markdown:
+- Awali dengan "## Gambaran" — 1–2 kalimat kondisi makro yang paling relevan untuk portofolio ini.
+- Lalu "## Per Sektor" — bahas hanya sektor utama portofolio (yang bobotnya besar), JANGAN membahas satu per satu semua emiten. Sebut 1–2 emiten paling terdampak per sektor beserta alasan keterkaitannya (suku bunga BI/Fed, harga komoditas, USD/IDR, atau imbal hasil obligasi).
+- Tutup dengan "## Yang Perlu Dipantau" — 2–3 poin.
+Gunakan format agar enak dibaca: **tebal** untuk penekanan, *miring* untuk istilah/nuansa, <u>garis bawah</u> untuk menandai hal paling penting (secukupnya), serta poin (-) untuk daftar. Jangan berlebihan. Jangan mengarang angka di luar yang diberikan. Batasi maksimal sekitar 300 kata. Akhiri dengan satu kalimat singkat bahwa ini bukan rekomendasi investasi.`;
 
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ messages: [{ role: 'user', content: userMsg }] }),
+        body: JSON.stringify({ messages: [{ role: 'user', content: userMsg }], max_tokens: 1200 }),
       });
       const data = await res.json();
       if (res.status === 429 || data.quota_exceeded) {
@@ -539,7 +559,10 @@ Tolong analisis ringkas dan terstruktur: bagaimana kondisi makro/global di atas 
         setErr(data.error || 'Gagal memuat analisis.');
       } else {
         const reply = (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim();
-        setText(reply || '(kosong)');
+        const finalText = reply || '(kosong)';
+        const at = Date.now();
+        setText(finalText); setSavedAt(at);
+        try { if (lsKey) localStorage.setItem(lsKey, JSON.stringify({ text: finalText, at })); } catch { /* abaikan */ }
       }
       try { const { data: q } = await supabase.rpc('ai_quota_status'); if (q) setQuota(q); } catch { /* abaikan */ }
     } catch (e) {
@@ -586,7 +609,7 @@ Tolong analisis ringkas dan terstruktur: bagaimana kondisi makro/global di atas 
           </p>
           <button onClick={analyze} disabled={disabled}
             style={{ background: disabled ? 'rgba(26,42,32,0.25)' : C.forest, color: C.cream, border: 'none', padding: '12px 22px', borderRadius: 100, fontSize: 14, fontWeight: 600, cursor: disabled ? 'default' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-            {loading ? <><Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> Menganalisis…</> : <><Sparkles size={15} /> Analisis dampak ke portofolioku</>}
+            {loading ? <><Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> Menganalisis…</> : <><Sparkles size={15} /> {text ? 'Perbarui analisis' : 'Analisis dampak ke portofolioku'}</>}
           </button>
           <div style={{ fontSize: 12, color: noQuota ? C.rust : C.inkSoft, marginTop: 8 }}>
             {noQuota ? 'Kuota Sobat AI hari ini sudah habis.' : (quota && quota.login
@@ -596,8 +619,15 @@ Tolong analisis ringkas dan terstruktur: bagaimana kondisi makro/global di atas 
 
           {err && <div style={{ fontSize: 13, color: C.rust, marginTop: 12 }}>{err}</div>}
           {text && (
-            <div style={{ marginTop: 16, background: C.cream2, borderRadius: 16, padding: '16px 18px' }}>
-              <RichText text={text} />
+            <div style={{ marginTop: 16 }}>
+              {savedAt && (
+                <div style={{ fontSize: 12, color: C.inkSoft, marginBottom: 6 }}>
+                  Dianalisis {fmtWIB(savedAt)} · berdasarkan data pasar saat itu (kondisi sekarang bisa berbeda).
+                </div>
+              )}
+              <div style={{ background: C.cream2, borderRadius: 16, padding: '16px 18px' }}>
+                <RichText text={text} />
+              </div>
             </div>
           )}
         </div>
