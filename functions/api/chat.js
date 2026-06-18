@@ -44,6 +44,9 @@ export async function onRequestPost(context) {
     const token = authHeader.replace(/^Bearer\s+/i, '').trim();
     if (!token) return jsonResponse({ error: 'Harus login untuk pakai Sobat AI' }, 401);
 
+    // Apakah pemanggil adalah admin? (dibaca dari token, bukan dari klien)
+    const isAdmin = getUserId(token) === ADMIN_UID;
+
     // 2) Cek + catat kuota via RPC (atomik di Supabase)
     const quota = await checkQuota(env, token);
     if (!quota.ok) {
@@ -63,10 +66,14 @@ export async function onRequestPost(context) {
     //    Klien boleh meminta lebih (mis. analisis portofolio yang panjang), tapi server
     //    tetap memegang plafon agar budget terkendali.
     const reqTokens = Number(body.max_tokens);
-    const maxTokens = Number.isFinite(reqTokens) ? Math.min(Math.max(Math.round(reqTokens), 100), 1200) : 600;
+    // Admin tidak dibatasi server: plafon = batas maksimum output model Opus 4.8 (128k).
+    const HARD_CAP = isAdmin ? 128000 : 1200;
+    const fallback = isAdmin ? 8000 : 600;
+    const maxTokens = Number.isFinite(reqTokens) ? Math.min(Math.max(Math.round(reqTokens), 100), HARD_CAP) : fallback;
     const safeBody = {
-      model: 'claude-haiku-4-5-20251001', // model termurah — kunci budget
-      max_tokens: maxTokens,               // default 600; plafon 1200
+      // Admin memakai model tertinggi (Opus 4.8); user umum tetap Haiku (kunci budget).
+      model: isAdmin ? 'claude-opus-4-8' : 'claude-haiku-4-5-20251001',
+      max_tokens: maxTokens,
       system: buildSystemPrompt(),               // persona terkunci di server
       messages,
     };
@@ -107,6 +114,24 @@ async function checkQuota(env, token) {
     return await res.json(); // { ok, reason, sisa_harian }
   } catch {
     return { ok: false, reason: 'Kuota tidak dapat diverifikasi' };
+  }
+}
+
+// UID admin — hanya akun ini yang memakai model premium.
+const ADMIN_UID = 'fb34e91b-dde7-42ce-83e9-ff70a2eaf52f';
+
+// Ambil user id (sub) dari JWT Supabase tanpa panggilan jaringan.
+function getUserId(token) {
+  try {
+    const part = token.split('.')[1];
+    if (!part) return null;
+    let b64 = part.replace(/-/g, '+').replace(/_/g, '/');
+    while (b64.length % 4) b64 += '=';
+    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    const json = JSON.parse(new TextDecoder().decode(bytes));
+    return json.sub || null;
+  } catch {
+    return null;
   }
 }
 

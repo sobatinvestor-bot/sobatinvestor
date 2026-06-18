@@ -542,24 +542,38 @@ function PortfolioMacroAnalysis({ userId, onRequireLogin, marketSummary, marketR
       const portLines = port.slice().sort((a, b) => b.val - a.val)
         .map((p) => `${p.sym} (${p.name}) — sektor ${p.sector}, bobot ~${Math.round((p.val / total) * 100)}%`).join('\n');
 
-      const userMsg = `KONDISI MAKRO/GLOBAL TERKINI (dari halaman Global, data delayed):
+      const dataBlock = `KONDISI MAKRO/GLOBAL TERKINI (dari halaman Global, data delayed):
 ${marketSummary}
 
 PORTOFOLIO SAYA (bobot = perkiraan dari modal: qty × harga rata-rata):
 Komposisi sektor: ${sectorLines}
 Rincian emiten:
-${portLines}
+${portLines}`;
 
-Tolong buat analisis SINGKAT, rapi, dan mudah dibaca dalam Bahasa Indonesia memakai format markdown:
+      const isAdmin = userId === 'fb34e91b-dde7-42ce-83e9-ff70a2eaf52f';
+
+      const instr = isAdmin
+        ? `Buat analisis MENDALAM dan menyeluruh dalam Bahasa Indonesia memakai format markdown:
+- "## Gambaran" — kondisi makro terpenting untuk portofolio ini (boleh beberapa kalimat).
+- "## Per Sektor" — bahas tiap sektor utama portofolio secara rinci; kaitkan dengan suku bunga BI/Fed, harga komoditas, USD/IDR, dan imbal hasil obligasi; sebut emiten paling terdampak beserta mekanisme sebab-akibatnya.
+- "## Emiten Kunci" — soroti 3–5 emiten paling sensitif terhadap kondisi makro saat ini dan jelaskan jalur dampaknya.
+- "## Skenario" — 2–3 skenario (mis. BI/Fed menahan vs memangkas suku bunga, USD menguat/melemah) beserta implikasinya ke portofolio.
+- "## Yang Perlu Dipantau" — daftar hal konkret yang perlu diawasi.
+Gunakan **tebal**, *miring*, <u>garis bawah</u> (secukupnya), dan poin (-) agar enak dibaca. Boleh panjang dan detail — tidak ada batasan kata. JANGAN mengarang angka di luar yang diberikan. Akhiri dengan satu kalimat bahwa ini bukan rekomendasi investasi.`
+        : `Tolong buat analisis SINGKAT, rapi, dan mudah dibaca dalam Bahasa Indonesia memakai format markdown:
 - Awali dengan "## Gambaran" — 1–2 kalimat kondisi makro yang paling relevan untuk portofolio ini.
 - Lalu "## Per Sektor" — bahas hanya sektor utama portofolio (yang bobotnya besar), JANGAN membahas satu per satu semua emiten. Sebut 1–2 emiten paling terdampak per sektor beserta alasan keterkaitannya (suku bunga BI/Fed, harga komoditas, USD/IDR, atau imbal hasil obligasi).
 - Tutup dengan "## Yang Perlu Dipantau" — 2–3 poin.
 Gunakan format agar enak dibaca: **tebal** untuk penekanan, *miring* untuk istilah/nuansa, <u>garis bawah</u> untuk menandai hal paling penting (secukupnya), serta poin (-) untuk daftar. Jangan berlebihan. Jangan mengarang angka di luar yang diberikan. Batasi maksimal sekitar 300 kata. Akhiri dengan satu kalimat singkat bahwa ini bukan rekomendasi investasi.`;
 
+      const userMsg = `${dataBlock}
+
+${instr}`;
+
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ messages: [{ role: 'user', content: userMsg }], max_tokens: 1200 }),
+        body: JSON.stringify({ messages: [{ role: 'user', content: userMsg }], max_tokens: 8000 }),
       });
       const data = await res.json();
       if (res.status === 429 || data.quota_exceeded) {
