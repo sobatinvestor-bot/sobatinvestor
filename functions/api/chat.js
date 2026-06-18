@@ -5,15 +5,18 @@
 //   SUPABASE_URL       - https://xxxx.supabase.co
 //   SUPABASE_ANON_KEY  - anon key (untuk memanggil RPC dgn token user)
 
-function buildSystemPrompt() {
+function buildSystemPrompt(allowMarkdown) {
   const today = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' });
+  const formatRule = allowMarkdown
+    ? '- Boleh memakai markdown ringan: "## " untuk subjudul, **tebal**, *miring*, <u>garis bawah</u>, dan poin "-". Output dirender sebagai teks kaya (rich text), jadi gunakan secukupnya agar rapi. Langsung tulis isi analisis — JANGAN menulis komentar atau kalimat pembuka tentang instruksi/format.'
+    : '- Tulis dalam PROSA mengalir dan paragraf pendek. JANGAN gunakan tanda markdown seperti #, ##, ###, atau ** (bintang). Untuk daftar, pakai kalimat biasa atau tanda hubung "-" sederhana saja. Output kamu ditampilkan apa adanya tanpa render markdown, jadi simbol-simbol itu akan terlihat jelek.';
   return `Kamu adalah Sobat AI, asisten dari aplikasi Sobat Investor — pemantau portofolio saham IDX (Bursa Efek Indonesia).
 
 Tanggal hari ini: ${today}. Gunakan ini untuk semua perhitungan waktu/selisih tahun. Hitung dengan teliti.
 
 Gaya jawab:
 - Bahasa Indonesia, profesional, ringkas. Mulai dari gambaran besar lalu ke detail.
-- Tulis dalam PROSA mengalir dan paragraf pendek. JANGAN gunakan tanda markdown seperti #, ##, ###, atau ** (bintang). Untuk daftar, pakai kalimat biasa atau tanda hubung "-" sederhana saja. Output kamu ditampilkan apa adanya tanpa render markdown, jadi simbol-simbol itu akan terlihat jelek.
+${formatRule}
 
 Cakupan: saham Indonesia, analisis emiten, dividen, dan konsep investasi.
 
@@ -74,7 +77,7 @@ export async function onRequestPost(context) {
       // Admin memakai model tertinggi (Opus 4.8); user umum tetap Haiku (kunci budget).
       model: isAdmin ? 'claude-opus-4-8' : 'claude-haiku-4-5-20251001',
       max_tokens: maxTokens,
-      system: buildSystemPrompt(),               // persona terkunci di server
+      system: buildSystemPrompt(body.markdown === true), // markdown diizinkan utk konteks rich-text
       messages,
     };
 

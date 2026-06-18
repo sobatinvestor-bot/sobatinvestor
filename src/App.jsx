@@ -573,7 +573,7 @@ ${instr}`;
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ messages: [{ role: 'user', content: userMsg }], max_tokens: 8000 }),
+        body: JSON.stringify({ messages: [{ role: 'user', content: userMsg }], max_tokens: 8000, markdown: true }),
       });
       const data = await res.json();
       if (res.status === 429 || data.quota_exceeded) {
