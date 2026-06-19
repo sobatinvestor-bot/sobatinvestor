@@ -1,7 +1,7 @@
 // src/Account.jsx
 // Login/daftar (Supabase Auth) + hook portofolio per-user (CRUD ke tabel holdings,
 // digabung harga live dari /api/quotes) + modal tambah/edit saham.
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Mail, Lock, X, LogOut, Eye, EyeOff } from 'lucide-react';
 import { supabase } from './lib/supabase';
 
@@ -9,6 +9,71 @@ const C = {
   cream: '#F4EFE6', cream2: '#EBE3D3', ink: '#1A2A20', inkSoft: '#3A4A40',
   forest: '#1F3B2D', cuan: '#C49B3C', rust: '#B85C38', red: '#C0392B', green: '#2E7D4F',
 };
+
+// ============================================================
+// Turnstile (Cloudflare CAPTCHA) — proteksi anti-bot di login/daftar.
+// GANTI nilai di bawah dengan Site Key dari Cloudflare Turnstile (kunci PUBLIK, aman di-commit).
+// Secret Key TIDAK ditaruh di sini — itu dipasang di Supabase Dashboard.
+// ============================================================
+const TURNSTILE_SITE_KEY = '0x4AAAAAADntn_G_x8NJZSju';
+const TURNSTILE_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+
+// Widget Turnstile dengan rendering eksplisit. Mengekspos reset() lewat ref.
+// Aman saat renderToString (SSR): useEffect tidak jalan, hanya div kosong yang dirender.
+const TurnstileWidget = React.forwardRef(function TurnstileWidget({ onToken }, ref) {
+  const boxRef = useRef(null);
+  const widgetIdRef = useRef(null);
+  const onTokenRef = useRef(onToken);
+  onTokenRef.current = onToken;
+
+  React.useImperativeHandle(ref, () => ({
+    reset() {
+      try {
+        if (typeof window !== 'undefined' && window.turnstile && widgetIdRef.current !== null) {
+          window.turnstile.reset(widgetIdRef.current);
+        }
+      } catch { /* abaikan */ }
+    },
+  }), []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+    let cancelled = false;
+
+    function renderWidget() {
+      if (cancelled || !boxRef.current || !window.turnstile) return;
+      if (widgetIdRef.current !== null) return; // sudah dirender
+      try {
+        widgetIdRef.current = window.turnstile.render(boxRef.current, {
+          sitekey: TURNSTILE_SITE_KEY,
+          theme: 'light',
+          callback: (token) => onTokenRef.current(token),
+          'error-callback': () => onTokenRef.current(''),
+          'expired-callback': () => onTokenRef.current(''),
+        });
+      } catch { /* abaikan bila gagal render */ }
+    }
+
+    if (window.turnstile) {
+      renderWidget();
+    } else {
+      let s = document.querySelector('script[data-turnstile]');
+      if (!s) {
+        s = document.createElement('script');
+        s.src = TURNSTILE_SRC;
+        s.async = true;
+        s.defer = true;
+        s.setAttribute('data-turnstile', '1');
+        document.head.appendChild(s);
+      }
+      s.addEventListener('load', renderWidget);
+    }
+
+    return () => { cancelled = true; };
+  }, []);
+
+  return <div ref={boxRef} style={{ marginTop: 12, minHeight: 65 }} />;
+});
 
 // ============================================================
 // Hook: muat holding user + harga live, sediakan fungsi CRUD
@@ -285,6 +350,8 @@ export function Auth({ inline }) {
   const [askErr, setAskErr] = useState('');
   const [remember, setRemember] = useState(false);
   const [autoLocked, setAutoLocked] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState('');
+  const captchaRef = useRef(null);
 
   // Muat email yang diingat (jika ada). Hanya email — tidak pernah password.
   // Sekaligus cek apakah sesi sebelumnya berakhir otomatis karena idle.
@@ -318,10 +385,14 @@ export function Auth({ inline }) {
   }
 
   async function submit() {
+    if (!captchaToken) {
+      setMsg('Verifikasi keamanan belum selesai. Tunggu sebentar lalu coba lagi.');
+      return;
+    }
     setBusy(true); setMsg('');
     try {
       if (mode === 'login') {
-        const { error } = await supabase.auth.signInWithPassword({ email, password: pw });
+        const { error } = await supabase.auth.signInWithPassword({ email, password: pw, options: { captchaToken } });
         if (error) setMsg(error.message);
         else {
           try {
@@ -330,7 +401,7 @@ export function Auth({ inline }) {
           } catch { /* abaikan bila localStorage terblokir */ }
         }
       } else {
-        const { data, error } = await supabase.auth.signUp({ email, password: pw });
+        const { data, error } = await supabase.auth.signUp({ email, password: pw, options: { captchaToken } });
         if (error) setMsg(error.message);
         else if (data && data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
           setMsg('Email ini sudah terdaftar. Silakan Masuk.');
@@ -338,7 +409,12 @@ export function Auth({ inline }) {
           setMsg('Akun dibuat. Silakan buka email kamu dan konfirmasi.');
         }
       }
-    } finally { setBusy(false); }
+    } finally {
+      setBusy(false);
+      // Token Turnstile sekali pakai — minta token baru untuk percobaan berikutnya.
+      setCaptchaToken('');
+      if (captchaRef.current) captchaRef.current.reset();
+    }
   }
 
   return (
@@ -370,6 +446,7 @@ export function Auth({ inline }) {
           </label>
         )}
         {msg && <div style={{ fontSize: 13, color: C.rust, margin: '6px 2px 0' }}>{msg}</div>}
+        <TurnstileWidget ref={captchaRef} onToken={setCaptchaToken} />
         <button onClick={submit} disabled={busy || !email || pw.length < (mode === 'login' ? 6 : 8)}
           style={{ width: '100%', background: (busy || !email || pw.length < (mode === 'login' ? 6 : 8)) ? 'rgba(26,42,32,0.25)' : C.forest, color: C.cream, border: 'none', padding: 14, borderRadius: 100, fontSize: 14, fontWeight: 600, cursor: 'pointer', marginTop: 12 }}>
           {busy ? 'Memproses…' : (mode === 'login' ? 'Masuk' : 'Buat Akun')}
