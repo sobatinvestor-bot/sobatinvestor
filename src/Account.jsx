@@ -69,7 +69,17 @@ const TurnstileWidget = React.forwardRef(function TurnstileWidget({ onToken }, r
       s.addEventListener('load', renderWidget);
     }
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      // Bersihkan widget saat unmount supaya tidak jadi "widget yatim" di SPA
+      // (penyebab peringatan "Cannot find Widget ...").
+      try {
+        if (typeof window !== 'undefined' && window.turnstile && widgetIdRef.current !== null) {
+          window.turnstile.remove(widgetIdRef.current);
+        }
+      } catch { /* abaikan */ }
+      widgetIdRef.current = null;
+    };
   }, []);
 
   return <div ref={boxRef} style={{ marginTop: 12, minHeight: 65 }} />;
