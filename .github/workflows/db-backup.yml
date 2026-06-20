@@ -34,11 +34,19 @@ jobs:
       - name: Install PostgreSQL 17 client
         run: |
           set -eo pipefail
-          sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
-          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/postgresql.gpg
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+            -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list
           sudo apt-get update
-          sudo apt-get install -y postgresql-client-17
-          pg_dump --version
+          # Paksa pasang versi 17; gagalkan job kalau tidak tersedia.
+          sudo apt-get install -y --no-install-recommends postgresql-client-17
+          # Pastikan pg_dump yang dipakai BENAR versi 17 (bukan 16 bawaan runner).
+          PGDUMP=/usr/lib/postgresql/17/bin/pg_dump
+          test -x "$PGDUMP" || { echo "pg_dump 17 tidak terpasang"; exit 1; }
+          echo "PGDUMP=$PGDUMP" >> "$GITHUB_ENV"
+          "$PGDUMP" --version
 
       - name: Dump, compress, and encrypt
         env:
@@ -49,7 +57,7 @@ jobs:
           DATE=$(date -u +%Y-%m-%d)
           OUT="backup-${DATE}.sql.gz.gpg"
           # Pipe penuh: tidak ada plaintext dump yang tersentuh disk.
-          pg_dump --schema=public --no-owner --no-privileges "$SUPABASE_DB_URL" \
+          "$PGDUMP" --schema=public --no-owner --no-privileges "$SUPABASE_DB_URL" \
             | gzip -9 \
             | gpg --batch --yes --pinentry-mode loopback \
                   --passphrase "$BACKUP_PASSPHRASE" \
