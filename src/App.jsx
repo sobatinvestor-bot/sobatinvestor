@@ -927,6 +927,10 @@ function useIsMobile(bp = 768) {
 
 export function Nav({ ihsg, ihsgChange, session, setTab, tab }) {
   const isMobile = useIsMobile();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const userEmail = (session && session.user && session.user.email) || '';
+  const userInitial = userEmail ? userEmail[0].toUpperCase() : 'U';
+  const menuItemStyle = { width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: C.ink, fontFamily: 'inherit', textAlign: 'left' };
   const links = (session && tab === 'portfolio')
     ? [['sec-saham', 'Saham'], ['sec-dividen', 'Dividen'], ['sec-rdn', 'RDN'], ['sec-berita', 'Berita'], ...((session.user && session.user.id === ADMIN_UID) ? [['sec-admin', 'Admin']] : [])]
     : [];
@@ -956,10 +960,29 @@ export function Nav({ ihsg, ihsgChange, session, setTab, tab }) {
               <span style={{ color: ihsgChange >= 0 ? C.green : C.red, fontWeight: 600 }}>{fmtPct(ihsgChange)}</span>
             </div>
             {session ? (
-              <button onClick={logout} title="Keluar"
-                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: C.inkSoft, display: 'flex', alignItems: 'center' }}>
-                <LogOut size={16} />
-              </button>
+              <div style={{ position: 'relative' }}>
+                <button onClick={() => setMenuOpen((o) => !o)} title="Profil" aria-label="Profil"
+                  style={{ width: 34, height: 34, borderRadius: '50%', background: C.forest, color: C.cream, border: `1px solid ${C.cuan}`, cursor: 'pointer', fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit', padding: 0 }}>
+                  {userInitial}
+                </button>
+                {menuOpen && (
+                  <>
+                    <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 55, background: 'transparent' }} />
+                    <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 60, background: C.cream, border: `1px solid rgba(26,42,32,0.12)`, borderRadius: 12, boxShadow: '0 12px 32px rgba(26,42,32,0.18)', minWidth: 210, overflow: 'hidden' }}>
+                      <div style={{ padding: '12px 14px', borderBottom: `1px solid rgba(26,42,32,0.08)` }}>
+                        <div style={{ fontSize: 11, color: C.inkSoft }}>Masuk sebagai</div>
+                        <div style={{ fontSize: 13, color: C.ink, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userEmail}</div>
+                      </div>
+                      <button onClick={() => { setMenuOpen(false); setTab('portfolio'); }} style={menuItemStyle}>
+                        <Briefcase size={15} /> Portofolio Saya
+                      </button>
+                      <button onClick={() => { setMenuOpen(false); logout(); }} style={{ ...menuItemStyle, color: C.rust, borderTop: `1px solid rgba(26,42,32,0.06)` }}>
+                        <LogOut size={15} /> Keluar
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             ) : (
               <button onClick={() => setTab('portfolio')}
                 style={{ background: C.forest, color: C.cream, border: 'none', padding: '7px 16px', borderRadius: 100, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
