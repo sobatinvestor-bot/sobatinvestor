@@ -331,6 +331,7 @@ export default function App() {
   const [analisisPage, setAnalisisPage] = useState(null); // permintaan buka page tertentu di tab Analisis
   const [analisisSymbol, setAnalisisSymbol] = useState(null); // permintaan buka analisis emiten tertentu
   const [legalDoc, setLegalDoc] = useState(null); // null | 'tos' | 'privacy' — modal dokumen legal
+  const [pfTotal, setPfTotal] = useState(0); // nilai total portofolio (dilaporkan dari PrivateArea)
 
   function goTo(tabId, page) {
     setAnalisisPage(page || null);
@@ -431,7 +432,7 @@ export default function App() {
 
   return (
     <div style={{ background: C.cream, minHeight: '100vh', color: C.ink }}>
-      <Nav ihsg={ihsg} ihsgChange={ihsgChange} session={session} setTab={setTab} tab={tab} />
+      <Nav ihsg={ihsg} ihsgChange={ihsgChange} session={session} setTab={setTab} tab={tab} portfolioTotal={pfTotal} />
       <div style={{ paddingBottom: 100 }}>
         <div style={{ display: tab === 'home' ? 'block' : 'none' }}>
           <HomeTab stocks={market.quotes} setTab={setTab} goTo={goTo} visitStats={visitStats} />
@@ -457,7 +458,7 @@ export default function App() {
         {session && (
           <div style={{ display: isPrivateTab ? 'block' : 'none' }}>
             <ErrorBoundary>
-              <PrivateArea tab={tab} userId={session.user.id} ihsgQuote={market.ihsg} goAnalisis={goAnalisis} />
+              <PrivateArea tab={tab} userId={session.user.id} ihsgQuote={market.ihsg} goAnalisis={goAnalisis} onPortfolioTotal={setPfTotal} />
             </ErrorBoundary>
           </div>
         )}
@@ -470,8 +471,10 @@ export default function App() {
 }
 
 // Area privat (hanya saat sudah login): Dashboard, Sobat AI, Portfolio
-function PrivateArea({ tab, userId, ihsgQuote, goAnalisis }) {
+function PrivateArea({ tab, userId, ihsgQuote, goAnalisis, onPortfolioTotal }) {
   const { stocks, addHolding, updateHolding, deleteHolding, deleteAll, sellHolding, settings, adjustRdn, saveFees, exportCSV, importData } = usePortfolio(userId);
+  const pfTotalValue = stocks.reduce((sum, s) => sum + (s.price || 0) * (s.qty || 0), 0);
+  useEffect(() => { if (onPortfolioTotal) onPortfolioTotal(pfTotalValue); }, [pfTotalValue, onPortfolioTotal]);
   const [editing, setEditing] = useState(null);
   const [selling, setSelling] = useState(null);
 
@@ -925,7 +928,7 @@ function useIsMobile(bp = 768) {
   return m;
 }
 
-export function Nav({ ihsg, ihsgChange, session, setTab, tab }) {
+export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0 }) {
   const isMobile = useIsMobile();
   const [menuOpen, setMenuOpen] = useState(false);
   const userEmail = (session && session.user && session.user.email) || '';
@@ -972,6 +975,8 @@ export function Nav({ ihsg, ihsgChange, session, setTab, tab }) {
                       <div style={{ padding: '12px 14px', borderBottom: `1px solid rgba(26,42,32,0.08)` }}>
                         <div style={{ fontSize: 11, color: C.inkSoft }}>Masuk sebagai</div>
                         <div style={{ fontSize: 13, color: C.ink, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userEmail}</div>
+                        <div style={{ marginTop: 10, fontSize: 11, color: C.inkSoft }}>Nilai Portofolio</div>
+                        <div className="mono" style={{ fontSize: 16, color: C.ink, fontWeight: 700 }}>{fmtRp(portfolioTotal)}</div>
                       </div>
                       <button onClick={() => { setMenuOpen(false); setTab('portfolio'); }} style={menuItemStyle}>
                         <Briefcase size={15} /> Portofolio Saya
@@ -1106,7 +1111,7 @@ function HomeTab({ stocks, setTab, goTo, visitStats }) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
           {[
             { num: '01', title: 'Backtest', desc: 'Backtest strategi SMA dengan Python asli yang jalan di browser-mu. Data harga & dividen IDX real.', bg: C.forest, fg: C.cream, tab: 'analisis', page: 'backtest' },
-            { num: '02', title: 'Analisis AI', desc: 'Analisis emiten oleh AI: model bisnis, katalis, dan risiko. Plus halaman khusus saham di portofoliomu.', bg: C.cream2, fg: C.ink, tab: 'analisis' },
+            { num: '02', title: 'Analisis', desc: 'Analisis emiten oleh AI: model bisnis, katalis, dan risiko. Plus halaman khusus saham di portofoliomu.', bg: C.cream2, fg: C.ink, tab: 'analisis' },
             { num: '03', title: 'Live Dashboard', desc: 'P/L live, alokasi sektor, dan proyeksi dividen 12 bulan di satu layar — termasuk export/import portofolio & RDN ke CSV kapan saja.', bg: C.cream2, fg: C.ink, tab: 'portfolio' },
             { num: '04', title: 'Global', desc: 'Kondisi makro & pasar global — indeks dunia, komoditas, suku bunga, dan kurs — plus analisis AI dampaknya ke portofoliomu.', bg: C.forest, fg: C.cream, tab: 'global' },
           ].map((f) => (
