@@ -145,7 +145,7 @@ function Footer({ onOpenLegal }) {
         <div style={{ marginBottom: 6, opacity: 0.85 }}>
           Konten bersifat edukatif, <strong>bukan nasihat investasi</strong>. Keputusan dan risiko investasi ada di tanganmu.
         </div>
-        <div style={{ opacity: 0.7 }}>© {year} Sobat Investor — Hak cipta dilindungi.</div>
+        <div style={{ opacity: 0.7 }}>© {year} Sobat Investor.</div>
       </div>
     </footer>
   );
