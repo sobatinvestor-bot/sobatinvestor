@@ -1,0 +1,67 @@
+# .github/workflows/db-backup.yml
+# Backup mingguan database Supabase → di-enkripsi AES256 → simpan sebagai artifact.
+#
+# PENTING (repo publik): artifact bisa diunduh publik, jadi dump WAJIB dienkripsi.
+# Tanpa passphrase, file backup tidak bisa dibaca siapa pun.
+#
+# SECRET yang harus dibuat di GitHub (Settings → Secrets and variables → Actions → New secret):
+#   1. SUPABASE_DB_URL    = connection string SESSION POOLER (port 5432), termasuk password.
+#        Ambil di Supabase → tombol "Connect" → tab "Session pooler" → salin URI.
+#        Bentuknya: postgresql://postgres.hmkeqvxcifggxownzrhx:PASSWORD@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres
+#        (JANGAN pakai "Direct connection" — itu IPv6, runner GitHub IPv4 → gagal.)
+#   2. BACKUP_PASSPHRASE  = passphrase kuat untuk enkripsi (mis. 30+ karakter acak).
+#        SIMPAN passphrase ini di tempat aman (password manager). Kalau hilang,
+#        SEMUA backup tidak bisa dipulihkan.
+#
+# Cara restore nanti (lokal):
+#   gpg --decrypt backup-YYYY-MM-DD.sql.gz.gpg | gunzip > backup.sql
+#   # lalu jalankan isinya di Supabase SQL Editor / psql sesuai kebutuhan.
+
+name: DB Backup (weekly, encrypted)
+
+on:
+  schedule:
+    - cron: '0 19 * * 6'   # Sabtu 19:00 UTC = Minggu 02:00 WIB
+  workflow_dispatch:        # bisa juga dijalankan manual dari tab Actions
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install PostgreSQL 17 client
+        run: |
+          set -eo pipefail
+          sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/postgresql.gpg
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17
+          pg_dump --version
+
+      - name: Dump, compress, and encrypt
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -eo pipefail
+          DATE=$(date -u +%Y-%m-%d)
+          OUT="backup-${DATE}.sql.gz.gpg"
+          # Pipe penuh: tidak ada plaintext dump yang tersentuh disk.
+          pg_dump --schema=public --no-owner --no-privileges "$SUPABASE_DB_URL" \
+            | gzip -9 \
+            | gpg --batch --yes --pinentry-mode loopback \
+                  --passphrase "$BACKUP_PASSPHRASE" \
+                  --cipher-algo AES256 --symmetric \
+            > "$OUT"
+          ls -lh "$OUT"
+          echo "OUT=$OUT" >> "$GITHUB_ENV"
+
+      - name: Upload encrypted backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.run_id }}
+          path: backup-*.sql.gz.gpg
+          retention-days: 90   # ~13 backup mingguan tersimpan
+          if-no-files-found: error
