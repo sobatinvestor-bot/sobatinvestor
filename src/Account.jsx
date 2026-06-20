@@ -412,7 +412,14 @@ export function Auth({ inline }) {
         }
       } else {
         const { data, error } = await supabase.auth.signUp({ email, password: pw, options: { captchaToken } });
-        if (error) setMsg(error.message);
+        if (error) {
+          const m = (error.message || '').toLowerCase();
+          if (m.includes('password')) {
+            setMsg('Password belum memenuhi syarat: minimal 10 karakter dan mengandung huruf besar, huruf kecil, angka, dan simbol.');
+          } else {
+            setMsg(error.message);
+          }
+        }
         else if (data && data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
           setMsg('Email ini sudah terdaftar. Silakan Masuk.');
         } else {
@@ -426,6 +433,16 @@ export function Auth({ inline }) {
       if (captchaRef.current) captchaRef.current.reset();
     }
   }
+
+  // Syarat password (HARUS sama dengan setelan Supabase: min 10 + huruf besar/kecil/angka/simbol)
+  const pwReqs = [
+    { ok: pw.length >= 10, label: 'Minimal 10 karakter' },
+    { ok: /[a-z]/.test(pw), label: 'Huruf kecil (a–z)' },
+    { ok: /[A-Z]/.test(pw), label: 'Huruf besar (A–Z)' },
+    { ok: /[0-9]/.test(pw), label: 'Angka (0–9)' },
+    { ok: /[^A-Za-z0-9]/.test(pw), label: 'Simbol (!@#$…)' },
+  ];
+  const pwValid = pwReqs.every((r) => r.ok);
 
   return (
     <div style={{ minHeight: inline ? 'calc(100vh - 180px)' : '100vh', background: C.cream, color: C.ink, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
@@ -446,7 +463,17 @@ export function Auth({ inline }) {
           </div>
         )}
         <Field icon={Mail} placeholder="email@kamu.com" value={email} onChange={setEmail} />
-        <Field icon={Lock} placeholder={mode === 'login' ? 'password' : 'password (min 8: huruf besar, kecil & angka)'} type="password" value={pw} onChange={setPw} />
+        <Field icon={Lock} placeholder={mode === 'login' ? 'password' : 'password (min 10 karakter)'} type="password" value={pw} onChange={setPw} />
+        {mode === 'signup' && pw.length > 0 && (
+          <div style={{ margin: '8px 4px 0', display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {pwReqs.map((r, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: r.ok ? C.green : C.inkSoft }}>
+                <span style={{ fontWeight: 700, width: 14, display: 'inline-block', textAlign: 'center' }}>{r.ok ? '✓' : '○'}</span>
+                {r.label}
+              </div>
+            ))}
+          </div>
+        )}
         {mode === 'login' && (
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: C.inkSoft, margin: '2px 2px 0', cursor: 'pointer', userSelect: 'none' }}>
             <input type="checkbox" checked={remember}
@@ -457,8 +484,8 @@ export function Auth({ inline }) {
         )}
         {msg && <div style={{ fontSize: 13, color: C.rust, margin: '6px 2px 0' }}>{msg}</div>}
         <TurnstileWidget ref={captchaRef} onToken={setCaptchaToken} />
-        <button onClick={submit} disabled={busy || !email || pw.length < (mode === 'login' ? 6 : 8)}
-          style={{ width: '100%', background: (busy || !email || pw.length < (mode === 'login' ? 6 : 8)) ? 'rgba(26,42,32,0.25)' : C.forest, color: C.cream, border: 'none', padding: 14, borderRadius: 100, fontSize: 14, fontWeight: 600, cursor: 'pointer', marginTop: 12 }}>
+        <button onClick={submit} disabled={busy || !email || (mode === 'login' ? pw.length < 6 : !pwValid)}
+          style={{ width: '100%', background: (busy || !email || (mode === 'login' ? pw.length < 6 : !pwValid)) ? 'rgba(26,42,32,0.25)' : C.forest, color: C.cream, border: 'none', padding: 14, borderRadius: 100, fontSize: 14, fontWeight: 600, cursor: 'pointer', marginTop: 12 }}>
           {busy ? 'Memproses…' : (mode === 'login' ? 'Masuk' : 'Buat Akun')}
         </button>
         <div style={{ textAlign: 'center', marginTop: 16, fontSize: 13, color: C.inkSoft }}>
