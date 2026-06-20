@@ -928,12 +928,26 @@ function useIsMobile(bp = 768) {
   return m;
 }
 
+// Tanggal kebijakan password kuat (min 10 + simbol) diaktifkan di Supabase.
+// Akun yang dibuat SEBELUM tanggal ini mungkin masih pakai password lemah → tampilkan reminder.
+// >>> SESUAIKAN ke tanggal kamu benar-benar mengaktifkan aturan tersebut <<<
+const PWD_POLICY_CUTOFF = '2026-06-20T00:00:00Z';
+
 export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0 }) {
   const isMobile = useIsMobile();
   const [menuOpen, setMenuOpen] = useState(false);
   const userEmail = (session && session.user && session.user.email) || '';
   const userInitial = userEmail ? userEmail[0].toUpperCase() : 'U';
   const menuItemStyle = { width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: C.ink, fontFamily: 'inherit', textAlign: 'left' };
+  const userCreatedAt = (session && session.user && session.user.created_at) || null;
+  const isOldAccount = !!userCreatedAt && new Date(userCreatedAt) < new Date(PWD_POLICY_CUTOFF);
+  const [pwdReminderOff, setPwdReminderOff] = useState(() => {
+    try { return !!(session && localStorage.getItem('pwd_reminder_off_' + session.user.id) === '1'); } catch { return false; }
+  });
+  const dismissPwdReminder = () => {
+    try { if (session) localStorage.setItem('pwd_reminder_off_' + session.user.id, '1'); } catch { /* abaikan */ }
+    setPwdReminderOff(true);
+  };
   const links = (session && tab === 'portfolio')
     ? [['sec-saham', 'Saham'], ['sec-dividen', 'Dividen'], ['sec-rdn', 'RDN'], ['sec-berita', 'Berita'], ...((session.user && session.user.id === ADMIN_UID) ? [['sec-admin', 'Admin']] : [])]
     : [];
@@ -978,6 +992,18 @@ export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0
                         <div style={{ marginTop: 10, fontSize: 11, color: C.inkSoft }}>Nilai Portofolio</div>
                         <div className="mono" style={{ fontSize: 16, color: C.ink, fontWeight: 700 }}>{fmtRp(portfolioTotal)}</div>
                       </div>
+                      {isOldAccount && !pwdReminderOff && (
+                        <div style={{ padding: '12px 14px', borderBottom: `1px solid rgba(26,42,32,0.08)`, background: 'rgba(196,155,60,0.12)' }}>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                            <Lock size={14} color={C.cuan} style={{ marginTop: 2, flexShrink: 0 }} />
+                            <div>
+                              <div style={{ fontSize: 12.5, color: C.ink, fontWeight: 700, lineHeight: 1.4 }}>Perbarui kata sandi</div>
+                              <div style={{ fontSize: 11.5, color: C.inkSoft, lineHeight: 1.5, marginTop: 2 }}>Demi keamanan, sebaiknya pakai kata sandi minimal 10 karakter dengan huruf besar, kecil, angka & simbol.</div>
+                              <button onClick={dismissPwdReminder} style={{ marginTop: 6, background: 'none', border: 'none', color: C.inkSoft, fontSize: 11.5, cursor: 'pointer', padding: 0, textDecoration: 'underline', fontFamily: 'inherit' }}>Jangan tampilkan lagi</button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                       <button onClick={() => { setMenuOpen(false); setTab('portfolio'); }} style={menuItemStyle}>
                         <Briefcase size={15} /> Portofolio Saya
                       </button>
