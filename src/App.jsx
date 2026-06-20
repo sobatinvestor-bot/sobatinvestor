@@ -145,7 +145,7 @@ function Footer({ onOpenLegal }) {
         <div style={{ marginBottom: 6, opacity: 0.85 }}>
           Konten bersifat edukatif, <strong>bukan nasihat investasi</strong>. Keputusan dan risiko investasi ada di tanganmu.
         </div>
-        <div style={{ opacity: 0.7 }}>© {year} Sobat Investor.</div>
+        <div style={{ opacity: 0.7 }}>© {year} Sobat Investor — Hak cipta dilindungi.</div>
       </div>
     </footer>
   );
@@ -193,6 +193,136 @@ function LegalModal({ doc, onClose }) {
       </div>
     </div>
   );
+}
+
+// ============================================================
+// Banner ajakan pasang ke Home Screen (Android one-tap / iOS instruksi)
+// ============================================================
+function InstallBanner({ mode, onInstall, onDismiss }) {
+  if (!mode) return null;
+
+  const card = {
+    margin: '20px', padding: '16px 18px', background: C.cream2,
+    border: `1px solid rgba(26,42,32,0.12)`, borderRadius: 14,
+    display: 'flex', alignItems: 'center', gap: 14,
+  };
+  const iconBox = {
+    flexShrink: 0, width: 42, height: 42, borderRadius: 12, background: C.forest,
+    color: C.cream, display: 'flex', alignItems: 'center', justifyContent: 'center',
+  };
+  const title = { fontWeight: 700, fontSize: 14, color: C.ink, marginBottom: 2 };
+  const sub = { fontSize: 12.5, color: C.inkSoft, lineHeight: 1.5 };
+
+  let body;
+  if (mode === 'oneTap') {
+    body = (
+      <>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={title}>Pasang Sobat Investor</div>
+          <div style={sub}>Akses cepat & layar penuh, seperti aplikasi.</div>
+        </div>
+        <button
+          type="button"
+          onClick={onInstall}
+          style={{ flexShrink: 0, background: C.forest, color: C.cream, border: 'none', borderRadius: 100, padding: '10px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+        >Pasang</button>
+      </>
+    );
+  } else if (mode === 'ios') {
+    body = (
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={title}>Pasang ke Layar Utama</div>
+        <div style={sub}>
+          Ketuk ikon <strong>Bagikan</strong> <ArrowDown size={12} style={{ verticalAlign: 'middle' }} /> di bilah bawah Safari, lalu pilih <strong>“Add to Home Screen”</strong>.
+        </div>
+      </div>
+    );
+  } else { // android-manual
+    body = (
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={title}>Pasang ke Layar Utama</div>
+        <div style={sub}>
+          Buka menu <strong>⋮</strong> browser, lalu pilih <strong>“Tambahkan ke layar utama”</strong> / <strong>“Install app”</strong>.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={card}>
+      <div style={iconBox}><Download size={20} /></div>
+      {body}
+      <button
+        type="button"
+        onClick={onDismiss}
+        aria-label="Tutup"
+        style={{ flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', color: C.inkSoft, padding: 4, alignSelf: 'flex-start' }}
+      ><span style={{ fontSize: 18, lineHeight: 1 }}>×</span></button>
+    </div>
+  );
+}
+
+// ============================================================
+// Logika: deteksi platform & status, tentukan mode banner
+// ============================================================
+function InstallPrompt() {
+  const [mode, setMode] = useState(null);
+  const deferredRef = useRef(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') return;
+
+    // Sudah terpasang (standalone)? jangan tampilkan.
+    const standalone =
+      (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+      window.navigator.standalone === true;
+    if (standalone) return;
+
+    // Sudah pernah ditutup? hormati.
+    try { if (localStorage.getItem('a2hs_dismissed') === '1') return; } catch { /* abaikan */ }
+
+    const ua = navigator.userAgent || '';
+    const isIOS = /iphone|ipad|ipod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isAndroid = /android/i.test(ua);
+
+    function onBIP(e) {
+      e.preventDefault();
+      deferredRef.current = e;
+      setMode('oneTap'); // Android/desktop yang memenuhi kriteria → tombol satu-tap
+    }
+    window.addEventListener('beforeinstallprompt', onBIP);
+
+    let t;
+    if (isIOS) {
+      setMode('ios'); // iOS tak punya event install → instruksi manual
+    } else if (isAndroid) {
+      // Beri kesempatan beforeinstallprompt muncul dulu; kalau tidak, fallback instruksi.
+      t = setTimeout(() => setMode((m) => m || 'android-manual'), 1500);
+    }
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onBIP);
+      if (t) clearTimeout(t);
+    };
+  }, []);
+
+  function dismiss() {
+    setMode(null);
+    try { localStorage.setItem('a2hs_dismissed', '1'); } catch { /* abaikan */ }
+  }
+
+  async function install() {
+    const e = deferredRef.current;
+    if (!e) return;
+    try {
+      e.prompt();
+      await e.userChoice;
+    } catch { /* abaikan */ }
+    deferredRef.current = null;
+    dismiss();
+  }
+
+  return <InstallBanner mode={mode} onInstall={install} onDismiss={dismiss} />;
 }
 
 export default function App() {
@@ -924,6 +1054,8 @@ function HomeTab({ stocks, setTab, goTo, visitStats }) {
           </button>
         </div>
       </div>
+
+      <InstallPrompt />
 
       <div style={{ background: C.ink, color: C.cream, padding: '14px 0', overflow: 'hidden', margin: '20px', borderRadius: 14 }}>
         <div className="ticker-track mono" style={{ display: 'flex', gap: 36, whiteSpace: 'nowrap', fontSize: 13 }}>
