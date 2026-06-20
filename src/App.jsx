@@ -78,11 +78,129 @@ class ErrorBoundary extends React.Component {
   }
 }
 
+// ============================================================
+// Footer + dokumen legal (Ketentuan Layanan & Kebijakan Privasi)
+// ============================================================
+const LEGAL_DOCS = {
+  tos: {
+    title: 'Ketentuan Layanan',
+    updated: 'Juni 2026',
+    intro: 'Dengan mengakses dan menggunakan Sobat Investor ("Layanan"), kamu menyetujui Ketentuan Layanan berikut. Jika tidak setuju, mohon tidak menggunakan Layanan.',
+    sections: [
+      { h: '1. Tentang Layanan', p: ['Sobat Investor adalah alat edukasi dan analisis saham Bursa Efek Indonesia (IDX) untuk investor ritel. Layanan menyediakan analisis berbasis data, backtest strategi, pemantauan portofolio, dan asisten AI ("Sobat AI").'] },
+      { h: '2. Bukan Nasihat Investasi', p: [
+        'Seluruh konten di Sobat Investor — termasuk analisis, backtest, proyeksi dividen, dan jawaban Sobat AI — bersifat EDUKATIF dan informatif semata, BUKAN nasihat, rekomendasi, atau ajakan untuk membeli/menjual efek apa pun.',
+        'Sobat Investor bukan perusahaan sekuritas, manajer investasi, maupun penasihat investasi berlisensi. Setiap keputusan investasi sepenuhnya menjadi tanggung jawab kamu, termasuk seluruh risikonya. Kinerja masa lalu tidak menjamin hasil di masa depan.',
+      ] },
+      { h: '3. Akun Pengguna', p: ['Kamu bertanggung jawab menjaga kerahasiaan kredensial akunmu dan atas semua aktivitas yang terjadi di dalamnya. Data yang kamu masukkan (mis. portofolio) menjadi tanggung jawabmu untuk keakuratannya.'] },
+      { h: '4. Konten AI (Sobat AI)', p: ['Sobat AI ditenagai teknologi AI pihak ketiga. Jawabannya dapat mengandung kekeliruan, tidak lengkap, atau tidak mutakhir, dan tidak boleh dijadikan satu-satunya dasar keputusan. Verifikasi selalu ke sumber resmi.'] },
+      { h: '5. Data Pihak Ketiga', p: ['Harga, dividen, dan data pasar berasal dari sumber pihak ketiga. Data dapat tertunda, tidak akurat, atau tidak tersedia, dan disajikan "sebagaimana adanya" tanpa jaminan.'] },
+      { h: '6. Penggunaan yang Dilarang', p: ['Kamu dilarang menyalahgunakan Layanan, termasuk melakukan scraping otomatis, percobaan akses tidak sah, rekayasa balik (reverse engineering), pembebanan berlebih pada sistem, atau penggunaan untuk tujuan melanggar hukum.'] },
+      { h: '7. Kekayaan Intelektual', p: ['Seluruh konten, kode, desain, dan merek "Sobat Investor" dilindungi hak cipta dan merupakan milik Sobat Investor. Dilarang menyalin atau mendistribusikan tanpa izin.'] },
+      { h: '8. Batasan Tanggung Jawab', p: ['Sejauh diizinkan hukum, Sobat Investor tidak bertanggung jawab atas kerugian langsung maupun tidak langsung yang timbul dari penggunaan Layanan, termasuk kerugian investasi.'] },
+      { h: '9. Perubahan', p: ['Kami dapat memperbarui Layanan maupun Ketentuan ini sewaktu-waktu. Penggunaan berkelanjutan setelah perubahan berarti kamu menyetujui versi terbaru.'] },
+      { h: '10. Hukum yang Berlaku', p: ['Ketentuan ini tunduk pada hukum Republik Indonesia.'] },
+      { h: '11. Kontak', p: ['Pertanyaan terkait Ketentuan ini dapat dikirim ke admin@sobatinvestor.com.'] },
+    ],
+  },
+  privacy: {
+    title: 'Kebijakan Privasi',
+    updated: 'Juni 2026',
+    intro: 'Kebijakan Privasi ini menjelaskan data apa yang kami kumpulkan, bagaimana digunakan, dan hak kamu atasnya.',
+    sections: [
+      { h: '1. Data yang Dikumpulkan', p: [
+        'Data akun: alamat email dan kata sandi (dikelola melalui layanan autentikasi pihak ketiga; kata sandi disimpan dalam bentuk ter-hash, tidak pernah kami lihat).',
+        'Data yang kamu masukkan: isi portofolio (emiten, jumlah lot, harga beli, catatan RDN) dan pengaturan.',
+        'Data teknis agregat: statistik kunjungan anonim untuk memahami penggunaan Layanan.',
+      ] },
+      { h: '2. Cara Penggunaan Data', p: ['Data digunakan untuk menyediakan dan mengoperasikan fitur (login, portofolio, analisis), menjaga keamanan, dan meningkatkan kualitas Layanan.'] },
+      { h: '3. Penyimpanan & Keamanan', p: ['Data disimpan pada infrastruktur basis data pihak ketiga (server region Tokyo). Kami menerapkan langkah keamanan teknis seperti koneksi terenkripsi (HTTPS), kontrol akses tingkat baris (Row Level Security) sehingga tiap pengguna hanya dapat mengakses datanya sendiri, perlindungan bot, dan cadangan terenkripsi. Tidak ada sistem yang sepenuhnya bebas risiko.'] },
+      { h: '4. Berbagi Data dengan Pihak Ketiga', p: [
+        'Kami TIDAK menjual data pribadimu. Data dapat diproses oleh penyedia layanan yang kami gunakan untuk mengoperasikan Layanan: penyedia basis data & autentikasi, penyedia hosting/jaringan, penyedia email, dan penyedia teknologi AI pihak ketiga.',
+        'Saat kamu memakai Sobat AI atau fitur analisis, masukan yang relevan dikirim ke penyedia teknologi AI pihak ketiga untuk diproses.',
+      ] },
+      { h: '5. Penyimpanan Sesi (Cookie/Local Storage)', p: ['Kami menggunakan penyimpanan sesi peramban untuk menjaga status login. Menutup tab/peramban akan mengakhiri sesi. Kami tidak menggunakan cookie pelacak iklan.'] },
+      { h: '6. Hak Kamu', p: ['Kamu dapat mengakses, memperbarui, atau meminta penghapusan data dan akunmu dengan menghubungi kami. Penghapusan akun akan menghapus data portofolio terkait.'] },
+      { h: '7. Anak di Bawah Umur', p: ['Layanan ditujukan untuk pengguna dewasa. Kami tidak dengan sengaja mengumpulkan data dari anak di bawah umur.'] },
+      { h: '8. Perubahan Kebijakan', p: ['Kebijakan ini dapat diperbarui sewaktu-waktu. Perubahan material akan diinformasikan melalui Layanan.'] },
+      { h: '9. Kontak', p: ['Permintaan terkait privasi atau penghapusan data dapat dikirim ke admin@sobatinvestor.com.'] },
+    ],
+  },
+};
+
+// ============================================================
+// Footer
+// ============================================================
+function Footer({ onOpenLegal }) {
+  const year = new Date().getFullYear();
+  const linkStyle = { color: C.forest, textDecoration: 'underline', cursor: 'pointer', background: 'none', border: 'none', padding: 0, font: 'inherit' };
+  return (
+    <footer style={{ borderTop: `1px solid rgba(26,42,32,0.1)`, padding: '24px 20px 28px', textAlign: 'center', color: C.inkSoft, fontSize: 12, lineHeight: 1.7 }}>
+      <div style={{ maxWidth: 680, margin: '0 auto' }}>
+        <div style={{ marginBottom: 8 }}>
+          <button type="button" style={linkStyle} onClick={() => onOpenLegal('tos')}>Ketentuan Layanan</button>
+          <span style={{ margin: '0 10px', opacity: 0.5 }}>·</span>
+          <button type="button" style={linkStyle} onClick={() => onOpenLegal('privacy')}>Kebijakan Privasi</button>
+        </div>
+        <div style={{ marginBottom: 6, opacity: 0.85 }}>
+          Konten bersifat edukatif, <strong>bukan nasihat investasi</strong>. Keputusan dan risiko investasi ada di tanganmu.
+        </div>
+        <div style={{ opacity: 0.7 }}>© {year} Sobat Investor — Hak cipta dilindungi.</div>
+      </div>
+    </footer>
+  );
+}
+
+// ============================================================
+// Modal dokumen legal
+// ============================================================
+function LegalModal({ doc, onClose }) {
+  if (!doc) return null;
+  const data = LEGAL_DOCS[doc];
+  if (!data) return null;
+  return (
+    <div
+      onClick={onClose}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(26,42,32,0.45)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ background: C.cream, borderRadius: 16, maxWidth: 680, width: '100%', maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(26,42,32,0.25)' }}
+      >
+        <div style={{ position: 'sticky', top: 0, background: C.cream, padding: '20px 24px 14px', borderBottom: `1px solid rgba(26,42,32,0.08)`, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+          <div>
+            <h2 className="serif" style={{ fontSize: 24, fontWeight: 600, margin: 0, color: C.ink }}>{data.title}</h2>
+            <div style={{ fontSize: 12, color: C.inkSoft, marginTop: 4 }}>Terakhir diperbarui: {data.updated}</div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Tutup"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, lineHeight: 1, color: C.inkSoft, padding: 4 }}
+          >×</button>
+        </div>
+        <div style={{ padding: '16px 24px 28px', color: C.ink, fontSize: 14, lineHeight: 1.7 }}>
+          <p style={{ marginTop: 0, color: C.inkSoft }}>{data.intro}</p>
+          {data.sections.map((s, i) => (
+            <div key={i} style={{ marginTop: 18 }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 6px', color: C.ink }}>{s.h}</h3>
+              {s.p.map((para, j) => (
+                <p key={j} style={{ margin: '0 0 8px' }}>{para}</p>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [session, setSession] = useState(undefined); // undefined = masih cek
   const [tab, setTab] = useState('home');
   const [analisisPage, setAnalisisPage] = useState(null); // permintaan buka page tertentu di tab Analisis
   const [analisisSymbol, setAnalisisSymbol] = useState(null); // permintaan buka analisis emiten tertentu
+  const [legalDoc, setLegalDoc] = useState(null); // null | 'tos' | 'privacy' — modal dokumen legal
 
   function goTo(tabId, page) {
     setAnalisisPage(page || null);
@@ -213,8 +331,10 @@ export default function App() {
             </ErrorBoundary>
           </div>
         )}
+        <Footer onOpenLegal={setLegalDoc} />
       </div>
       <BottomNav tab={tab} setTab={setTab} />
+      <LegalModal doc={legalDoc} onClose={() => setLegalDoc(null)} />
     </div>
   );
 }
