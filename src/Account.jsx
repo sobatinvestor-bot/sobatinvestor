@@ -434,6 +434,19 @@ export function Auth({ inline }) {
     }
   }
 
+  // Jalur B — kirim email reset kata sandi
+  async function forgotPassword() {
+    if (!email) { setMsg('Masukkan email kamu dulu di kolom di atas.'); return; }
+    setBusy(true); setMsg('');
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
+      if (error) setMsg(error.message);
+      else setMsg('Link reset kata sandi sudah dikirim ke email kamu. Cek inbox (dan folder spam).');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   // Syarat password (HARUS sama dengan setelan Supabase: min 10 + huruf besar/kecil/angka/simbol)
   const pwReqs = [
     { ok: pw.length >= 10, label: 'Minimal 10 karakter' },
@@ -481,6 +494,14 @@ export function Auth({ inline }) {
               style={{ width: 16, height: 16, accentColor: C.forest, cursor: 'pointer' }} />
             Ingat email saya
           </label>
+        )}
+        {mode === 'login' && (
+          <div style={{ margin: '8px 2px 0', textAlign: 'right' }}>
+            <button type="button" onClick={forgotPassword} disabled={busy}
+              style={{ background: 'none', border: 'none', color: C.forest, fontSize: 13, fontWeight: 600, cursor: 'pointer', padding: 0, textDecoration: 'underline', fontFamily: 'inherit' }}>
+              Lupa password?
+            </button>
+          </div>
         )}
         {msg && <div style={{ fontSize: 13, color: C.rust, margin: '6px 2px 0' }}>{msg}</div>}
         <TurnstileWidget ref={captchaRef} onToken={setCaptchaToken} />
@@ -1057,6 +1078,78 @@ export function ChangePassword({ open, email, onClose, onSuccess }) {
             <button onClick={submit} disabled={busy || !curPw || !valid || !captchaToken}
               style={{ width: '100%', background: (busy || !curPw || !valid || !captchaToken) ? 'rgba(26,42,32,0.25)' : C.forest, color: C.cream, border: 'none', padding: 14, borderRadius: 100, fontSize: 14, fontWeight: 600, cursor: 'pointer', marginTop: 12 }}>
               {busy ? 'Memproses…' : 'Perbarui Kata Sandi'}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Set Kata Sandi Baru (halaman recovery) — Jalur B
+// Tampil saat user membuka link reset dari email (event PASSWORD_RECOVERY).
+// Sesi recovery sudah terautentikasi → cukup updateUser(password baru).
+// ============================================================
+export function SetNewPassword({ onDone }) {
+  const [newPw, setNewPw] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [done, setDone] = useState(false);
+
+  const reqs = [
+    { ok: newPw.length >= 10, label: 'Minimal 10 karakter' },
+    { ok: /[a-z]/.test(newPw), label: 'Huruf kecil (a–z)' },
+    { ok: /[A-Z]/.test(newPw), label: 'Huruf besar (A–Z)' },
+    { ok: /[0-9]/.test(newPw), label: 'Angka (0–9)' },
+    { ok: /[^A-Za-z0-9]/.test(newPw), label: 'Simbol (!@#$…)' },
+  ];
+  const valid = reqs.every((r) => r.ok);
+
+  async function submit() {
+    if (!valid) { setMsg('Kata sandi belum memenuhi syarat.'); return; }
+    setBusy(true); setMsg('');
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPw });
+      if (error) {
+        const m = (error.message || '').toLowerCase();
+        if (m.includes('different') || m.includes('same')) setMsg('Kata sandi baru harus berbeda dari yang lama.');
+        else if (m.includes('at least') || m.includes('should contain') || m.includes('weak') || m.includes('characters')) setMsg('Kata sandi belum memenuhi syarat keamanan.');
+        else setMsg(error.message);
+        return;
+      }
+      setDone(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: C.cream, zIndex: 200, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
+      <div style={{ background: C.cream2, borderRadius: 24, padding: 28, width: '100%', maxWidth: 380 }}>
+        <h1 className="serif" style={{ fontSize: 26, fontWeight: 600, marginBottom: 6, color: C.ink }}>Set Kata Sandi Baru</h1>
+        {done ? (
+          <>
+            <p style={{ fontSize: 14, color: C.green, fontWeight: 600, margin: '8px 0 16px' }}>Kata sandi berhasil diganti. Kamu sekarang sudah masuk.</p>
+            <button onClick={onDone} style={{ width: '100%', background: C.forest, color: C.cream, border: 'none', padding: 14, borderRadius: 100, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Lanjut ke aplikasi</button>
+          </>
+        ) : (
+          <>
+            <p style={{ fontSize: 14, color: C.inkSoft, marginBottom: 18 }}>Masukkan kata sandi baru untuk akunmu.</p>
+            <Field icon={Lock} placeholder="kata sandi baru (min 10 karakter)" type="password" value={newPw} onChange={setNewPw} />
+            {newPw.length > 0 && (
+              <div style={{ margin: '2px 4px 10px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {reqs.map((r, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: r.ok ? C.green : C.inkSoft }}>
+                    <span style={{ fontWeight: 700, width: 14, display: 'inline-block', textAlign: 'center' }}>{r.ok ? '✓' : '○'}</span>{r.label}
+                  </div>
+                ))}
+              </div>
+            )}
+            {msg && <div style={{ fontSize: 13, color: C.rust, margin: '4px 2px 8px' }}>{msg}</div>}
+            <button onClick={submit} disabled={busy || !valid}
+              style={{ width: '100%', background: (busy || !valid) ? 'rgba(26,42,32,0.25)' : C.forest, color: C.cream, border: 'none', padding: 14, borderRadius: 100, fontSize: 14, fontWeight: 600, cursor: 'pointer', marginTop: 12 }}>
+              {busy ? 'Memproses…' : 'Simpan Kata Sandi'}
             </button>
           </>
         )}

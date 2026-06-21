@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Upload, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus, Users, Globe, ArrowDown } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import useBackGuard from './useBackGuard.js';
-import { Auth, usePortfolio, Editor, logout, SellEditor, RdnCard, StockNews, parseSobatCSV, ChangePassword } from './Account.jsx';
+import { Auth, usePortfolio, Editor, logout, SellEditor, RdnCard, StockNews, parseSobatCSV, ChangePassword, SetNewPassword } from './Account.jsx';
 // Bila chunk lama hilang setelah deploy (browser pakai index.html basi), ambil
 // versi terbaru dengan reload sekali — mencegah layar blank "Failed to fetch module".
 function lazyReload(factory) {
@@ -333,6 +333,7 @@ export default function App() {
   const [legalDoc, setLegalDoc] = useState(null); // null | 'tos' | 'privacy' — modal dokumen legal
   const [pfTotal, setPfTotal] = useState(0); // nilai total portofolio (dilaporkan dari PrivateArea)
   const [showChangePw, setShowChangePw] = useState(false); // modal ganti kata sandi
+  const [recoveryMode, setRecoveryMode] = useState(false); // halaman set-password dari link email (Jalur B)
 
   function goTo(tabId, page) {
     setAnalisisPage(page || null);
@@ -369,7 +370,7 @@ export default function App() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => { setSession(s); if (_e === 'PASSWORD_RECOVERY') setRecoveryMode(true); });
     return () => sub.subscription.unsubscribe();
   }, []);
 
@@ -475,6 +476,7 @@ export default function App() {
           onSuccess={() => { try { localStorage.setItem('pwd_reminder_off_' + session.user.id, '1'); } catch { /* abaikan */ } }}
         />
       )}
+      {recoveryMode && <SetNewPassword onDone={() => setRecoveryMode(false)} />}
     </div>
   );
 }
