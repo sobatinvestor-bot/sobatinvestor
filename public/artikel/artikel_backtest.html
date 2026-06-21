@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Backtest: Cara Menguji Strategi Saham Tanpa Menipu Diri Sendiri — Sobat Investor</title>
+<meta name="description" content="Cara menguji strategi saham secara jujur dan ilmiah: apa itu backtest, jebakan yang membuatnya berbohong, dan cara membacanya dengan benar untuk investor ritel IDX.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --forest:#1F3B2D; --forest-deep:#162a20; --cream:#F4EFE6; --cream2:#EBE3D3;
+    --ink:#1A2A20; --ink-soft:#46584d; --gold:#C49B3C; --rust:#B85C38;
+    --line:rgba(26,42,32,.12); --maxw:720px;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--cream);color:var(--ink);
+    font-family:'Plus Jakarta Sans',system-ui,-apple-system,sans-serif;
+    font-size:18px;line-height:1.72;font-weight:400;
+    text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased;}
+  .serif{font-family:'Fraunces',Georgia,serif;}
+
+  /* ---------- header band ---------- */
+  header.hero{background:var(--forest);color:var(--cream);position:relative;overflow:hidden;}
+  .hero-inner{max-width:var(--maxw);margin:0 auto;padding:54px 24px 60px;position:relative;z-index:2;}
+  .eyebrow{font-size:12.5px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--gold);margin:0 0 18px;}
+  h1.title{font-weight:600;font-size:clamp(30px,5.4vw,46px);line-height:1.08;margin:0;
+    letter-spacing:-.01em;max-width:13ch;}
+  .hero-sub{margin:18px 0 0;color:rgba(244,239,230,.78);font-size:16.5px;max-width:46ch;}
+  .hero-bull{position:absolute;right:-26px;bottom:-40px;width:230px;height:auto;opacity:.16;z-index:1;}
+  @media(max-width:640px){.hero-bull{width:160px;right:-22px;bottom:-30px}}
+
+  /* ---------- article ---------- */
+  main{max-width:var(--maxw);margin:0 auto;padding:8px 24px 72px;}
+  article{padding-top:40px;}
+  article p{margin:0 0 20px;}
+  article h2{font-family:'Fraunces',Georgia,serif;font-weight:600;color:var(--forest);
+    font-size:clamp(22px,3.6vw,28px);line-height:1.2;margin:46px 0 16px;
+    padding-top:18px;border-top:1px solid var(--line);letter-spacing:-.01em;}
+  article h3{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;color:var(--forest);
+    font-size:17px;margin:30px 0 10px;letter-spacing:.01em;}
+  article ul{margin:0 0 22px;padding-left:0;list-style:none;}
+  article ul li{position:relative;padding-left:26px;margin:0 0 12px;}
+  article ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;
+    background:var(--gold);border-radius:50%;}
+  article ol{margin:0 0 22px;padding-left:24px;}
+  article ol li{margin:0 0 12px;padding-left:4px;}
+  article ol li::marker{color:var(--gold);font-weight:700;}
+  strong{font-weight:700;color:var(--forest-deep);}
+  em{font-style:italic;}
+  a{color:var(--rust);text-decoration:underline;text-underline-offset:2px;text-decoration-thickness:1px;}
+
+  blockquote{margin:30px 0;padding:22px 26px;background:var(--forest);color:var(--cream);
+    border-radius:14px;font-family:'Fraunces',Georgia,serif;font-size:clamp(20px,3.2vw,25px);
+    line-height:1.3;font-weight:500;}
+  blockquote strong{color:var(--cream);font-weight:600;}
+
+  /* references */
+  hr{border:none;border-top:1px solid var(--line);margin:40px 0;}
+  article h2:has(+ h3){}
+  /* bagian referensi (setelah heading "Referensi") di-card-kan via .refs nanti */
+  .refs{background:var(--cream2);border-radius:16px;padding:6px 26px 22px;margin-top:8px;}
+  .refs h3{margin-top:26px;}
+  .refs ul li{font-size:15px;line-height:1.55;color:var(--ink-soft);}
+  .refs ul li::before{background:rgba(31,59,45,.4);width:5px;height:5px;top:.62em;}
+
+  .disclaimer{margin-top:34px;padding:16px 20px;border-left:3px solid var(--gold);
+    background:rgba(196,155,60,.08);border-radius:0 10px 10px 0;
+    font-size:14px;color:var(--ink-soft);font-style:italic;}
+  .disclaimer em{font-style:italic;}
+
+  footer.brand{max-width:var(--maxw);margin:0 auto;padding:0 24px 56px;
+    color:var(--ink-soft);font-size:13px;}
+  footer .dot{color:var(--gold);}
+</style>
+</head>
+<body>
+<header class="hero">
+  <svg class="hero-bull" viewBox="0 -200 355 699" aria-hidden="true"><path d="M318,-185 L309,-112 L292,-52 L272,-8 L257,24 L239,32 L195,44 L146,52 L132,52 L91,69 L72,86 L64,103 L64,128 L69,140 L77,149 L80,156 L75,161 L36,159 L22,160 L18,163 L18,168 L24,176 L28,187 L25,191 L0,206 L0,419 L32,476 L38,498 L109,498 L116,484 L137,457 L150,425 L164,414 L205,417 L237,408 L249,408 L276,426 L286,429 L297,429 L319,424 L329,415 L346,407 L351,402 L354,396 L354,359 L345,350 L345,347 L353,340 L354,336 L315,261 L314,246 L317,234 L317,222 L312,207 L297,189 L290,189 L285,184 L276,163 L263,144 L249,131 L227,125 L222,120 L218,111 L199,89 L201,84 L205,81 L238,67 L261,51 L277,35 L289,17 L297,-6 L305,-58 L311,-120 Z" fill="#F4EFE6"/></svg>
+  <div class="hero-inner">
+    <p class="eyebrow">Edukasi &middot; Sobat Investor</p>
+    <h1 class="title serif">Backtest<span style="color:var(--gold)">.</span></h1>
+    <p class="hero-sub">Cara Menguji Strategi Saham Tanpa Menipu Diri Sendiri — cara menguji strategi saham secara jujur dan ilmiah untuk investor ritel IDX.</p>
+  </div>
+</header>
+<main>
+  <article>
+  <p>Setiap strategi trading terdengar masuk akal saat diceritakan. "Beli saat harga memantul di Fibonacci 0,618." "Masuk waktu RSI di bawah 30." "Ikuti bandar." Masalahnya, cerita yang masuk akal dan strategi yang menghasilkan uang adalah dua hal berbeda. Backtest adalah jembatan—atau jurang—di antara keduanya.</p>
+<p>Artikel ini menjelaskan apa itu backtest, kenapa ia penting bagi investor ritel di Bursa Efek Indonesia (BEI/IDX), dan—yang paling sering dilupakan—bagaimana backtest bisa berbohong dan cara membacanya dengan jujur.</p>
+<h2>Gambaran besar: backtest adalah eksperimen, bukan ramalan</h2>
+<p>Backtest sederhananya: ambil sebuah aturan jual-beli, jalankan pada data harga masa lalu, lalu hitung apa yang akan terjadi jika aturan itu dijalankan apa adanya. Hasilnya berupa angka—return, kerugian terdalam, frekuensi menang—bukan opini.</p>
+<p>Inilah bedanya pendekatan berbasis bukti dengan pseudosains pasar. Astrologi keuangan dan pola yang "selalu cocok setelah kejadian" tidak bisa diuji secara jujur, karena selalu ada penjelasan baru untuk setiap hasil. Backtest yang benar justru memaksa Anda berkomitmen pada aturan <strong>sebelum</strong> melihat hasilnya, lalu menerima apa pun yang keluar. Ia bisa membuktikan strategi favorit Anda ternyata tidak berguna—dan itu fitur, bukan bug.</p>
+<p>Tapi ada satu kebenaran tidak nyaman yang harus dipegang sejak awal: </p><blockquote><strong>Backtest yang bagus tidak menjamin masa depan yang bagus.</strong></blockquote><p> Pasar bersifat non-stasioner dan reflektif—aturan main berubah, dan begitu banyak orang memakai sinyal yang sama, keunggulannya menipis. Backtest paling jujur sekalipun hanya memberi Anda distribusi kemungkinan, bukan kepastian.</p>
+<h2>Kenapa investor ritel IDX perlu peduli</h2>
+<p>Tanpa backtest, Anda menguji strategi dengan uang sungguhan secara real-time—cara belajar termahal yang ada. Backtest memberi tiga hal:</p>
+<ul>
+<li><strong>Penyaring cepat.</strong> Banyak strategi yang terdengar hebat langsung gugur saat diuji pada data. Lebih baik tahu sekarang daripada setelah rugi.</li>
+<li><strong>Ekspektasi realistis.</strong> Backtest menunjukkan seberapa dalam dan seberapa lama kerugian bisa terjadi, sehingga Anda tidak panik di titik terburuk.</li>
+<li><strong>Disiplin.</strong> Aturan yang sudah diuji lebih mudah dipatuhi daripada firasat, terutama saat pasar sedang menekan emosi Anda.</li>
+</ul>
+<h2>Membaca hasil backtest yang jujur</h2>
+<p>Angka "untung 300%" tidak berarti apa-apa tanpa konteks. Inilah yang sebenarnya perlu dilihat:</p>
+<ul>
+<li><strong>Return vs benchmark.</strong> Bandingkan dengan sekadar beli dan tahan IHSG. Mengalahkan pasar jauh lebih sulit daripada sekadar untung.</li>
+<li><strong>Maximum drawdown.</strong> Penurunan terdalam dari puncak ke lembah. Strategi yang untung 40% tapi pernah turun 60% di tengah jalan akan membuat sebagian besar orang menyerah sebelum untungnya datang.</li>
+<li><strong>Jumlah transaksi (sample size).</strong> Strategi yang hanya menghasilkan 8 transaksi dalam 5 tahun tidak punya cukup bukti. Keberuntungan butuh sedikit data; statistik butuh banyak.</li>
+<li><strong>Konsistensi antar periode.</strong> Apakah cuannya menyebar di banyak tahun, atau hanya berasal dari satu kebetulan besar di 2020?</li>
+<li><strong>Risk-adjusted return (mis. Sharpe).</strong> Return per unit risiko (Sharpe, 1994). Dua strategi dengan return sama tapi gejolak berbeda bukanlah strategi yang setara.</li>
+</ul>
+<h2>Tujuh jebakan yang membuat backtest berbohong</h2>
+<p>Di sinilah mayoritas backtest—termasuk yang dipakai untuk menjual "sistem ajaib"—runtuh.</p>
+<p><strong>1. Overfitting (kurva yang dipaksakan).</strong> Jika Anda mengutak-atik parameter sampai hasilnya sempurna di masa lalu, Anda tidak menemukan strategi—Anda menghafal sejarah. Strategi dengan 10 parameter yang "kebetulan" pas hampir pasti gagal di data baru. Bailey dkk. (2014) bahkan membuktikan bahwa kinerja simulasi yang tinggi mudah dicapai hanya dengan mencoba sejumlah kecil konfigurasi—dan makin banyak konfigurasi dicoba, makin besar peluang hasilnya semu.</p>
+<p><strong>2. Look-ahead bias.</strong> Menggunakan informasi yang belum tersedia saat keputusan dibuat. Contoh klasik: memakai harga penutupan hari itu untuk "memutuskan" beli di pagi hari yang sama. Di dunia nyata Anda belum tahu harga penutupan.</p>
+<p><strong>3. Survivorship bias.</strong> Menguji hanya pada saham yang masih ada hari ini, mengabaikan emiten yang sudah delisting atau bangkrut. Ini membuat hasil tampak jauh lebih indah dari kenyataan, karena yang gagal sudah "dihapus" dari data—efek yang cukup kuat untuk memunculkan ilusi keteraturan (Brown dkk., 1992).</p>
+<p><strong>4. Data snooping / p-hacking.</strong> Mencoba 200 strategi, lalu memamerkan satu yang paling bagus seolah itu temuan. Secara statistik, dari 200 percobaan acak pun pasti ada yang terlihat brilian—murni kebetulan. Sullivan dkk. (1999) menunjukkan hal ini saat menguji ribuan aturan teknikal sekaligus; Harvey dkk. (2016) menemukan masalah serupa pada ratusan "faktor" yang diklaim memprediksi return—sebagian besar tak lolos setelah dikoreksi untuk pengujian berganda.</p>
+<p><strong>5. Mengabaikan biaya nyata IDX.</strong> Ini pembunuh diam-diam. Fee beli dan jual broker, pajak penjualan, selisih bid-ask, dan slippage menggerus return. Strategi yang sering trading bisa untung di atas kertas tapi rugi setelah biaya.</p>
+<p><strong>6. Mengabaikan likuiditas dan mekanisme bursa.</strong> Backtest sering berasumsi Anda bisa membeli/menjual berapa pun di harga mana pun. Di IDX, saham lapis dua dan tiga bisa tipis—order besar menggerakkan harga sendiri. Lalu ada <strong>ARA/ARB</strong> (auto reject atas/bawah): saat sinyal Anda menyuruh beli di hari saham terkunci ARA, kenyataannya Anda tidak kebagian.</p>
+<p><strong>7. Perubahan rezim (non-stasioneritas).</strong> Strategi yang menang di pasar tren bisa hancur di pasar sideways. Data 2014–2019, krisis 2020, dan pasca-2021 nyaris seperti tiga pasar berbeda. Backtest pada satu rezim tidak menjamin rezim berikutnya. Inilah inti <em>Adaptive Markets Hypothesis</em>: efisiensi dan keunggulan strategi berevolusi seiring perubahan kondisi dan perilaku pelaku pasar (Lo, 2004).</p>
+<h2>Cara backtest yang benar</h2>
+<p>Kalau jebakan di atas terdengar menakutkan, kabar baiknya: semuanya bisa dihindari dengan disiplin.</p>
+<ul>
+<li><strong>Pisahkan data latih dan data uji (out-of-sample).</strong> Rancang strategi hanya pada sebagian data, lalu uji pada bagian yang belum pernah Anda lihat. Jika hasilnya runtuh di data uji, strategi Anda hanya menghafal masa lalu (Bailey dkk., 2014).</li>
+<li><strong>Walk-forward.</strong> Uji secara bergulir: latih di jendela waktu, uji di jendela berikutnya, geser, ulangi. Ini meniru bagaimana strategi benar-benar dipakai seiring waktu (López de Prado, 2018).</li>
+<li><strong>Masukkan biaya nyata.</strong> Fee beli/jual, pajak, dan asumsi slippage yang konservatif. Jika strategi hanya untung tanpa biaya, ia tidak untung.</li>
+<li><strong>Uji ketahanan (robustness).</strong> Strategi yang baik tidak rapuh terhadap perubahan kecil parameter. Jika menggeser satu angka sedikit membuat cuan berubah jadi buntung, itu tanda overfitting.</li>
+<li><strong>Kuantifikasi ketidakpastian.</strong> Alih-alih satu angka return, pikirkan rentang: skenario buruk (P10), tengah (P50), dan baik (P90). Investor yang matang merencanakan untuk P10, bukan berharap pada P90. Cara berpikir ini—distribusi, bukan titik tunggal—adalah inti membedakan analisis serius dari janji manis.</li>
+</ul>
+<h2>Checklist sebelum Anda mempercayai sebuah backtest</h2>
+<p>Sebelum menaruh uang pada strategi apa pun—milik sendiri atau yang dijual orang lain—tanyakan:</p>
+<ol>
+<li>Apakah aturannya didefinisikan <strong>sebelum</strong> melihat hasil, atau dipaskan setelahnya?</li>
+<li>Apakah diuji pada data yang <strong>tidak</strong> dipakai untuk merancangnya?</li>
+<li>Apakah biaya, pajak, slippage, dan likuiditas sudah diperhitungkan?</li>
+<li>Berapa banyak transaksi—cukup untuk bermakna secara statistik?</li>
+<li>Apakah cuannya konsisten antar tahun, atau bergantung pada satu kejadian?</li>
+<li>Seberapa dalam drawdown-nya, dan apakah Anda sanggup menahannya secara emosional?</li>
+<li>Apakah penyaji menunjukkan kegagalannya juga, atau hanya hasil terbaik?</li>
+</ol>
+<p>Jika sebuah "sistem" tidak bisa menjawab pertanyaan-pertanyaan ini secara terbuka, itu bukan strategi yang teruji—itu cerita yang dijual.</p>
+<h2>Penutup</h2>
+<p>Backtest bukan bola kristal. Ia tidak memberi tahu apa yang akan terjadi; ia memberi tahu apakah keyakinan Anda punya dasar, dan seberapa besar ketidakpastian yang harus Anda terima. Dipakai dengan jujur, backtest adalah salah satu alat paling kuat yang dimiliki investor ritel—justru karena ia bersedia membuktikan Anda salah.</p>
+<p>Filosofi inilah yang kami pegang di Sobat Investor: backtest yang transparan, asumsi yang terbuka, dan ketidakpastian yang dinyatakan apa adanya—bukan janji kepastian. Investor yang baik bukan yang paling yakin, melainkan yang paling jujur menghitung peluang.</p>
+<h2>Referensi &amp; Bacaan Lanjut</h2>
+<div class="refs">
+<p>Konsep-konsep di artikel ini bukan opini, melainkan sintesis dari literatur keuangan kuantitatif yang sudah mapan, diadaptasi ke konteks IDX. Daftar dipisah menjadi dua: rujukan yang <strong>dikutip langsung</strong> di badan artikel, dan <strong>bacaan lanjut</strong> yang menopang tema tetapi tidak diacu pada kalimat tertentu.</p>
+<h3>Rujukan yang dikutip</h3>
+<ul>
+<li>Bailey, D. H., Borwein, J. M., López de Prado, M., &amp; Zhu, Q. J. (2014). <em>Pseudo-Mathematics and Financial Charlatanism: The Effects of Backtest Overfitting on Out-of-Sample Performance.</em> Notices of the American Mathematical Society, 61(5), 458–471.</li>
+<li>Brown, S. J., Goetzmann, W. N., Ibbotson, R. G., &amp; Ross, S. A. (1992). <em>Survivorship Bias in Performance Studies.</em> Review of Financial Studies, 5(4), 553–580.</li>
+<li>Harvey, C. R., Liu, Y., &amp; Zhu, H. (2016). <em>… and the Cross-Section of Expected Returns.</em> Review of Financial Studies, 29(1), 5–68.</li>
+<li>Lo, A. W. (2004). <em>The Adaptive Markets Hypothesis: Market Efficiency from an Evolutionary Perspective.</em> Journal of Portfolio Management, 30(5), 15–29.</li>
+<li>López de Prado, M. (2018). <em>Advances in Financial Machine Learning.</em> Hoboken: Wiley.</li>
+<li>Sharpe, W. F. (1994). <em>The Sharpe Ratio.</em> Journal of Portfolio Management, 21(1), 49–58.</li>
+<li>Sullivan, R., Timmermann, A., &amp; White, H. (1999). <em>Data-Snooping, Technical Trading Rule Performance, and the Bootstrap.</em> Journal of Finance, 54(5), 1647–1691.</li>
+</ul>
+<h3>Bacaan lanjut</h3>
+<ul>
+<li>Bailey, D. H., &amp; López de Prado, M. (2014). <em>The Deflated Sharpe Ratio: Correcting for Selection Bias, Backtest Overfitting and Non-Normality.</em> Journal of Portfolio Management, 40(5), 94–107. (Cara mendiskon Sharpe yang diperoleh dari banyak percobaan.)</li>
+<li>Brock, W., Lakonishok, J., &amp; LeBaron, B. (1992). <em>Simple Technical Trading Rules and the Stochastic Properties of Stock Returns.</em> Journal of Finance, 47(5), 1731–1764.</li>
+<li>Chan, E. P. (2021). <em>Quantitative Trading: How to Build Your Own Algorithmic Trading Business</em> (2nd ed.). Hoboken: Wiley.</li>
+<li>Fama, E. F. (1970). <em>Efficient Capital Markets: A Review of Theory and Empirical Work.</em> Journal of Finance, 25(2), 383–417.</li>
+<li>Harvey, C. R., &amp; Liu, Y. (2014). <em>Evaluating Trading Strategies.</em> Journal of Portfolio Management, 40(5), 108–118.</li>
+<li>White, H. (2000). <em>A Reality Check for Data Snooping.</em> Econometrica, 68(5), 1097–1126.</li>
+</ul>
+</div>
+<p class="disclaimer"><em>Artikel ini bersifat edukasi dan bukan nasihat investasi. Keputusan investasi sepenuhnya tanggung jawab masing-masing. Kinerja masa lalu tidak menjamin hasil di masa depan.</em></p>
+  </article>
+</main>
+<footer class="brand">
+  <strong style="color:var(--forest)">sobat<span class="dot">.</span>investor</strong> &nbsp;·&nbsp; Konten edukasi, bukan ajakan transaksi.
+</footer>
+</body>
+</html>
