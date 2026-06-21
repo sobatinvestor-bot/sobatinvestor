@@ -966,3 +966,96 @@ export function parseSobatCSV(text) {
     return { ok: false, error: 'Gagal membaca file: ' + (e.message || e) };
   }
 }
+
+// ============================================================
+// Ganti Kata Sandi (saat user sudah login) — Jalur A
+// Verifikasi password lama via signInWithPassword (+Turnstile) → updateUser(password baru).
+// ============================================================
+export function ChangePassword({ open, email, onClose, onSuccess }) {
+  const [curPw, setCurPw] = useState('');
+  const [newPw, setNewPw] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [done, setDone] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState('');
+  const cRef = useRef(null);
+
+  if (!open) return null;
+
+  const reqs = [
+    { ok: newPw.length >= 10, label: 'Minimal 10 karakter' },
+    { ok: /[a-z]/.test(newPw), label: 'Huruf kecil (a–z)' },
+    { ok: /[A-Z]/.test(newPw), label: 'Huruf besar (A–Z)' },
+    { ok: /[0-9]/.test(newPw), label: 'Angka (0–9)' },
+    { ok: /[^A-Za-z0-9]/.test(newPw), label: 'Simbol (!@#$…)' },
+  ];
+  const valid = reqs.every((r) => r.ok);
+
+  function close() {
+    setCurPw(''); setNewPw(''); setMsg(''); setDone(false); setCaptchaToken('');
+    if (onClose) onClose();
+  }
+
+  async function submit() {
+    if (!captchaToken) { setMsg('Selesaikan verifikasi keamanan dulu.'); return; }
+    if (!valid) { setMsg('Kata sandi baru belum memenuhi syarat.'); return; }
+    if (newPw === curPw) { setMsg('Kata sandi baru harus berbeda dari yang lama.'); return; }
+    setBusy(true); setMsg('');
+    try {
+      const { error: e1 } = await supabase.auth.signInWithPassword({ email, password: curPw, options: { captchaToken } });
+      if (e1) { setMsg('Kata sandi saat ini salah atau verifikasi gagal.'); return; }
+      const { error: e2 } = await supabase.auth.updateUser({ password: newPw });
+      if (e2) {
+        const m = (e2.message || '').toLowerCase();
+        if (m.includes('reauth') || m.includes('nonce')) setMsg('Tidak bisa memperbarui. Nonaktifkan "Require current password when updating" di Supabase, lalu coba lagi.');
+        else if (m.includes('different') || m.includes('should be different') || m.includes('same')) setMsg('Kata sandi baru harus berbeda dari yang lama.');
+        else if (m.includes('password')) setMsg('Kata sandi baru belum memenuhi syarat keamanan.');
+        else setMsg(e2.message);
+        return;
+      }
+      setDone(true);
+      if (onSuccess) onSuccess();
+    } finally {
+      setBusy(false);
+      setCaptchaToken('');
+      if (cRef.current) cRef.current.reset();
+    }
+  }
+
+  return (
+    <div onClick={close} style={{ position: 'fixed', inset: 0, background: 'rgba(26,42,32,0.45)', zIndex: 120, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: C.cream, borderRadius: 18, maxWidth: 400, width: '100%', padding: 24, boxShadow: '0 20px 60px rgba(26,42,32,0.25)', maxHeight: '88vh', overflowY: 'auto', fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <h2 className="serif" style={{ fontSize: 22, fontWeight: 600, margin: 0, color: C.ink }}>Ganti Kata Sandi</h2>
+          <button onClick={close} aria-label="Tutup" style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.inkSoft, padding: 4 }}><X size={20} /></button>
+        </div>
+        {done ? (
+          <div>
+            <p style={{ fontSize: 14, color: C.green, fontWeight: 600, margin: '0 0 12px' }}>Kata sandi berhasil diperbarui.</p>
+            <button onClick={close} style={{ width: '100%', background: C.forest, color: C.cream, border: 'none', padding: 13, borderRadius: 100, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Selesai</button>
+          </div>
+        ) : (
+          <>
+            <Field icon={Lock} placeholder="kata sandi saat ini" type="password" value={curPw} onChange={setCurPw} />
+            <Field icon={Lock} placeholder="kata sandi baru (min 10 karakter)" type="password" value={newPw} onChange={setNewPw} />
+            {newPw.length > 0 && (
+              <div style={{ margin: '2px 4px 10px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {reqs.map((r, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: r.ok ? C.green : C.inkSoft }}>
+                    <span style={{ fontWeight: 700, width: 14, display: 'inline-block', textAlign: 'center' }}>{r.ok ? '✓' : '○'}</span>{r.label}
+                  </div>
+                ))}
+              </div>
+            )}
+            {msg && <div style={{ fontSize: 13, color: C.rust, margin: '4px 2px 8px' }}>{msg}</div>}
+            <TurnstileWidget ref={cRef} onToken={setCaptchaToken} />
+            <button onClick={submit} disabled={busy || !curPw || !valid || !captchaToken}
+              style={{ width: '100%', background: (busy || !curPw || !valid || !captchaToken) ? 'rgba(26,42,32,0.25)' : C.forest, color: C.cream, border: 'none', padding: 14, borderRadius: 100, fontSize: 14, fontWeight: 600, cursor: 'pointer', marginTop: 12 }}>
+              {busy ? 'Memproses…' : 'Perbarui Kata Sandi'}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Upload, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus, Users, Globe, ArrowDown } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import useBackGuard from './useBackGuard.js';
-import { Auth, usePortfolio, Editor, logout, SellEditor, RdnCard, StockNews, parseSobatCSV } from './Account.jsx';
+import { Auth, usePortfolio, Editor, logout, SellEditor, RdnCard, StockNews, parseSobatCSV, ChangePassword } from './Account.jsx';
 // Bila chunk lama hilang setelah deploy (browser pakai index.html basi), ambil
 // versi terbaru dengan reload sekali — mencegah layar blank "Failed to fetch module".
 function lazyReload(factory) {
@@ -332,6 +332,7 @@ export default function App() {
   const [analisisSymbol, setAnalisisSymbol] = useState(null); // permintaan buka analisis emiten tertentu
   const [legalDoc, setLegalDoc] = useState(null); // null | 'tos' | 'privacy' — modal dokumen legal
   const [pfTotal, setPfTotal] = useState(0); // nilai total portofolio (dilaporkan dari PrivateArea)
+  const [showChangePw, setShowChangePw] = useState(false); // modal ganti kata sandi
 
   function goTo(tabId, page) {
     setAnalisisPage(page || null);
@@ -432,7 +433,7 @@ export default function App() {
 
   return (
     <div style={{ background: C.cream, minHeight: '100vh', color: C.ink }}>
-      <Nav ihsg={ihsg} ihsgChange={ihsgChange} session={session} setTab={setTab} tab={tab} portfolioTotal={pfTotal} />
+      <Nav ihsg={ihsg} ihsgChange={ihsgChange} session={session} setTab={setTab} tab={tab} portfolioTotal={pfTotal} onChangePassword={() => setShowChangePw(true)} />
       <div style={{ paddingBottom: 100 }}>
         <div style={{ display: tab === 'home' ? 'block' : 'none' }}>
           <HomeTab stocks={market.quotes} setTab={setTab} goTo={goTo} visitStats={visitStats} />
@@ -466,6 +467,14 @@ export default function App() {
       </div>
       <BottomNav tab={tab} setTab={setTab} />
       <LegalModal doc={legalDoc} onClose={() => setLegalDoc(null)} />
+      {session && (
+        <ChangePassword
+          open={showChangePw}
+          email={session.user.email}
+          onClose={() => setShowChangePw(false)}
+          onSuccess={() => { try { localStorage.setItem('pwd_reminder_off_' + session.user.id, '1'); } catch { /* abaikan */ } }}
+        />
+      )}
     </div>
   );
 }
@@ -933,7 +942,7 @@ function useIsMobile(bp = 768) {
 // >>> SESUAIKAN ke tanggal kamu benar-benar mengaktifkan aturan tersebut <<<
 const PWD_POLICY_CUTOFF = '2026-06-20T00:00:00Z';
 
-export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0 }) {
+export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0, onChangePassword }) {
   const isMobile = useIsMobile();
   const [menuOpen, setMenuOpen] = useState(false);
   const userEmail = (session && session.user && session.user.email) || '';
@@ -999,13 +1008,19 @@ export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0
                             <div>
                               <div style={{ fontSize: 12.5, color: C.ink, fontWeight: 700, lineHeight: 1.4 }}>Perbarui kata sandi</div>
                               <div style={{ fontSize: 11.5, color: C.inkSoft, lineHeight: 1.5, marginTop: 2 }}>Demi keamanan, sebaiknya pakai kata sandi minimal 10 karakter dengan huruf besar, kecil, angka & simbol.</div>
-                              <button onClick={dismissPwdReminder} style={{ marginTop: 6, background: 'none', border: 'none', color: C.inkSoft, fontSize: 11.5, cursor: 'pointer', padding: 0, textDecoration: 'underline', fontFamily: 'inherit' }}>Jangan tampilkan lagi</button>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 8 }}>
+                                <button onClick={() => { setMenuOpen(false); if (onChangePassword) onChangePassword(); }} style={{ background: C.forest, color: C.cream, border: 'none', padding: '6px 14px', borderRadius: 100, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Perbarui</button>
+                                <button onClick={dismissPwdReminder} style={{ background: 'none', border: 'none', color: C.inkSoft, fontSize: 11.5, cursor: 'pointer', padding: 0, textDecoration: 'underline', fontFamily: 'inherit' }}>Jangan tampilkan lagi</button>
+                              </div>
                             </div>
                           </div>
                         </div>
                       )}
                       <button onClick={() => { setMenuOpen(false); setTab('portfolio'); }} style={menuItemStyle}>
                         <Briefcase size={15} /> Portofolio Saya
+                      </button>
+                      <button onClick={() => { setMenuOpen(false); if (onChangePassword) onChangePassword(); }} style={menuItemStyle}>
+                        <Lock size={15} /> Ganti Kata Sandi
                       </button>
                       <button onClick={() => { setMenuOpen(false); logout(); }} style={{ ...menuItemStyle, color: C.rust, borderTop: `1px solid rgba(26,42,32,0.06)` }}>
                         <LogOut size={15} /> Keluar
