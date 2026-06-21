@@ -986,6 +986,27 @@ const PWD_POLICY_CUTOFF = '2026-06-20T00:00:00Z';
 export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0, plPortfolioPct = null, plModalPct = null, modalAwal = 0, onChangePassword }) {
   const isMobile = useIsMobile();
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+  const avatarRef = useRef(null);
+  // Tutup menu saat klik di luar (menu/avatar). Tidak pakai backdrop fixed karena
+  // header punya backdrop-filter → elemen fixed ter-anchor ke header, bukan viewport.
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onDocPointer(e) {
+      if (menuRef.current && menuRef.current.contains(e.target)) return; // klik di dalam menu
+      if (avatarRef.current && avatarRef.current.contains(e.target)) return; // klik avatar → biar tombol yang toggle
+      setMenuOpen(false);
+    }
+    function onKey(e) { if (e.key === 'Escape') setMenuOpen(false); }
+    document.addEventListener('mousedown', onDocPointer);
+    document.addEventListener('touchstart', onDocPointer);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDocPointer);
+      document.removeEventListener('touchstart', onDocPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [menuOpen]);
   const userEmail = (session && session.user && session.user.email) || '';
   const userInitial = userEmail ? userEmail[0].toUpperCase() : 'U';
   const menuItemStyle = { width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: C.ink, fontFamily: 'inherit', textAlign: 'left' };
@@ -1028,7 +1049,7 @@ export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0
             </div>
             {session ? (
               <div style={{ position: 'relative' }}>
-                <button onClick={() => setMenuOpen((o) => !o)} title="Profil" aria-label="Profil"
+                <button ref={avatarRef} onClick={() => setMenuOpen((o) => !o)} title="Profil" aria-label="Profil"
                   style={{ width: 44, height: 44, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
                   <svg viewBox="0 0 355 499" width="30" height="42" aria-hidden="true">
                     <path d="M291,0 L257,24 L239,32 L195,44 L146,52 L132,52 L91,69 L72,86 L64,103 L64,128 L69,140 L77,149 L80,156 L75,161 L36,159 L22,160 L18,163 L18,168 L24,176 L28,187 L25,191 L0,206 L0,419 L32,476 L38,498 L109,498 L116,484 L137,457 L150,425 L164,414 L205,417 L237,408 L249,408 L276,426 L286,429 L297,429 L319,424 L329,415 L346,407 L351,402 L354,396 L354,359 L345,350 L345,347 L353,340 L354,336 L315,261 L314,246 L317,234 L317,222 L312,207 L297,189 L290,189 L285,184 L276,163 L263,144 L249,131 L227,125 L222,120 L218,111 L199,89 L201,84 L205,81 L238,67 L261,51 L277,35 L289,17 L294,4 Z" fill={C.forest} />
@@ -1036,9 +1057,7 @@ export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0
                   </svg>
                 </button>
                 {menuOpen && (
-                  <>
-                    <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 55, background: 'transparent' }} />
-                    <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 60, background: C.cream, border: `1px solid rgba(26,42,32,0.12)`, borderRadius: 12, boxShadow: '0 12px 32px rgba(26,42,32,0.18)', minWidth: 210, overflow: 'hidden' }}>
+                  <div ref={menuRef} style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 60, background: C.cream, border: `1px solid rgba(26,42,32,0.12)`, borderRadius: 12, boxShadow: '0 12px 32px rgba(26,42,32,0.18)', minWidth: 210, overflow: 'hidden' }}>
                       <div style={{ padding: '12px 14px', borderBottom: `1px solid rgba(26,42,32,0.08)` }}>
                         <div style={{ fontSize: 11, color: C.inkSoft }}>Masuk sebagai</div>
                         <div style={{ fontSize: 13, color: C.ink, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userEmail}</div>
@@ -1092,7 +1111,6 @@ export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0
                         <LogOut size={15} /> Keluar
                       </button>
                     </div>
-                  </>
                 )}
               </div>
             ) : (
