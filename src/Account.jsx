@@ -437,13 +437,17 @@ export function Auth({ inline }) {
   // Jalur B — kirim email reset kata sandi
   async function forgotPassword() {
     if (!email) { setMsg('Masukkan email kamu dulu di kolom di atas.'); return; }
+    if (!captchaToken) { setMsg('Tunggu verifikasi keamanan (kotak Cloudflare) selesai, lalu klik lagi.'); return; }
     setBusy(true); setMsg('');
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin, captchaToken });
       if (error) setMsg(error.message);
       else setMsg('Link reset kata sandi sudah dikirim ke email kamu. Cek inbox (dan folder spam).');
     } finally {
       setBusy(false);
+      // Token Turnstile sekali pakai — minta yang baru untuk aksi berikutnya.
+      setCaptchaToken('');
+      if (captchaRef.current) captchaRef.current.reset();
     }
   }
 
