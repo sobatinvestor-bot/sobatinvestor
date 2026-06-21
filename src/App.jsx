@@ -990,8 +990,20 @@ export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0
             {session ? (
               <div style={{ position: 'relative' }}>
                 <button onClick={() => setMenuOpen((o) => !o)} title="Profil" aria-label="Profil"
-                  style={{ width: 34, height: 34, borderRadius: '50%', background: C.forest, color: C.cream, border: `1px solid ${C.cuan}`, cursor: 'pointer', fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit', padding: 0 }}>
-                  {userInitial}
+                  style={{ width: 40, height: 40, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                  <svg viewBox="0 0 100 100" width="36" height="36" aria-hidden="true">
+                    <g fill="none" stroke={C.cuan} strokeWidth="7" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M34 39 C 18 39, 8 33, 10 19 C 11 13, 16 12, 18 17" />
+                      <path d="M66 39 C 82 39, 92 33, 90 19 C 89 13, 84 12, 82 17" />
+                    </g>
+                    <path d="M33 39 C 29 49, 30 57, 36 63 C 38 73, 44 80, 50 80 C 56 80, 62 73, 64 63 C 70 57, 71 49, 67 39 C 60 34, 40 34, 33 39 Z" fill={C.forest} stroke={C.cuan} strokeWidth="6" strokeLinejoin="round" />
+                    <path d="M44 37 C 47 31, 53 31, 56 37" fill="none" stroke={C.cuan} strokeWidth="5" strokeLinecap="round" />
+                    <circle cx="41.5" cy="50" r="3.4" fill={C.cuan} />
+                    <circle cx="58.5" cy="50" r="3.4" fill={C.cuan} />
+                    <path d="M43 69 C 47 73, 53 73, 57 69" fill="none" stroke={C.cuan} strokeWidth="4.5" strokeLinecap="round" />
+                    <circle cx="46.5" cy="66" r="1.9" fill={C.cuan} />
+                    <circle cx="53.5" cy="66" r="1.9" fill={C.cuan} />
+                  </svg>
                 </button>
                 {menuOpen && (
                   <>
