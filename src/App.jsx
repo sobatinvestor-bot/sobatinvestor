@@ -1053,7 +1053,7 @@ export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0
                   style={{ width: 40, height: 40, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
                   <svg viewBox="0 0 100 100" width="38" height="38" aria-hidden="true">
                     <path d="M50,3 L80.2,14 L96.3,41.8 L90.7,73.5 L66.1,94.2 L33.9,94.2 L9.3,73.5 L3.7,41.8 L19.8,14 Z" fill={C.forest} stroke={C.cuan} strokeWidth="3.5" strokeLinejoin="round" />
-                    <text x="50" y="52.5" textAnchor="middle" dominantBaseline="central" fontFamily="'Plus Jakarta Sans', system-ui, sans-serif" fontWeight="800" fontSize="50" fill={C.cream}>{userInitial}</text>
+                    <text x="50" y="45" textAnchor="middle" dominantBaseline="central" fontFamily="'Plus Jakarta Sans', system-ui, sans-serif" fontWeight="800" fontSize="50" fill={C.cream}>{userInitial}</text>
                   </svg>
                 </button>
                 {menuOpen && (
