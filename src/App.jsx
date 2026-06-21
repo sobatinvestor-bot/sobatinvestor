@@ -332,6 +332,7 @@ export default function App() {
   const [analisisSymbol, setAnalisisSymbol] = useState(null); // permintaan buka analisis emiten tertentu
   const [legalDoc, setLegalDoc] = useState(null); // null | 'tos' | 'privacy' — modal dokumen legal
   const [pfTotal, setPfTotal] = useState(0); // nilai total portofolio (dilaporkan dari PrivateArea)
+  const [pfStats, setPfStats] = useState({ plPortfolioPct: null, plModalPct: null, modalAwal: 0 }); // % P/L portofolio & modal awal
   const [showChangePw, setShowChangePw] = useState(false); // modal ganti kata sandi
   const [recoveryMode, setRecoveryMode] = useState(false); // halaman set-password dari link email (Jalur B)
 
@@ -434,7 +435,7 @@ export default function App() {
 
   return (
     <div style={{ background: C.cream, minHeight: '100vh', color: C.ink }}>
-      <Nav ihsg={ihsg} ihsgChange={ihsgChange} session={session} setTab={setTab} tab={tab} portfolioTotal={pfTotal} onChangePassword={() => setShowChangePw(true)} />
+      <Nav ihsg={ihsg} ihsgChange={ihsgChange} session={session} setTab={setTab} tab={tab} portfolioTotal={pfTotal} plPortfolioPct={pfStats.plPortfolioPct} plModalPct={pfStats.plModalPct} modalAwal={pfStats.modalAwal} onChangePassword={() => setShowChangePw(true)} />
       <div style={{ paddingBottom: 100 }}>
         <div style={{ display: tab === 'home' ? 'block' : 'none' }}>
           <HomeTab stocks={market.quotes} setTab={setTab} goTo={goTo} visitStats={visitStats} />
@@ -460,7 +461,7 @@ export default function App() {
         {session && (
           <div style={{ display: isPrivateTab ? 'block' : 'none' }}>
             <ErrorBoundary>
-              <PrivateArea tab={tab} userId={session.user.id} ihsgQuote={market.ihsg} goAnalisis={goAnalisis} onPortfolioTotal={setPfTotal} />
+              <PrivateArea tab={tab} userId={session.user.id} ihsgQuote={market.ihsg} goAnalisis={goAnalisis} onPortfolioTotal={setPfTotal} onPortfolioStats={setPfStats} />
             </ErrorBoundary>
           </div>
         )}
@@ -482,12 +483,30 @@ export default function App() {
 }
 
 // Area privat (hanya saat sudah login): Dashboard, Sobat AI, Portfolio
-function PrivateArea({ tab, userId, ihsgQuote, goAnalisis, onPortfolioTotal }) {
-  const { stocks, addHolding, updateHolding, deleteHolding, deleteAll, sellHolding, settings, adjustRdn, saveFees, exportCSV, importData } = usePortfolio(userId);
+function PrivateArea({ tab, userId, ihsgQuote, goAnalisis, onPortfolioTotal, onPortfolioStats }) {
+  const { stocks, addHolding, updateHolding, deleteHolding, deleteAll, sellHolding, settings, adjustRdn, saveFees, saveModalAwal, exportCSV, importData } = usePortfolio(userId);
   const pfTotalValue = stocks.reduce((sum, s) => sum + (s.price || 0) * (s.qty || 0), 0);
+  const costBasis = stocks.reduce((sum, s) => sum + (s.avg || 0) * (s.qty || 0), 0);
+  const rdn = Number(settings.rdn || 0);
+  const modalAwal = Number(settings.modal_awal || 0);
+  const totalEquity = pfTotalValue + rdn; // nilai holdings + kas RDN (gain & dividen terealisasi)
+  const plPortfolioPct = costBasis > 0 ? (pfTotalValue - costBasis) / costBasis * 100 : null;
+  const plModalPct = modalAwal > 0 ? (totalEquity - modalAwal) / modalAwal * 100 : null;
   useEffect(() => { if (onPortfolioTotal) onPortfolioTotal(pfTotalValue); }, [pfTotalValue, onPortfolioTotal]);
+  useEffect(() => { if (onPortfolioStats) onPortfolioStats({ plPortfolioPct, plModalPct, modalAwal }); }, [plPortfolioPct, plModalPct, modalAwal, onPortfolioStats]);
   const [editing, setEditing] = useState(null);
   const [selling, setSelling] = useState(null);
+  const [editModalAwal, setEditModalAwal] = useState(false);
+  const [modalAwalInput, setModalAwalInput] = useState('');
+  useEffect(() => {
+    const open = () => { setModalAwalInput(modalAwal ? String(modalAwal) : ''); setEditModalAwal(true); };
+    window.addEventListener('sobat-edit-modal-awal', open);
+    return () => window.removeEventListener('sobat-edit-modal-awal', open);
+  }, [modalAwal]);
+  async function submitModalAwal() {
+    const ok = await saveModalAwal(modalAwalInput);
+    if (ok) setEditModalAwal(false);
+  }
 
   function handleSave(h) {
     if (h.id) updateHolding(h); else addHolding(h);
@@ -518,6 +537,26 @@ function PrivateArea({ tab, userId, ihsgQuote, goAnalisis, onPortfolioTotal }) {
       <ChatTab stocks={stocks} active={tab === 'chat'} />
       {editing && <Editor holding={editing} onSave={handleSave} onClose={() => setEditing(null)} />}
       {selling && <SellEditor holding={selling} onSell={sellHolding} onClose={() => setSelling(null)} fees={settings} />}
+      {editModalAwal && (
+        <div onClick={() => setEditModalAwal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(26,42,32,0.45)', zIndex: 130, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: C.cream, borderRadius: 18, maxWidth: 380, width: '100%', padding: 24, boxShadow: '0 20px 60px rgba(26,42,32,0.25)' }}>
+            <h2 className="serif" style={{ fontSize: 21, fontWeight: 600, margin: '0 0 6px', color: C.ink }}>Modal Awal</h2>
+            <p style={{ fontSize: 12.5, color: C.inkSoft, lineHeight: 1.5, margin: '0 0 16px' }}>Setoran pokok pertamamu (modal awal banget), terpisah dari gain jual-beli & dividen. Dipakai menghitung % P/L vs modal awal.</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: C.cream2, borderRadius: 12, padding: '12px 14px' }}>
+              <span style={{ fontSize: 14, color: C.inkSoft, fontWeight: 600 }}>Rp</span>
+              <input type="number" inputMode="numeric" value={modalAwalInput} onChange={(e) => setModalAwalInput(e.target.value)} placeholder="0"
+                style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: 16, fontWeight: 600, color: C.ink, fontFamily: "'JetBrains Mono', monospace" }} />
+            </div>
+            {Number(modalAwalInput) > 0 && (
+              <div style={{ fontSize: 12.5, color: C.inkSoft, margin: '8px 2px 0' }}>= Rp {Math.round(Number(modalAwalInput)).toLocaleString('id-ID')}</div>
+            )}
+            <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+              <button onClick={() => setEditModalAwal(false)} style={{ flex: 1, background: 'transparent', color: C.inkSoft, border: `1px solid rgba(26,42,32,0.2)`, padding: 12, borderRadius: 100, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Batal</button>
+              <button onClick={submitModalAwal} style={{ flex: 1, background: C.forest, color: C.cream, border: 'none', padding: 12, borderRadius: 100, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Simpan</button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -944,7 +983,7 @@ function useIsMobile(bp = 768) {
 // >>> SESUAIKAN ke tanggal kamu benar-benar mengaktifkan aturan tersebut <<<
 const PWD_POLICY_CUTOFF = '2026-06-20T00:00:00Z';
 
-export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0, onChangePassword }) {
+export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0, plPortfolioPct = null, plModalPct = null, modalAwal = 0, onChangePassword }) {
   const isMobile = useIsMobile();
   const [menuOpen, setMenuOpen] = useState(false);
   const userEmail = (session && session.user && session.user.email) || '';
@@ -1003,6 +1042,28 @@ export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0
                         <div style={{ fontSize: 13, color: C.ink, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userEmail}</div>
                         <div style={{ marginTop: 10, fontSize: 11, color: C.inkSoft }}>Nilai Portofolio</div>
                         <div className="mono" style={{ fontSize: 16, color: C.ink, fontWeight: 700 }}>{fmtRp(portfolioTotal)}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 }}>
+                          <span style={{ fontSize: 11, color: C.inkSoft }}>P/L Portofolio</span>
+                          <span className="mono" style={{ fontSize: 13, fontWeight: 700, color: plPortfolioPct == null ? C.inkSoft : (plPortfolioPct >= 0 ? C.green : C.red) }}>
+                            {plPortfolioPct == null ? '—' : `${plPortfolioPct >= 0 ? '+' : ''}${plPortfolioPct.toFixed(2)}%`}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
+                          <span style={{ fontSize: 11, color: C.inkSoft, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            P/L Modal Awal
+                            <button onClick={() => { setMenuOpen(false); window.dispatchEvent(new CustomEvent('sobat-edit-modal-awal')); }}
+                              title="Atur modal awal" aria-label="Atur modal awal"
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.cuan, padding: 0, display: 'inline-flex', alignItems: 'center' }}>
+                              <Pencil size={11} />
+                            </button>
+                          </span>
+                          <span className="mono" style={{ fontSize: 13, fontWeight: 700, color: plModalPct == null ? C.inkSoft : (plModalPct >= 0 ? C.green : C.red) }}>
+                            {plModalPct == null ? 'atur' : `${plModalPct >= 0 ? '+' : ''}${plModalPct.toFixed(2)}%`}
+                          </span>
+                        </div>
+                        {modalAwal > 0 && (
+                          <div className="mono" style={{ fontSize: 10, color: C.inkSoft, textAlign: 'right', marginTop: 2 }}>modal awal {fmtRp(modalAwal)}</div>
+                        )}
                       </div>
                       {isOldAccount && !pwdReminderOff && (
                         <div style={{ padding: '12px 14px', borderBottom: `1px solid rgba(26,42,32,0.08)`, background: 'rgba(196,155,60,0.12)' }}>
