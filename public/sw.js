@@ -12,14 +12,26 @@ self.addEventListener('install', () => {
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil((async () => {
+    // Hapus cache lama peninggalan versi SW sebelumnya (kalau ada) → cegah shell basi.
+    try {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+    } catch (e) { /* abaikan */ }
+    await self.clients.claim();
+  })());
 });
 
 self.addEventListener('fetch', (event) => {
   // Hanya tangani navigasi (buka halaman) → selalu ambil dari jaringan (network-only).
   // Keberadaan handler 'fetch' inilah yang membuat situs dianggap installable.
   if (event.request.mode === 'navigate') {
-    event.respondWith(fetch(event.request));
+    // Selalu ambil index.html SEGAR dari jaringan, lewati cache HTTP browser
+    // ({ cache: 'no-store' }) → mencegah shell basi yang menunjuk chunk lama
+    // setelah deploy. Fallback ke fetch biasa bila no-store gagal.
+    event.respondWith(
+      fetch(event.request, { cache: 'no-store' }).catch(() => fetch(event.request))
+    );
   }
   // Request lain (aset, /api) dibiarkan default → tanpa cache, selalu segar.
 });

@@ -16,3 +16,10 @@
 # Aset ber-hash (nama berubah tiap build) boleh di-cache selamanya.
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+# Service worker & manifest: JANGAN di-cache → browser selalu cek versi terbaru
+# tiap deploy, sehingga SW langsung ter-update (mencegah shell basi → blank).
+/sw.js
+  Cache-Control: no-cache
+/manifest.json
+  Cache-Control: no-cache
