@@ -1007,10 +1007,15 @@ export function ChangePassword({ open, email, onClose, onSuccess }) {
       const { error: e2 } = await supabase.auth.updateUser({ password: newPw });
       if (e2) {
         const m = (e2.message || '').toLowerCase();
-        if (m.includes('reauth') || m.includes('nonce')) setMsg('Tidak bisa memperbarui. Nonaktifkan "Require current password when updating" di Supabase, lalu coba lagi.');
-        else if (m.includes('different') || m.includes('should be different') || m.includes('same')) setMsg('Kata sandi baru harus berbeda dari yang lama.');
-        else if (m.includes('password')) setMsg('Kata sandi baru belum memenuhi syarat keamanan.');
-        else setMsg(e2.message);
+        if (m.includes('reauth') || m.includes('nonce') || m.includes('current password') || m.includes('requires')) {
+          setMsg('Verifikasi tambahan diperlukan. Matikan "Require current password when updating" di Supabase (Authentication → Sign In / Providers → Email), lalu coba lagi. Keamanan tetap aman karena kata sandi lama sudah diverifikasi.');
+        } else if (m.includes('different') || m.includes('same')) {
+          setMsg('Kata sandi baru harus berbeda dari yang lama.');
+        } else if (m.includes('at least') || m.includes('should contain') || m.includes('weak') || m.includes('characters')) {
+          setMsg('Kata sandi baru belum memenuhi syarat keamanan.');
+        } else {
+          setMsg(e2.message);
+        }
         return;
       }
       setDone(true);
