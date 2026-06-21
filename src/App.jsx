@@ -1226,7 +1226,7 @@ function HomeTab({ stocks, setTab, goTo, visitStats }) {
 
       <div style={{ padding: '40px 20px', maxWidth: 1100, margin: '0 auto' }}>
         <div className="mono" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.15em', color: C.rust, marginBottom: 12, fontWeight: 500 }}>
-          // Empat alat, satu sobat
+          // Alat & edukasi, satu sobat
         </div>
         <h2 className="serif" style={{ fontSize: 'clamp(28px, 5vw, 44px)', fontWeight: 500, letterSpacing: '-0.02em', lineHeight: 1.05, marginBottom: 32 }}>
           Cara baru ngerti{' '}
@@ -1239,16 +1239,17 @@ function HomeTab({ stocks, setTab, goTo, visitStats }) {
             { num: '02', title: 'Analisis', desc: 'Analisis emiten oleh AI: model bisnis, katalis, dan risiko. Plus halaman khusus saham di portofoliomu.', bg: C.cream2, fg: C.ink, tab: 'analisis' },
             { num: '03', title: 'Live Dashboard', desc: 'P/L live, alokasi sektor, dan proyeksi dividen 12 bulan di satu layar — termasuk export/import portofolio & RDN ke CSV kapan saja.', bg: C.cream2, fg: C.ink, tab: 'portfolio' },
             { num: '04', title: 'Global', desc: 'Kondisi makro & pasar global — indeks dunia, komoditas, suku bunga, dan kurs — plus analisis AI dampaknya ke portofoliomu.', bg: C.forest, fg: C.cream, tab: 'global' },
+            { num: '05', title: 'Edukasi', desc: 'Artikel & panduan jujur soal investasi: cara membaca backtest, kuantifikasi ketidakpastian, dan menghindari jebakan — tanpa pseudosains.', bg: C.cream2, fg: C.ink, href: '/articles/backtest.html', cta: 'Baca artikel →' },
           ].map((f) => (
             <button
               key={f.num}
-              onClick={() => (goTo ? goTo(f.tab, f.page) : setTab(f.tab))}
+              onClick={() => { if (f.href) { window.location.href = f.href; } else if (goTo) { goTo(f.tab, f.page); } else { setTab(f.tab); } }}
               style={{ textAlign: 'left', background: f.bg, color: f.fg, padding: 24, borderRadius: 20, border: `1px solid rgba(26,42,32,0.05)`, cursor: 'pointer', fontFamily: 'inherit' }}
             >
               <div className="mono" style={{ fontSize: 11, opacity: 0.6, marginBottom: 16, letterSpacing: '0.1em' }}>{f.num} /</div>
               <h3 className="serif" style={{ fontSize: 24, fontWeight: 500, marginBottom: 8, letterSpacing: '-0.01em' }}>{f.title}</h3>
               <p style={{ fontSize: 14, opacity: 0.75, lineHeight: 1.55 }}>{f.desc}</p>
-              <div style={{ fontSize: 13, fontWeight: 600, marginTop: 14, opacity: 0.85 }}>Coba sekarang →</div>
+              <div style={{ fontSize: 13, fontWeight: 600, marginTop: 14, opacity: 0.85 }}>{f.cta || 'Coba sekarang →'}</div>
             </button>
           ))}
         </div>
