@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Edukasi — Sobat Investor</title>
+<meta name="description" content="Artikel & panduan jujur soal investasi saham IDX: backtest, reinvestasi dividen, kuantifikasi ketidakpastian, dan menghindari jebakan — tanpa pseudosains.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --forest:#1F3B2D; --forest-deep:#162a20; --cream:#F4EFE6; --cream2:#EBE3D3;
+    --ink:#1A2A20; --ink-soft:#46584d; --gold:#C49B3C; --rust:#B85C38;
+    --line:rgba(26,42,32,.12); --maxw:760px;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--cream);color:var(--ink);
+    font-family:'Plus Jakarta Sans',system-ui,-apple-system,sans-serif;
+    font-size:18px;line-height:1.72;font-weight:400;
+    text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased;}
+  .serif{font-family:'Fraunces',Georgia,serif;}
+
+  /* ---------- header band ---------- */
+  header.hero{background:var(--forest);color:var(--cream);position:relative;overflow:hidden;}
+  .hero-inner{max-width:var(--maxw);margin:0 auto;padding:54px 24px 56px;position:relative;z-index:2;}
+  .eyebrow{font-size:12.5px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--gold);margin:0 0 18px;}
+  h1.title{font-weight:600;font-size:clamp(34px,6vw,52px);line-height:1.05;margin:0;
+    letter-spacing:-.01em;}
+  .hero-sub{margin:18px 0 0;color:rgba(244,239,230,.78);font-size:16.5px;max-width:48ch;}
+  .hero-bull{position:absolute;right:-26px;bottom:-40px;width:230px;height:auto;opacity:.16;z-index:1;}
+  @media(max-width:640px){.hero-bull{width:160px;right:-22px;bottom:-30px}}
+
+  /* ---------- list ---------- */
+  main{max-width:var(--maxw);margin:0 auto;padding:40px 24px 72px;}
+  .art-list{display:flex;flex-direction:column;gap:16px;}
+  a.art-card{display:block;text-decoration:none;color:inherit;
+    background:var(--cream2);border:1px solid rgba(26,42,32,.06);border-radius:18px;
+    padding:24px 26px;transition:transform .15s ease, box-shadow .15s ease, background .15s ease;}
+  a.art-card:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(31,59,45,.12);}
+  a.art-card .tag{font-family:'Plus Jakarta Sans',sans-serif;font-size:11.5px;font-weight:700;
+    letter-spacing:.12em;text-transform:uppercase;color:var(--gold);}
+  a.art-card .tag .num{color:var(--ink-soft);opacity:.6;margin-right:10px;}
+  a.art-card h2{font-family:'Fraunces',Georgia,serif;font-weight:600;color:var(--forest);
+    font-size:clamp(22px,3.6vw,27px);line-height:1.18;margin:8px 0 8px;letter-spacing:-.01em;}
+  a.art-card p{margin:0 0 14px;font-size:15.5px;line-height:1.6;color:var(--ink-soft);}
+  a.art-card .go{font-size:13.5px;font-weight:700;color:var(--rust);}
+
+  footer.brand{max-width:var(--maxw);margin:0 auto;padding:0 24px 56px;
+    color:var(--ink-soft);font-size:13px;}
+  footer .dot{color:var(--gold);}
+  .home-link{color:var(--gold);text-decoration:none;font-size:13.5px;font-weight:600;
+    display:inline-block;margin-bottom:22px;opacity:.9;}
+  .home-link:hover{opacity:1;}
+</style>
+</head>
+<body>
+<header class="hero">
+  <svg class="hero-bull" viewBox="0 -200 355 699" aria-hidden="true"><path d="M318,-185 L309,-112 L292,-52 L272,-8 L257,24 L239,32 L195,44 L146,52 L132,52 L91,69 L72,86 L64,103 L64,128 L69,140 L77,149 L80,156 L75,161 L36,159 L22,160 L18,163 L18,168 L24,176 L28,187 L25,191 L0,206 L0,419 L32,476 L38,498 L109,498 L116,484 L137,457 L150,425 L164,414 L205,417 L237,408 L249,408 L276,426 L286,429 L297,429 L319,424 L329,415 L346,407 L351,402 L354,396 L354,359 L345,350 L345,347 L353,340 L354,336 L315,261 L314,246 L317,234 L317,222 L312,207 L297,189 L290,189 L285,184 L276,163 L263,144 L249,131 L227,125 L222,120 L218,111 L199,89 L201,84 L205,81 L238,67 L261,51 L277,35 L289,17 L297,-6 L305,-58 L311,-120 Z" fill="#F4EFE6"/></svg>
+  <div class="hero-inner">
+    <a href="/" class="home-link">← Kembali ke beranda</a>
+    <p class="eyebrow">Edukasi &middot; Sobat Investor</p>
+    <h1 class="title serif">Edukasi<span style="color:var(--gold)">.</span></h1>
+    <p class="hero-sub">Artikel &amp; panduan jujur soal investasi saham — metodologi terbuka, ketidakpastian dinyatakan apa adanya, tanpa pseudosains.</p>
+  </div>
+</header>
+<main>
+  <!-- ====== DAFTAR ARTIKEL — tambah entri baru cukup salin satu blok <a class="art-card"> ====== -->
+  <div class="art-list">
+
+    <a class="art-card" href="/articles/article_dividend_reinvesting.html">
+      <div class="tag"><span class="num">02</span>Dividen &middot; Compounding</div>
+      <h2>Dividend Reinvesting: Bunga Berbunga, Plus-Minus, dan Pelajaran Para Tokoh</h2>
+      <p>Cara kerja reinvestasi dividen secara jujur: mekanika bunga berbunga, plus-minusnya, konteks pajak IDX, dan pelajaran dari Rockefeller, Siegel, hingga Buffett.</p>
+      <div class="go">Baca artikel →</div>
+    </a>
+
+    <a class="art-card" href="/articles/article_backtest.html">
+      <div class="tag"><span class="num">01</span>Strategi &middot; Metodologi</div>
+      <h2>Backtest: Cara Menguji Strategi Saham Tanpa Menipu Diri Sendiri</h2>
+      <p>Apa itu backtest, tujuh jebakan yang membuatnya berbohong, dan cara membacanya dengan jujur untuk investor ritel IDX—termasuk biaya nyata, likuiditas, dan ARA/ARB.</p>
+      <div class="go">Baca artikel →</div>
+    </a>
+
+  </div>
+</main>
+<footer class="brand">
+  <strong style="color:var(--forest)">sobat<span class="dot">.</span>investor</strong> &nbsp;·&nbsp; Konten edukasi, bukan ajakan transaksi.
+</footer>
+</body>
+</html>

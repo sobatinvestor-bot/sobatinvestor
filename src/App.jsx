@@ -1239,7 +1239,7 @@ function HomeTab({ stocks, setTab, goTo, visitStats }) {
             { num: '02', title: 'Analisis', desc: 'Analisis emiten oleh AI: model bisnis, katalis, dan risiko. Plus halaman khusus saham di portofoliomu.', bg: C.cream2, fg: C.ink, tab: 'analisis' },
             { num: '03', title: 'Live Dashboard', desc: 'P/L live, alokasi sektor, dan proyeksi dividen 12 bulan di satu layar — termasuk export/import portofolio & RDN ke CSV kapan saja.', bg: C.forest, fg: C.cream, tab: 'portfolio' },
             { num: '04', title: 'Global', desc: 'Kondisi makro & pasar global — indeks dunia, komoditas, suku bunga, dan kurs — plus analisis AI dampaknya ke portofoliomu.', bg: C.cream2, fg: C.ink, tab: 'global' },
-            { num: '05', title: 'Edukasi', desc: 'Artikel & panduan jujur soal investasi: backtest, reinvestasi dividen, kuantifikasi ketidakpastian, dan menghindari jebakan — tanpa pseudosains.', bg: C.forest, fg: C.cream, href: '/articles/', cta: 'Lihat artikel →' },
+            { num: '05', title: 'Edukasi', desc: 'Artikel & panduan jujur soal investasi: backtest, reinvestasi dividen, kuantifikasi ketidakpastian, dan menghindari jebakan — tanpa pseudosains.', bg: C.forest, fg: C.cream, href: '/articles/index.html', cta: 'Lihat artikel →' },
           ].map((f) => (
             <button
               key={f.num}
