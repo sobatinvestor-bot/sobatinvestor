@@ -332,7 +332,7 @@ export default function App() {
   const [analisisSymbol, setAnalisisSymbol] = useState(null); // permintaan buka analisis emiten tertentu
   const [legalDoc, setLegalDoc] = useState(null); // null | 'tos' | 'privacy' — modal dokumen legal
   const [pfTotal, setPfTotal] = useState(0); // nilai total portofolio (dilaporkan dari PrivateArea)
-  const [pfStats, setPfStats] = useState({ plPortfolioPct: null, plModalPct: null, modalAwal: 0 }); // % P/L portofolio & modal awal
+  const [pfStats, setPfStats] = useState({ plPortfolioPct: null, plModalPct: null, modalAwal: 0, rdn: 0 }); // % P/L portofolio, modal awal & saldo RDN
   const [showChangePw, setShowChangePw] = useState(false); // modal ganti kata sandi
   const [recoveryMode, setRecoveryMode] = useState(false); // halaman set-password dari link email (Jalur B)
 
@@ -435,7 +435,7 @@ export default function App() {
 
   return (
     <div style={{ background: C.cream, minHeight: '100vh', color: C.ink }}>
-      <Nav ihsg={ihsg} ihsgChange={ihsgChange} session={session} setTab={setTab} tab={tab} portfolioTotal={pfTotal} plPortfolioPct={pfStats.plPortfolioPct} plModalPct={pfStats.plModalPct} modalAwal={pfStats.modalAwal} onChangePassword={() => setShowChangePw(true)} />
+      <Nav ihsg={ihsg} ihsgChange={ihsgChange} session={session} setTab={setTab} tab={tab} portfolioTotal={pfTotal} plPortfolioPct={pfStats.plPortfolioPct} plModalPct={pfStats.plModalPct} modalAwal={pfStats.modalAwal} rdn={pfStats.rdn} onChangePassword={() => setShowChangePw(true)} />
       <div style={{ paddingBottom: 100 }}>
         <div style={{ display: tab === 'home' ? 'block' : 'none' }}>
           <HomeTab stocks={market.quotes} setTab={setTab} goTo={goTo} visitStats={visitStats} />
@@ -493,7 +493,7 @@ function PrivateArea({ tab, userId, ihsgQuote, goAnalisis, onPortfolioTotal, onP
   const plPortfolioPct = costBasis > 0 ? (pfTotalValue - costBasis) / costBasis * 100 : null;
   const plModalPct = modalAwal > 0 ? (totalEquity - modalAwal) / modalAwal * 100 : null;
   useEffect(() => { if (onPortfolioTotal) onPortfolioTotal(pfTotalValue); }, [pfTotalValue, onPortfolioTotal]);
-  useEffect(() => { if (onPortfolioStats) onPortfolioStats({ plPortfolioPct, plModalPct, modalAwal }); }, [plPortfolioPct, plModalPct, modalAwal, onPortfolioStats]);
+  useEffect(() => { if (onPortfolioStats) onPortfolioStats({ plPortfolioPct, plModalPct, modalAwal, rdn }); }, [plPortfolioPct, plModalPct, modalAwal, rdn, onPortfolioStats]);
   const [editing, setEditing] = useState(null);
   const [selling, setSelling] = useState(null);
   const [editModalAwal, setEditModalAwal] = useState(false);
@@ -983,7 +983,7 @@ function useIsMobile(bp = 768) {
 // >>> SESUAIKAN ke tanggal kamu benar-benar mengaktifkan aturan tersebut <<<
 const PWD_POLICY_CUTOFF = '2026-06-20T00:00:00Z';
 
-export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0, plPortfolioPct = null, plModalPct = null, modalAwal = 0, onChangePassword }) {
+export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0, plPortfolioPct = null, plModalPct = null, modalAwal = 0, rdn = 0, onChangePassword }) {
   const isMobile = useIsMobile();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
@@ -1063,6 +1063,10 @@ export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0
                         <div style={{ fontSize: 13, color: C.ink, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userEmail}</div>
                         <div style={{ marginTop: 10, fontSize: 11, color: C.inkSoft }}>Nilai Portofolio</div>
                         <div className="mono" style={{ fontSize: 16, color: C.ink, fontWeight: 700 }}>{fmtRp(portfolioTotal)}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
+                          <span style={{ fontSize: 11, color: C.inkSoft }}>Cash RDN</span>
+                          <span className="mono" style={{ fontSize: 13, fontWeight: 700, color: C.ink }}>{fmtRp(rdn)}</span>
+                        </div>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 }}>
                           <span style={{ fontSize: 11, color: C.inkSoft }}>P/L Portofolio</span>
                           <span className="mono" style={{ fontSize: 13, fontWeight: 700, color: plPortfolioPct == null ? C.inkSoft : (plPortfolioPct >= 0 ? C.green : C.red) }}>
