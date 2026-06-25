@@ -1194,7 +1194,7 @@ function HomeTab({ stocks, setTab, goTo, visitStats }) {
           </em>
         </h1>
         <p style={{ fontSize: 17, color: C.inkSoft, lineHeight: 1.55, maxWidth: 540, marginBottom: 28 }}>
-          Analisis saham IDX berbasis data, memahami peluang, risiko, dan keputusan investasi dengan lebih percaya diri.
+          Platform riset investasi untuk memahami peluang, risiko, dan arah pasar.
         </p>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button
