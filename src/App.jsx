@@ -2072,7 +2072,7 @@ export function DividendCard({ stocks, onSymbol }) {
   useEffect(() => {
     if (!symKey) { setSchedule([]); return; }
     let active = true;
-    supabase.from('dividend_schedule').select('symbol,ex_date,pay_date')
+    supabase.from('dividend_schedule').select('symbol,ex_date,pay_date,amount')
       .eq('confirmed', true)
       .in('symbol', stocks.map((s) => s.symbol))
       .then(({ data }) => { if (active) setSchedule(data || []); })
@@ -2176,18 +2176,35 @@ export function DividendCard({ stocks, onSymbol }) {
     .sort((a, b) => b.exTime - a.exTime);
   const totalHist = hist.reduce((s, r) => s + r.cash, 0);
 
-  // Kredit otomatis dividen yang estimasi tanggal bayarnya sudah lewat ke saldo RDN.
-  // RPC credit_dividend idempoten (dedupe per user+symbol+ex_date), jadi aman
-  // dipanggil ulang lintas reload/perangkat. Guard ref mencegah spam per render.
+  // Kredit otomatis dividen yang tanggal bayarnya sudah lewat ke saldo RDN.
+  // Dua sumber: (1) feed Yahoo (raw), (2) dividend_schedule confirmed yang punya `amount`
+  // sebagai CADANGAN untuk emiten yang tidak disuplai feed (mis. SPTO). Cadangan hanya
+  // dipakai bila simbol+ex tidak ada di feed (cegah dobel). RPC credit_dividend idempoten
+  // (dedupe per user+symbol+ex_date), jadi aman lintas reload/perangkat.
   const creditedKey = useRef('');
   useEffect(() => {
-    if (lots === null || raw.length === 0) return;
-    if (creditedKey.current === symKey) return;
-    creditedKey.current = symKey;
+    if (lots === null) return;
+    if (raw.length === 0 && schedule.length === 0) return;
+    const schedSig = schedule.map((o) => `${o.symbol}:${o.ex_date}:${o.amount ?? ''}:${o.pay_date ?? ''}`).join(',');
+    const rawSig = raw.map((d) => `${d.symbol}:${d.exDate}`).join(',');
+    const key = symKey + '||' + schedSig + '||' + rawSig;
+    if (creditedKey.current === key) return;
+    creditedKey.current = key;
     (async () => {
-      const paid = hist.filter((r) => r.payEst.getTime() <= Date.now());
+      const nowT = Date.now();
+      const inFeed = (sym, exT) => hist.some((r) => r.symbol === sym && Math.abs(r.exTime - exT) <= 2 * DAY);
+      // (1) dari feed Yahoo: yang tanggal bayarnya sudah lewat
+      const paidFeed = hist.filter((r) => r.payEst.getTime() <= nowT);
+      // (2) cadangan dari jadwal resmi (ada amount, belum tercakup feed)
+      const paidSched = schedule
+        .filter((o) => o.amount != null && o.pay_date)
+        .map((o) => {
+          const exTime = new Date(o.ex_date + 'T00:00:00Z').getTime();
+          return { symbol: o.symbol, exTime, cash: Number(o.amount) * eligibleQty(o.symbol, exTime), payEst: new Date(o.pay_date + 'T00:00:00Z') };
+        })
+        .filter((r) => r.cash > 0 && r.exTime <= nowT && r.exTime >= nowT - YEAR && r.payEst.getTime() <= nowT && !inFeed(r.symbol, r.exTime));
       let adaBaru = false;
-      for (const r of paid) {
+      for (const r of [...paidFeed, ...paidSched]) {
         const { data, error } = await supabase.rpc('credit_dividend', {
           p_symbol: r.symbol,
           p_ex_date: new Date(r.exTime).toISOString().slice(0, 10),
@@ -2199,7 +2216,7 @@ export function DividendCard({ stocks, onSymbol }) {
       if (adaBaru) window.dispatchEvent(new Event('sobat-rdn-changed'));
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lots, raw, symKey]);
+  }, [lots, raw, symKey, schedule]);
   const fmtDate = (d) => d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
 
   return (
