@@ -1377,7 +1377,9 @@ function DashboardTab({ stocks, ihsgQuote, onSymbol }) {
         cash: owned ? d.amount * (qtyMap[d.symbol] || 0) : 0,
       };
     })
-    .filter((e) => e.cash > 0 && e.payTime >= startTime && e.payTime <= endTime);
+    // Hanya dividen yang BELUM dibayar (payTime >= hari ini). Yang sudah dibayar
+    // sudah masuk RDN, jadi tak boleh menggelembungkan proyeksi nilai holdings.
+    .filter((e) => e.cash > 0 && e.payTime >= todayTime && e.payTime <= endTime);
 
   const fmtShort = (t) => new Date(t).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
   const isDay = range === '1d';
@@ -1510,7 +1512,7 @@ function DashboardTab({ stocks, ihsgQuote, onSymbol }) {
           <PerfChart perfData={perfData} todayLabel={todayLabel} hasIhsg={hasIhsg} />
         </Suspense>
         <div style={{ fontSize: 11, color: C.inkSoft, marginTop: 8, lineHeight: 1.5 }}>
-          Kiri "Hari ini" = harga historis asli tiap saham. Kanan = proyeksi datar di harga terakhir. Garis putus-putus = IHSG (disetarakan ke nilai awal). Lonjakan = dividen masuk (perkiraan tgl bayar).{totalDivWindow > 0 ? ` Total dividen di jendela ini: ${fmtRp(totalDivWindow)}.` : ''}
+          Kiri "Hari ini" = harga historis asli tiap saham. Kanan = proyeksi datar di harga terakhir. Garis putus-putus = IHSG (disetarakan ke nilai awal). Lonjakan = dividen yang akan datang (perkiraan tgl bayar).{totalDivWindow > 0 ? ` Total dividen akan datang (30 hari): ${fmtRp(totalDivWindow)}.` : ''}
         </div>
       </div>
 
