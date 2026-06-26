@@ -5,18 +5,15 @@
 //   SUPABASE_URL       - https://xxxx.supabase.co
 //   SUPABASE_ANON_KEY  - anon key (untuk memanggil RPC dgn token user)
 
-function buildSystemPrompt(allowMarkdown) {
+function buildSystemPrompt() {
   const today = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' });
-  const formatRule = allowMarkdown
-    ? '- Boleh memakai markdown ringan: "## " untuk subjudul, **tebal**, *miring*, <u>garis bawah</u>, dan poin "-". Output dirender sebagai teks kaya (rich text), jadi gunakan secukupnya agar rapi. Langsung tulis isi analisis — JANGAN menulis komentar atau kalimat pembuka tentang instruksi/format.'
-    : '- Tulis dalam PROSA mengalir dan paragraf pendek. JANGAN gunakan tanda markdown seperti #, ##, ###, atau ** (bintang). Untuk daftar, pakai kalimat biasa atau tanda hubung "-" sederhana saja. Output kamu ditampilkan apa adanya tanpa render markdown, jadi simbol-simbol itu akan terlihat jelek.';
   return `Kamu adalah Sobat AI, asisten dari aplikasi Sobat Investor — pemantau portofolio saham IDX (Bursa Efek Indonesia).
 
 Tanggal hari ini: ${today}. Gunakan ini untuk semua perhitungan waktu/selisih tahun. Hitung dengan teliti.
 
 Gaya jawab:
 - Bahasa Indonesia, profesional, ringkas. Mulai dari gambaran besar lalu ke detail.
-${formatRule}
+- Tulis dalam PROSA mengalir dan paragraf pendek. JANGAN gunakan tanda markdown seperti #, ##, ###, atau ** (bintang). Untuk daftar, pakai kalimat biasa atau tanda hubung "-" sederhana saja. Output kamu ditampilkan apa adanya tanpa render markdown, jadi simbol-simbol itu akan terlihat jelek.
 
 Cakupan: saham Indonesia, analisis emiten, dividen, dan konsep investasi.
 
@@ -42,18 +39,21 @@ export async function onRequestPost(context) {
     const apiKey = env.ANTHROPIC_API_KEY;
     if (!apiKey) return jsonResponse({ error: 'ANTHROPIC_API_KEY belum diset' }, 500);
 
-    // 1) Ambil token user dari header Authorization (dikirim frontend)
+    // 1) Token user opsional. Ada token -> jalur login; tanpa token -> jalur tamu (per IP).
     const authHeader = request.headers.get('Authorization') || '';
     const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-    if (!token) return jsonResponse({ error: 'Harus login untuk pakai Sobat AI' }, 401);
 
-    // Apakah pemanggil adalah admin? (dibaca dari token, bukan dari klien)
-    const isAdmin = getUserId(token) === ADMIN_UID;
-
-    // 2) Cek + catat kuota via RPC (atomik di Supabase)
-    const quota = await checkQuota(env, token);
+    // 2) Cek + catat kuota
+    let quota;
+    if (token) {
+      quota = await checkQuota(env, token);              // login: 3/hari
+    } else {
+      const ip = (request.headers.get('CF-Connecting-IP')
+                || request.headers.get('X-Forwarded-For') || '').split(',')[0].trim();
+      quota = await checkGuestQuota(env, ip);            // tamu: 1/hari per IP
+    }
     if (!quota.ok) {
-      return jsonResponse({ error: quota.reason || 'Kuota habis', quota_exceeded: true }, 429);
+      return jsonResponse({ error: quota.reason || 'Kuota habis', quota_exceeded: true, need_login: quota.need_login === true }, 429);
     }
 
     const body = await request.json();
@@ -65,19 +65,11 @@ export async function onRequestPost(context) {
       return jsonResponse({ error: 'Percakapan terlalu panjang, mulai chat baru ya.' }, 400);
     }
 
-    // 3) Paksa parameter aman di server (model & persona terkunci; token dibatasi plafon server)
-    //    Klien boleh meminta lebih (mis. analisis portofolio yang panjang), tapi server
-    //    tetap memegang plafon agar budget terkendali.
-    const reqTokens = Number(body.max_tokens);
-    // Admin tidak dibatasi server: plafon = batas maksimum output model Opus 4.8 (128k).
-    const HARD_CAP = isAdmin ? 128000 : 1200;
-    const fallback = isAdmin ? 8000 : 600;
-    const maxTokens = Number.isFinite(reqTokens) ? Math.min(Math.max(Math.round(reqTokens), 100), HARD_CAP) : fallback;
+    // 3) Paksa parameter aman di server (client TIDAK bisa override model/system/token)
     const safeBody = {
-      // Admin memakai model tertinggi (Opus 4.8); user umum tetap Haiku (kunci budget).
-      model: isAdmin ? 'claude-opus-4-8' : 'claude-haiku-4-5-20251001',
-      max_tokens: maxTokens,
-      system: buildSystemPrompt(body.markdown === true), // markdown diizinkan utk konteks rich-text
+      model: 'claude-haiku-4-5-20251001', // model termurah — kunci budget
+      max_tokens: 600,                     // chat saham cukup pendek
+      system: buildSystemPrompt(),               // persona terkunci di server
       messages,
     };
 
@@ -120,21 +112,21 @@ async function checkQuota(env, token) {
   }
 }
 
-// UID admin — hanya akun ini yang memakai model premium.
-const ADMIN_UID = 'fb34e91b-dde7-42ce-83e9-ff70a2eaf52f';
-
-// Ambil user id (sub) dari JWT Supabase tanpa panggilan jaringan.
-function getUserId(token) {
+// Kuota tamu: panggil ai_guest_check_and_log pakai SERVICE ROLE (server-side),
+// IP dari Cloudflare (CF-Connecting-IP) jadi tak bisa dipalsukan klien.
+async function checkGuestQuota(env, ip) {
+  const key = env.SUPABASE_SERVICE_KEY;
+  if (!key) return { ok: false, reason: 'Kuota tamu belum dikonfigurasi' };
   try {
-    const part = token.split('.')[1];
-    if (!part) return null;
-    let b64 = part.replace(/-/g, '+').replace(/_/g, '/');
-    while (b64.length % 4) b64 += '=';
-    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
-    const json = JSON.parse(new TextDecoder().decode(bytes));
-    return json.sub || null;
+    const res = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/ai_guest_check_and_log`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: key, Authorization: `Bearer ${key}` },
+      body: JSON.stringify({ p_ip: ip }),
+    });
+    if (!res.ok) return { ok: false, reason: 'Kuota tidak dapat diverifikasi' };
+    return await res.json();
   } catch {
-    return null;
+    return { ok: false, reason: 'Kuota tidak dapat diverifikasi' };
   }
 }
 

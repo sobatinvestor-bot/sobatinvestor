@@ -1140,7 +1140,7 @@ function BottomNav({ tab, setTab }) {
     { id: 'home', label: 'Beranda', icon: Home },
     { id: 'analisis', label: 'Analisis', icon: FileText },
     { id: 'portfolio', label: 'Portofolio', icon: Briefcase },
-    { id: 'chat', label: 'Sobat AI', icon: Sparkles },
+    { id: 'chat', label: 'Diskusi', icon: Sparkles },
     { id: 'global', label: 'Global', icon: Globe },
   ];
   return (
@@ -1609,10 +1609,9 @@ export function ChatTab({ stocks, active = true }) {
     setInput('');
     setLoading(true);
     try {
-      // Token user wajib (endpoint pakai utk verifikasi kuota)
+      // Token user opsional: tamu dapat 1 pertanyaan/hari (dibatasi server per-IP).
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
-      if (!token) { setErr('Harus login untuk pakai Sobat AI.'); setLoading(false); return; }
 
       // Konteks emiten: gabungan yang DIMILIKI + yang DISEBUT di pertanyaan.
       let ctx = '';
@@ -1684,7 +1683,9 @@ export function ChatTab({ stocks, active = true }) {
 
       const res = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: token
+          ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+          : { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: payload }),
       });
       const data = await res.json();
@@ -1721,11 +1722,15 @@ export function ChatTab({ stocks, active = true }) {
           <h2 className="serif" style={{ fontSize: 22, fontWeight: 600, lineHeight: 1 }}>Sobat AI</h2>
           <div style={{ fontSize: 11, color: C.inkSoft }}>Ditenagai teknologi AI pihak ketiga</div>
         </div>
-        {quota && quota.login && (
+        {quota && quota.login ? (
           <div style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, padding: '5px 10px', borderRadius: 100, whiteSpace: 'nowrap',
             background: C.cream2,
             color: (!quota.admin && quota.sisa_harian === 0) ? C.rust : C.inkSoft }}>
             {quota.admin ? 'Admin · tanpa batas' : `Sisa chat hari ini: ${quota.sisa_harian}/${quota.limit_harian}`}
+          </div>
+        ) : (
+          <div style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, padding: '5px 10px', borderRadius: 100, whiteSpace: 'nowrap', background: C.cream2, color: C.inkSoft }}>
+            Tamu · 1 gratis · masuk untuk 3/hari
           </div>
         )}
       </div>
