@@ -1304,9 +1304,10 @@ function DashboardTab({ stocks, ihsgQuote, onSymbol }) {
   // Data dividen + harga historis untuk grafik
   const symKey = stocks.map((s) => s.symbol).join(',');
   const [rawDiv, setRawDiv] = useState([]);
+  const [divSched, setDivSched] = useState([]); // jadwal resmi (pay_date) untuk koreksi tanggal lonjakan
   const [hist, setHist] = useState({});
   useEffect(() => {
-    if (!symKey) { setRawDiv([]); setHist({}); return; }
+    if (!symKey) { setRawDiv([]); setHist({}); setDivSched([]); return; }
     let active = true;
     const histRange = range === 'ytd' ? 'ytd' : '2mo';
     fetch(`/api/dividends?symbols=${encodeURIComponent(symKey)}&range=1y`)
@@ -1317,6 +1318,8 @@ function DashboardTab({ stocks, ihsgQuote, onSymbol }) {
       .then((r) => (r.ok ? r.json() : { history: {} }))
       .then((d) => { if (active) setHist(d.history || {}); })
       .catch(() => {});
+    supabase.from('dividend_schedule').select('symbol,ex_date,pay_date')
+      .then(({ data }) => { if (active) setDivSched(data || []); });
     return () => { active = false; };
   }, [symKey, range]);
 
@@ -1365,8 +1368,12 @@ function DashboardTab({ stocks, ihsgQuote, onSymbol }) {
     .map((d) => {
       const exTime = new Date(d.exDate).getTime();
       const owned = exTime >= (buyMap[d.symbol] || 0); // dividen hanya jika sudah dipegang saat ex-date
+      // Pakai pay_date resmi (dividend_schedule) bila ada; jika tidak, perkirakan ex+21.
+      const ov = divSched.find((o) => o.symbol === d.symbol && o.pay_date
+        && Math.abs(new Date(o.ex_date + 'T00:00:00Z').getTime() - exTime) <= 3 * DAY);
+      const payTime = ov ? new Date(ov.pay_date + 'T00:00:00Z').getTime() : exTime + OFFSET_DAYS * DAY;
       return {
-        payTime: exTime + OFFSET_DAYS * DAY,
+        payTime,
         cash: owned ? d.amount * (qtyMap[d.symbol] || 0) : 0,
       };
     })
@@ -1944,7 +1951,7 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
             <span style={{ textAlign: 'right' }}>P/L</span>
             <span></span>
           </div>
-          {stocks.map((s) => {
+          {[...stocks].sort((a, b) => (b.price * b.qty) - (a.price * a.qty)).map((s) => {
             const plPct = (s.hasLive && s.avg) ? (s.price - s.avg) / s.avg * 100 : null;
             const plRp = s.hasLive ? (s.price - s.avg) * s.qty : null;
             return (
