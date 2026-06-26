@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
-import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Upload, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus, Users, Globe, ArrowDown } from 'lucide-react';
+import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Upload, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus, Users, Globe, ArrowDown, Linkedin, Instagram } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import useBackGuard from './useBackGuard.js';
 import { Auth, usePortfolio, Editor, logout, SellEditor, RdnCard, StockNews, parseSobatCSV, ChangePassword, SetNewPassword } from './Account.jsx';
@@ -131,12 +131,26 @@ const LEGAL_DOCS = {
 // ============================================================
 // Footer
 // ============================================================
+function TikTokIcon({ size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M16.5 3c.32 2.06 1.47 3.62 3.5 3.86v2.49c-1.27.12-2.49-.27-3.5-.99v6.04c0 3.18-2.39 5.6-5.45 5.6-2.92 0-5.05-2.16-5.05-5.06 0-3.02 2.42-5.22 5.6-4.94v2.59c-.39-.12-.81-.16-1.23-.1-1.16.15-1.96.96-1.92 2.13.04 1.27 1.02 2.15 2.32 2.1 1.27-.05 2.08-1.01 2.08-2.39V3h3.55z" />
+    </svg>
+  );
+}
+
 function Footer({ onOpenLegal }) {
   const year = new Date().getFullYear();
   const linkStyle = { color: C.forest, textDecoration: 'underline', cursor: 'pointer', background: 'none', border: 'none', padding: 0, font: 'inherit' };
+  const socialBadge = { width: 38, height: 38, borderRadius: '50%', background: C.forest, color: C.cream, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' };
   return (
     <footer style={{ borderTop: `1px solid rgba(26,42,32,0.1)`, padding: '24px 20px 28px', textAlign: 'center', color: C.inkSoft, fontSize: 12, lineHeight: 1.7 }}>
       <div style={{ maxWidth: 680, margin: '0 auto' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginBottom: 14 }}>
+          <a href="https://www.linkedin.com/in/sobatinvestor-indonesia-665a01419" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" style={socialBadge}><Linkedin size={18} /></a>
+          <a href="https://www.instagram.com/sobatinvestor.indonesia" target="_blank" rel="noopener noreferrer" aria-label="Instagram" style={socialBadge}><Instagram size={18} /></a>
+          <a href="https://www.tiktok.com/@sobatinvestor.indonesia" target="_blank" rel="noopener noreferrer" aria-label="TikTok" style={socialBadge}><TikTokIcon size={18} /></a>
+        </div>
         <div style={{ marginBottom: 8 }}>
           <button type="button" style={linkStyle} onClick={() => onOpenLegal('tos')}>Ketentuan Layanan</button>
           <span style={{ margin: '0 10px', opacity: 0.5 }}>·</span>
