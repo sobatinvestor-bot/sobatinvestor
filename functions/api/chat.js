@@ -68,9 +68,11 @@ export async function onRequestPost(context) {
     }
 
     // 3) Paksa parameter aman di server (client TIDAK bisa override model/system/token)
+    // Admin (Ahmad) -> Opus + output panjang. User/tamu -> Haiku + pendek (kunci budget).
+    const isAdmin = quota.admin === true;
     const safeBody = {
-      model: 'claude-haiku-4-5-20251001', // model termurah — kunci budget
-      max_tokens: 600,                     // chat saham cukup pendek
+      model: isAdmin ? 'claude-opus-4-8' : 'claude-haiku-4-5-20251001',
+      max_tokens: isAdmin ? 16000 : 600,
       system: buildSystemPrompt(),               // persona terkunci di server
       messages,
     };
