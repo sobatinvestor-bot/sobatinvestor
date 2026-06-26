@@ -457,7 +457,8 @@ export default function App() {
         <div style={{ display: tab === 'global' ? 'block' : 'none' }}>
           <MarketsTab active={tab === 'global'} userId={session ? session.user.id : null} onRequireLogin={() => setTab('portfolio')} />
         </div>
-        {isPrivateTab && !session && <Auth inline />}
+        {isPrivateTab && tab !== 'chat' && !session && <Auth inline />}
+        {!session && tab === 'chat' && <ChatTab stocks={[]} active />}
         {session && (
           <div style={{ display: isPrivateTab ? 'block' : 'none' }}>
             <ErrorBoundary>
