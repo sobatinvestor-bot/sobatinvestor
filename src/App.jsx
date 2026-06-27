@@ -1200,7 +1200,7 @@ function HomeTab({ stocks, setTab, goTo, visitStats }) {
     <div className="fade-up">
       <div style={{ padding: '40px 20px 24px', maxWidth: 1100, margin: '0 auto' }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: C.cream2, padding: '6px 12px', borderRadius: 100, fontSize: 12, fontWeight: 500, color: C.inkSoft, marginBottom: 20 }}>
-          <span style={{ color: C.rust, fontWeight: 700 }}>●</span> Live • Powered by AI
+          <span style={{ color: C.rust, fontWeight: 700 }}>●</span> Data publik IDX • Diperkuat AI
         </div>
         <h1 className="serif" style={{ fontSize: 'clamp(38px, 7.5vw, 72px)', lineHeight: 1.05, letterSpacing: '-0.03em', fontWeight: 500, marginBottom: 20 }}>
           Sobat Investor,{' '}
@@ -1209,7 +1209,7 @@ function HomeTab({ stocks, setTab, goTo, visitStats }) {
           </em>
         </h1>
         <p style={{ fontSize: 17, color: C.inkSoft, lineHeight: 1.55, maxWidth: 540, marginBottom: 28 }}>
-          Platform riset investasi untuk memahami peluang, risiko, dan arah pasar.
+          Riset saham IDX berbasis data publik untuk memahami peluang, risiko, dan arah pasar. Bersifat edukatif, bukan nasihat investasi.
         </p>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button
@@ -1256,7 +1256,7 @@ function HomeTab({ stocks, setTab, goTo, visitStats }) {
           {[
             { num: '01', title: 'Backtest', desc: 'Backtest strategi SMA dengan Python asli yang jalan di browser-mu. Data harga & dividen IDX real.', bg: C.forest, fg: C.cream, tab: 'analisis', page: 'backtest' },
             { num: '02', title: 'Analisis', desc: 'Analisis emiten oleh AI: model bisnis, katalis, dan risiko. Plus halaman khusus saham di portofoliomu.', bg: C.cream2, fg: C.ink, tab: 'analisis' },
-            { num: '03', title: 'Live Dashboard', desc: 'P/L live, alokasi sektor, dan proyeksi dividen 12 bulan di satu layar — termasuk export/import portofolio & RDN ke CSV kapan saja.', bg: C.forest, fg: C.cream, tab: 'portfolio' },
+            { num: '03', title: 'Dashboard Portofolio', desc: 'P/L portofolio, alokasi sektor, dan proyeksi dividen 12 bulan di satu layar — termasuk export/import portofolio & RDN ke CSV kapan saja.', bg: C.forest, fg: C.cream, tab: 'portfolio' },
             { num: '04', title: 'Global', desc: 'Kondisi makro & pasar global — indeks dunia, komoditas, suku bunga, dan kurs — plus analisis AI dampaknya ke portofoliomu.', bg: C.cream2, fg: C.ink, tab: 'global' },
             { num: '05', title: 'Edukasi', desc: 'Artikel & panduan soal investasi: backtest, reinvestasi dividen, kuantifikasi ketidakpastian, dan menghindari jebakan — tanpa pseudosains.', bg: C.forest, fg: C.cream, href: '/articles/index.html', cta: 'Lihat artikel →' },
           ].map((f) => (
