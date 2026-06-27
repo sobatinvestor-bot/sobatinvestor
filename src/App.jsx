@@ -1280,7 +1280,7 @@ function HomeTab({ stocks, setTab, goTo, visitStats }) {
             // Edukasi · gratis dibaca
           </div>
           <h2 className="serif" style={{ fontSize: 'clamp(26px, 5vw, 40px)', fontWeight: 500, letterSpacing: '-0.02em', lineHeight: 1.08, marginBottom: 10 }}>
-            Riset jujur, ditulis supaya kamu paham.
+            Paham itu proses, bukan jalan pintas.
           </h2>
           <p style={{ fontSize: 15, color: 'rgba(244,239,230,0.72)', maxWidth: 580, marginBottom: 28, lineHeight: 1.6 }}>
             Metodologi terbuka, ketidakpastian dinyatakan apa adanya, tanpa pseudosains — bisa dibaca biasa atau mode buku.
