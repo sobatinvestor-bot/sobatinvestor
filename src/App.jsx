@@ -1277,7 +1277,7 @@ function HomeTab({ stocks, setTab, goTo, visitStats }) {
       <div style={{ background: C.forest, color: C.cream, padding: '48px 20px' }}>
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
           <div className="mono" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.15em', color: C.cuan, marginBottom: 12, fontWeight: 600 }}>
-            // Edukasi · gratis dibaca
+            // Edukasi · bacalah !
           </div>
           <h2 className="serif" style={{ fontSize: 'clamp(26px, 5vw, 40px)', fontWeight: 500, letterSpacing: '-0.02em', lineHeight: 1.08, marginBottom: 10 }}>
             Paham itu proses, bukan jalan pintas.
