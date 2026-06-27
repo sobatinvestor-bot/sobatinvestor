@@ -1485,8 +1485,12 @@ function DashboardTab({ stocks, ihsgQuote, onSymbol }) {
     const val = s.price * s.qty;
     sectorMap[s.sector] = (sectorMap[s.sector] || 0) + val;
   });
-  const sectorData = Object.entries(sectorMap).map(([name, value]) => ({ name, value }));
-  const sectorColors = [C.forest, C.cuan, C.rust, C.sage, C.inkSoft];
+  const sectorSorted = Object.entries(sectorMap).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+  const sectorMinThreshold = totalValue * 0.02; // sektor < 2% digabung jadi "Lainnya"
+  const sectorMajor = sectorSorted.filter((s) => s.value >= sectorMinThreshold);
+  const sectorMinorSum = sectorSorted.filter((s) => s.value < sectorMinThreshold).reduce((sum, s) => sum + s.value, 0);
+  const sectorData = sectorMinorSum > 0 ? [...sectorMajor, { name: 'Lainnya', value: sectorMinorSum }] : sectorMajor;
+  const sectorColors = [C.forest, C.cuan, C.rust, C.sage, C.inkSoft, C.cuanBright, C.green, '#8C6D3F', '#4E6B5A', '#7A4B2B', '#A8B89A'];
 
   const gainers = [...stocks].filter((s) => s.change > 0).sort((a, b) => b.change - a.change).slice(0, 3);
   const losers = [...stocks].filter((s) => s.change < 0).sort((a, b) => a.change - b.change).slice(0, 3);
@@ -1540,7 +1544,7 @@ function DashboardTab({ stocks, ihsgQuote, onSymbol }) {
             {sectorData.map((s, i) => (
               <div key={s.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', fontSize: 13 }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ width: 8, height: 8, background: sectorColors[i], borderRadius: 2 }} />
+                  <span style={{ width: 8, height: 8, background: sectorColors[i % sectorColors.length], borderRadius: 2 }} />
                   {s.name}
                 </span>
                 <span className="mono" style={{ color: C.inkSoft }}>{((s.value / totalValue) * 100).toFixed(0)}%</span>
