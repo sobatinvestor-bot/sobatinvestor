@@ -172,31 +172,40 @@
   }
 
   function setupDrag() {
-    var dragging = false, moved = false, sx, sy, ox, oy;
+    var down = false, sx, sy, ox, oy;
     bubble.addEventListener('pointerdown', function (e) {
-      dragging = true; moved = false; wake();
+      down = true; wake();
       try { bubble.setPointerCapture(e.pointerId); } catch (er) {}
       var r = bubble.getBoundingClientRect(); ox = r.left; oy = r.top; sx = e.clientX; sy = e.clientY;
       e.preventDefault();
     });
     bubble.addEventListener('pointermove', function (e) {
-      if (!dragging) return;
+      if (!down) return;
       var dx = e.clientX - sx, dy = e.clientY - sy;
-      if (Math.abs(dx) + Math.abs(dy) > 6) moved = true;
       var nx = Math.min(window.innerWidth - SZ - 6, Math.max(6, ox + dx));
       var ny = Math.min(window.innerHeight - SZ - 6, Math.max(54, oy + dy));
       bubble.style.left = nx + 'px'; bubble.style.top = ny + 'px';
     });
-    bubble.addEventListener('pointerup', function (e) {
-      if (!dragging) return; dragging = false;
-      if (!moved) { openTOC(); }
-      else {
+    function end(e) {
+      if (!down) return; down = false;
+      var ex = (e.clientX != null) ? e.clientX : sx;
+      var ey = (e.clientY != null) ? e.clientY : sy;
+      var dist = Math.sqrt((ex - sx) * (ex - sx) + (ey - sy) * (ey - sy));
+      if (dist < 12) {
+        bubble.style.left = ox + 'px'; bubble.style.top = oy + 'px';
+        openTOC();
+      } else {
         var r = bubble.getBoundingClientRect();
         var toRight = (r.left + r.width / 2) > window.innerWidth / 2;
         bubble.style.left = (toRight ? (window.innerWidth - SZ - 12) : 12) + 'px';
         savePos();
       }
       wake();
+    }
+    bubble.addEventListener('pointerup', end);
+    bubble.addEventListener('pointercancel', function () { down = false; });
+    bubble.addEventListener('click', function () {
+      if (!document.body.classList.contains('toc-open')) openTOC();
     });
   }
 
