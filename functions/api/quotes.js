@@ -12,6 +12,7 @@ const STOCKS = {
   "BBRI.JK": { name: "Bank Rakyat Indonesia", sector: "Banking" },
   "TLKM.JK": { name: "Telkom Indonesia", sector: "Telecom" },
   "ASII.JK": { name: "Astra International", sector: "Consumer" },
+  "ADRO.JK": { name: "Alamtri Resources Indonesia", sector: "Energy" },
   "GOTO.JK": { name: "GoTo Gojek Tokopedia", sector: "Tech" },
   "BMRI.JK": { name: "Bank Mandiri", sector: "Banking" },
   "UNVR.JK": { name: "Unilever Indonesia", sector: "Consumer" },

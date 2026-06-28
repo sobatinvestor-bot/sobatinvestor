@@ -156,6 +156,11 @@ function Footer({ onOpenLegal }) {
           <span style={{ margin: '0 10px', opacity: 0.5 }}>·</span>
           <button type="button" style={linkStyle} onClick={() => onOpenLegal('privacy')}>Kebijakan Privasi</button>
         </div>
+        <div style={{ marginBottom: 8 }}>
+          <a href="https://open.spotify.com/playlist/2ycRn1Q704prdYsdFxdiOu" target="_blank" rel="noopener noreferrer" style={{ color: C.inkSoft, textDecoration: 'none', opacity: 0.85 }}>
+            🎵 Teman baca: <span style={{ color: C.sage, fontWeight: 600 }}>Blues santai</span>
+          </a>
+        </div>
         <div style={{ marginBottom: 6, opacity: 0.85 }}>
           Konten bersifat edukatif, <strong>bukan nasihat investasi</strong>. Keputusan dan risiko investasi ada di tanganmu.
         </div>
