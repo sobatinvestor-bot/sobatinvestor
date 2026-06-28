@@ -33,7 +33,7 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
   const [filter, setFilter] = useState('Semua'); // 'Semua' | 'Syariah' (hanya di Analisis Umum)
   const [query, setQuery] = useState(''); // pencarian emiten (kode/nama), hanya di Analisis Umum
   const listScrollY = useRef(0); // posisi scroll daftar, dipulihkan saat kembali dari detail
-  const [view, setView] = useState('kartu'); // 'kartu' (default) | 'kode' (ringkas, urut alfabet)
+  const [view, setView] = useState('kode'); // 'kode' (default, ringkas urut alfabet) | 'kartu'
 
   // Permintaan buka page tertentu dari luar (mis. kartu Beranda → Backtest)
   useEffect(() => {
