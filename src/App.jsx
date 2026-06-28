@@ -638,7 +638,7 @@ function MarketsTab({ active, userId, onRequireLogin }) {
         url: c.url || 'https://www.worldbank.org/en/research/commodity-markets',
       };
     });
-  const commodityGroup = commodityItems.length ? { title: 'Komoditas (bulanan · sumber Bank Dunia)', items: commodityItems } : null;
+  const commodityGroup = commodityItems.length ? { title: 'Komoditas (bulanan · sumber Bank Dunia)', note: 'Data bulanan dengan jeda ~1 bulan — rilis berikutnya biasanya awal bulan. Bukan harga real-time.', items: commodityItems } : null;
 
   // Indikator manual (BI Rate, Fed Funds, Japan 10Y) → digabung ke grup imbal hasil/suku bunga.
   const RATE_GROUP = 'Kurs, Imbal Hasil & Suku Bunga';
@@ -710,6 +710,9 @@ function MarketsTab({ active, userId, onRequireLogin }) {
         {allGroups.map((g) => (
           <div key={g.title} style={{ marginBottom: 22 }}>
             <div className="mono" style={{ fontSize: 11, letterSpacing: '0.1em', color: C.inkSoft, marginBottom: 8, fontWeight: 600 }}>{g.title.toUpperCase()}</div>
+            {g.note && (
+              <div style={{ fontSize: 11.5, color: C.inkSoft, opacity: 0.75, marginTop: -4, marginBottom: 8, lineHeight: 1.4 }}>{g.note}</div>
+            )}
             <div style={{ background: C.cream2, borderRadius: 16, overflow: 'hidden' }}>
               {g.items.map((it, i) => (
                 <a key={it.label} href={it.url || undefined} target="_blank" rel="noopener noreferrer"
