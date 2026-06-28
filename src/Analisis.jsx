@@ -1,4 +1,4 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect, lazy, Suspense } from 'react';
 import { ChevronLeft, Send, Trash2, Loader2, TrendingUp, TrendingDown, MessageCircle, Search, X, Briefcase } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell } from 'recharts';
 import { supabase } from './lib/supabase';
@@ -32,6 +32,7 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
   const [mySymbols, setMySymbols] = useState(null); // null = belum dimuat
   const [filter, setFilter] = useState('Semua'); // 'Semua' | 'Syariah' (hanya di Analisis Umum)
   const [query, setQuery] = useState(''); // pencarian emiten (kode/nama), hanya di Analisis Umum
+  const listScrollY = useRef(0); // posisi scroll daftar, dipulihkan saat kembali dari detail
 
   // Permintaan buka page tertentu dari luar (mis. kartu Beranda → Backtest)
   useEffect(() => {
@@ -60,9 +61,11 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
     if (onSymbolConsumed) onSymbolConsumed();
   }, [initialSymbol, loading]);
 
-  // Saat detail analisis dibuka, mulai dari ATAS (bukan posisi scroll sebelumnya)
-  useEffect(() => {
+  // Detail dibuka → mulai dari ATAS. Kembali ke daftar → pulihkan posisi scroll terakhir
+  // (kembali tepat ke saham yang tadi diklik, bukan ke paling atas).
+  useLayoutEffect(() => {
     if (open) window.scrollTo({ top: 0, behavior: 'auto' });
+    else if (listScrollY.current > 0) window.scrollTo({ top: listScrollY.current, behavior: 'auto' });
   }, [open]);
 
   // Tombol Back browser: saat detail terbuka, Back menutup detail dulu
@@ -227,7 +230,7 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
           {shown.map((a) => (
             <button
               key={a.symbol}
-              onClick={() => { setOpen(a.symbol); supabase.rpc('increment_analysis_view', { p_symbol: a.symbol }); }}
+              onClick={() => { listScrollY.current = window.scrollY; setOpen(a.symbol); supabase.rpc('increment_analysis_view', { p_symbol: a.symbol }); }}
               style={{ textAlign: 'left', background: C.cream2, border: 'none', borderRadius: 18, padding: 18, cursor: 'pointer' }}
             >
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>

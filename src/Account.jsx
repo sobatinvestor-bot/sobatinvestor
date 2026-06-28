@@ -899,6 +899,7 @@ export function StockNews({ stocks }) {
   const tokens = (stocks || []).map((s) => s.name ? `${s.symbol}|${s.name}` : s.symbol);
   const symKey = tokens.join(',');
   const [news, setNews] = useState(symKey ? null : []);
+  const [open, setOpen] = useState(false); // default tertutup (minimize)
 
   useEffect(() => {
     if (!symKey) { setNews([]); return; }
@@ -921,10 +922,17 @@ export function StockNews({ stocks }) {
 
   return (
     <div style={{ background: C.cream, borderRadius: 16, marginTop: 16, overflow: 'hidden' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px' }}>
+      <button onClick={() => setOpen((v) => !v)}
+        style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
         <span className="serif" style={{ fontSize: 16, fontWeight: 600, color: C.ink }}>Berita Sahammu</span>
-        <span className="mono" style={{ fontSize: 10, color: C.inkSoft, letterSpacing: '0.08em' }}>TERBARU</span>
-      </div>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <span className="mono" style={{ fontSize: 10, color: C.inkSoft, letterSpacing: '0.08em' }}>
+            {open ? 'TERBARU' : (Array.isArray(news) && news.length ? news.length + ' BERITA' : 'TERBARU')}
+          </span>
+          <span style={{ fontSize: 11, color: C.inkSoft, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .2s', display: 'inline-block' }}>▾</span>
+        </span>
+      </button>
+      {open && (
       <div style={{ borderTop: '1px solid rgba(26,42,32,0.08)' }}>
         {news === null && <div style={{ padding: 16, fontSize: 13, color: C.inkSoft }}>Memuat berita…</div>}
         {news !== null && news.length === 0 && (
@@ -946,6 +954,7 @@ export function StockNews({ stocks }) {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }
