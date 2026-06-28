@@ -2205,8 +2205,18 @@ export function DividendCard({ stocks, onSymbol }) {
     return { symbol: d.symbol, amount: d.amount, qty, cash: d.amount * qty, exTime, payTime: exTime + YEAR + OFFSET, fix: false };
   }).filter((r) => r.cash > 0 && r.exTime >= now - YEAR && r.exTime <= now);
 
+  // Anti-double vs RIWAYAT: buang PERKIRAAN bila untuk simbol yang sama sudah ada
+  // dividen AKTUAL (feed/riwayat) di sekitar tanggal proyeksi (±NEAR hari). Artinya
+  // siklus itu sudah terjadi tahun ini → tak boleh diproyeksikan lagi (cegah hitung ganda).
+  const projDedup = proj.filter((p) => {
+    const projectedEx = p.exTime + YEAR;
+    const already = raw.some((d) => d.symbol === p.symbol
+      && Math.abs(new Date(d.exDate).getTime() - projectedEx) < NEAR);
+    return !already;
+  });
+
   // FIX diproses lebih dulu supaya menang saat dedupe
-  const merged = [...real, ...proj].sort((a, b) => (a.fix === b.fix ? a.payTime - b.payTime : (a.fix ? -1 : 1)));
+  const merged = [...real, ...projDedup].sort((a, b) => (a.fix === b.fix ? a.payTime - b.payTime : (a.fix ? -1 : 1)));
   const kept = [];
   merged.forEach((r) => {
     if (kept.some((k) => k.symbol === r.symbol && Math.abs(k.payTime - r.payTime) < NEAR)) return;
