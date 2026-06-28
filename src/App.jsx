@@ -156,9 +156,10 @@ function Footer({ onOpenLegal }) {
           <span style={{ margin: '0 10px', opacity: 0.5 }}>·</span>
           <button type="button" style={linkStyle} onClick={() => onOpenLegal('privacy')}>Kebijakan Privasi</button>
         </div>
+        <style>{`@keyframes sbNoteDance{0%,100%{transform:translateY(0) rotate(0) scale(1)}20%{transform:translateY(-3px) rotate(-12deg) scale(1.12)}40%{transform:translateY(0) rotate(10deg) scale(1.06)}60%{transform:translateY(-2px) rotate(-8deg) scale(1.12)}80%{transform:translateY(0) rotate(8deg) scale(1.05)}}.sb-note{display:inline-block;animation:sbNoteDance 1.6s ease-in-out infinite;transform-origin:center bottom}@media(prefers-reduced-motion:reduce){.sb-note{animation:none}}`}</style>
         <div style={{ marginBottom: 8 }}>
           <a href="https://open.spotify.com/playlist/40yhJsln0wQnT9LW9xpMHm" target="_blank" rel="noopener noreferrer" style={{ color: C.inkSoft, textDecoration: 'none', opacity: 0.85 }}>
-            🎵 Teman baca: <span style={{ color: C.sage, fontWeight: 600 }}>Country lawas</span>
+            <span className="sb-note">🎵</span> Teman baca: <span style={{ color: C.sage, fontWeight: 600 }}>Country lawas</span>
           </a>
         </div>
         <div style={{ marginBottom: 6, opacity: 0.85 }}>
