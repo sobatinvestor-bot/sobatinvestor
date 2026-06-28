@@ -157,8 +157,8 @@ function Footer({ onOpenLegal }) {
           <button type="button" style={linkStyle} onClick={() => onOpenLegal('privacy')}>Kebijakan Privasi</button>
         </div>
         <div style={{ marginBottom: 8 }}>
-          <a href="https://open.spotify.com/playlist/2ycRn1Q704prdYsdFxdiOu" target="_blank" rel="noopener noreferrer" style={{ color: C.inkSoft, textDecoration: 'none', opacity: 0.85 }}>
-            🎵 Teman baca: <span style={{ color: C.sage, fontWeight: 600 }}>Blues santai</span>
+          <a href="https://open.spotify.com/playlist/40yhJsln0wQnT9LW9xpMHm" target="_blank" rel="noopener noreferrer" style={{ color: C.inkSoft, textDecoration: 'none', opacity: 0.85 }}>
+            🎵 Teman baca: <span style={{ color: C.sage, fontWeight: 600 }}>Country lawas</span>
           </a>
         </div>
         <div style={{ marginBottom: 6, opacity: 0.85 }}>
