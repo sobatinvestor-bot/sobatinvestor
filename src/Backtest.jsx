@@ -17,6 +17,8 @@ async function ensurePyodide(onStatus) {
     await new Promise((resolve, reject) => {
       const s = document.createElement('script');
       s.src = PYODIDE_URL + 'pyodide.js';
+      s.integrity = 'sha384-i3R37b3tF+HWudsUf1VSEOY2YxwSNMqY8DQa9Z0O3xh+NkJ9o+yjcGyIi5huj+nB';
+      s.crossOrigin = 'anonymous';
       s.onload = resolve;
       s.onerror = () => reject(new Error('Gagal memuat Pyodide'));
       document.head.appendChild(s);
