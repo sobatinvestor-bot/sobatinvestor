@@ -239,14 +239,14 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
           {isPorto && shown.length === 0 && (
             <div style={{ fontSize: 14, color: C.inkSoft, marginBottom: 12 }}>Belum ada analisis untuk saham di portofoliomu — daftar emitennya ada di bawah, akan kami prioritaskan.</div>
           )}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(78px, 1fr))', gap: 8 }}>
             {[...shown].sort((a, b) => a.symbol.localeCompare(b.symbol)).map((a) => (
               <button
                 key={a.symbol}
                 title={a.name}
                 onClick={() => { listScrollY.current = window.scrollY; setOpen(a.symbol); supabase.rpc('increment_analysis_view', { p_symbol: a.symbol }); }}
                 className="mono"
-                style={{ background: C.cream2, border: 'none', borderRadius: 100, padding: '8px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: C.ink, letterSpacing: '0.04em', fontFamily: 'inherit' }}
+                style={{ width: '100%', textAlign: 'center', background: C.cream2, border: 'none', borderRadius: 100, padding: '9px 0', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: C.ink, letterSpacing: '0.04em', fontFamily: 'inherit' }}
               >
                 {a.symbol}
               </button>
