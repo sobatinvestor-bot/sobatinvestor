@@ -33,6 +33,7 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
   const [filter, setFilter] = useState('Semua'); // 'Semua' | 'Syariah' (hanya di Analisis Umum)
   const [query, setQuery] = useState(''); // pencarian emiten (kode/nama), hanya di Analisis Umum
   const listScrollY = useRef(0); // posisi scroll daftar, dipulihkan saat kembali dari detail
+  const [view, setView] = useState('kartu'); // 'kartu' (default) | 'kode' (ringkas, urut alfabet)
 
   // Permintaan buka page tertentu dari luar (mis. kartu Beranda → Backtest)
   useEffect(() => {
@@ -180,9 +181,20 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
               </button>
             ))}
           </div>
-          <p style={{ fontSize: 11, color: C.inkSoft, marginTop: 8 }}>
-            {shown.length} analisis{filter === 'Syariah' ? ' · emiten dalam indeks ISSI' : ''}{q ? ` · hasil "${query.trim()}"` : ''}
-          </p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, gap: 10 }}>
+            <p style={{ fontSize: 11, color: C.inkSoft, margin: 0 }}>
+              {shown.length} analisis{filter === 'Syariah' ? ' · emiten dalam indeks ISSI' : ''}{q ? ` · hasil "${query.trim()}"` : ''}
+            </p>
+            <div style={{ display: 'inline-flex', gap: 4, background: C.cream2, borderRadius: 100, padding: 3, flexShrink: 0 }}>
+              {[['kartu', 'Kartu'], ['kode', 'Kode']].map(([v, label]) => (
+                <button key={v} onClick={() => setView(v)}
+                  style={{ border: 'none', cursor: 'pointer', borderRadius: 100, padding: '4px 12px', fontSize: 11, fontWeight: 600, fontFamily: 'inherit',
+                    background: view === v ? C.forest : 'transparent', color: view === v ? C.cream : C.inkSoft }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
@@ -221,6 +233,25 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
       ) : shown.length === 0 && !isPorto ? (
         <div style={{ fontSize: 14, color: C.inkSoft }}>
           {q ? `Tidak ada analisis yang cocok dengan "${query.trim()}".` : (filter === 'Syariah' ? 'Belum ada analisis untuk emiten syariah' : 'Belum ada analisis yang dipublikasikan.')}
+        </div>
+      ) : view === 'kode' ? (
+        <div>
+          {isPorto && shown.length === 0 && (
+            <div style={{ fontSize: 14, color: C.inkSoft, marginBottom: 12 }}>Belum ada analisis untuk saham di portofoliomu — daftar emitennya ada di bawah, akan kami prioritaskan.</div>
+          )}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {[...shown].sort((a, b) => a.symbol.localeCompare(b.symbol)).map((a) => (
+              <button
+                key={a.symbol}
+                title={a.name}
+                onClick={() => { listScrollY.current = window.scrollY; setOpen(a.symbol); supabase.rpc('increment_analysis_view', { p_symbol: a.symbol }); }}
+                className="mono"
+                style={{ background: C.cream2, border: 'none', borderRadius: 100, padding: '8px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: C.ink, letterSpacing: '0.04em', fontFamily: 'inherit' }}
+              >
+                {a.symbol}
+              </button>
+            ))}
+          </div>
         </div>
       ) : (
         <div style={{ display: 'grid', gap: 12 }}>
