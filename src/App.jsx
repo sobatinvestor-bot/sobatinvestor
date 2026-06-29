@@ -746,7 +746,7 @@ function MarketsTab({ active, userId, onRequireLogin }) {
 
         {(data || commodityItems.length > 0 || econItems.length > 0) && (
           <div style={{ fontSize: 11, color: C.inkSoft, lineHeight: 1.5, marginTop: 4 }}>
-            Indeks saham dan kurs mengikuti jam pasar masing-masing — di luar jam itu menampilkan harga penutupan terakhir; kripto bergerak 24 jam. Nilai BTC dan ETH ke rupiah dihitung dari kurs USD/IDR berjalan{data && data.usdidr ? ` (sekitar Rp${Math.round(data.usdidr).toLocaleString('id-ID')} per US$)` : ''}, dan kurs CNY/IDR diturunkan dari USD/IDR serta USD/CNY. Harga batu bara, nikel, dan sawit adalah rata-rata bulanan World Bank Pink Sheet — klik tiap komoditas untuk grafik harga berjalannya (benchmark yang sama). US Treasury 10Y dan kurs bersifat harian; BI Rate, Fed Funds, dan imbal hasil 10Y Jepang diperbarui manual secara berkala (lihat tanggal pada tiap baris). Seluruh data delayed dan disajikan untuk informasi, bukan rekomendasi investasi.
+            Nilai BTC dan ETH ke rupiah dihitung dari kurs USD/IDR berjalan{data && data.usdidr ? ` (sekitar Rp${Math.round(data.usdidr).toLocaleString('id-ID')} per US$)` : ''}; kurs CNY/IDR diturunkan dari USD/IDR serta USD/CNY. Klik tiap komoditas untuk grafik harga berjalannya. Seluruh data delayed dan disajikan untuk informasi, bukan rekomendasi investasi.
           </div>
         )}
 
