@@ -26,13 +26,26 @@ const fmtDate = (s) =>
 
 const fmtNum = (n) => (n == null ? '—' : Number(n).toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 }));
 
+// 7 metrik fundamental untuk pengurutan. dir='asc' = makin kecil makin baik (atas).
+const FUND_METRICS = [
+  { key: 'per', label: 'PER', dir: 'asc', unit: 'x' },
+  { key: 'pbv', label: 'PBV', dir: 'asc', unit: 'x' },
+  { key: 'der', label: 'DER', dir: 'asc', unit: '' },
+  { key: 'roa', label: 'ROA', dir: 'desc', unit: '%' },
+  { key: 'npm', label: 'NPM', dir: 'desc', unit: '%' },
+  { key: 'div_yield', label: 'Yield', dir: 'desc', unit: '%' },
+  { key: 'profit_growth', label: 'Growth', dir: 'desc', unit: '%' },
+];
+
 export default function AnalisisTab({ userId, userName, onRequireLogin, initialPage, onPageConsumed, initialSymbol, onSymbolConsumed, onGoPortfolio }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(null);
   const [page, setPage] = useState(initialPage || 'umum'); // 'umum' | 'porto' | 'backtest'
   const [mySymbols, setMySymbols] = useState(null); // null = belum dimuat
-  const [filter, setFilter] = useState('Semua'); // 'Semua' | 'Syariah' (hanya di Analisis Umum)
+  const [filter, setFilter] = useState('Semua'); // 'Semua' | 'Syariah'
+  const [sortBy, setSortBy] = useState(null); // null = kode A-Z; atau salah satu key fundamental
+  const [funds, setFunds] = useState({}); // peta simbol -> baris fundamentals
   const [query, setQuery] = useState(''); // pencarian emiten (kode/nama), hanya di Analisis Umum
   const listScrollY = useRef(0); // posisi scroll daftar, dipulihkan saat kembali dari detail
 
@@ -117,6 +130,18 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
     return () => { active = false; };
   }, [userId]);
 
+  // Muat data fundamental (publik, read-only) untuk pengurutan & nilai di chip
+  useEffect(() => {
+    let active = true;
+    supabase.from('fundamentals').select('*').then(({ data, error }) => {
+      if (!active) return;
+      const m = {};
+      if (!error && Array.isArray(data)) data.forEach((r) => { m[(r.symbol || '').toUpperCase()] = r; });
+      setFunds(m);
+    });
+    return () => { active = false; };
+  }, []);
+
   if (open) {
     const a = items.find((x) => x.symbol === open);
     if (a) return <AnalisisDetail a={a} onBack={() => setOpen(null)} onPortfolio={onGoPortfolio ? () => { setOpen(null); onGoPortfolio(); } : null} userId={userId} userName={userName} onRequireLogin={onRequireLogin} />;
@@ -138,6 +163,23 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
   const noAnalysis = isPorto && Array.isArray(mySymbols)
     ? mySymbols.filter((s) => !items.some((a) => (a.symbol || '').toUpperCase() === s)).sort()
     : [];
+
+  // Urutan tampil: A-Z default; jika sortBy aktif → urut metrik (yang kosong di bawah)
+  const metric = sortBy ? FUND_METRICS.find((m) => m.key === sortBy) : null;
+  const fval = (a) => {
+    const f = funds[(a.symbol || '').toUpperCase()];
+    const v = f && metric ? f[metric.key] : null;
+    return (v == null || isNaN(Number(v))) ? null : Number(v);
+  };
+  const ordered = metric
+    ? [...shown].sort((a, b) => {
+        const va = fval(a), vb = fval(b);
+        if (va == null && vb == null) return a.symbol.localeCompare(b.symbol);
+        if (va == null) return 1;
+        if (vb == null) return -1;
+        return metric.dir === 'asc' ? va - vb : vb - va;
+      })
+    : [...shown].sort((a, b) => a.symbol.localeCompare(b.symbol));
 
   return (
     <div className="fade-up" style={{ padding: '24px 20px', maxWidth: 1100, margin: '0 auto' }}>
@@ -173,7 +215,7 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
             )}
           </div>
           )}
-          <div style={{ display: 'inline-flex', gap: 8 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
             {['Semua', 'Syariah'].map((f) => (
               <button key={f} onClick={() => setFilter(f)}
                 style={{ cursor: 'pointer', fontSize: 12, fontWeight: 600, padding: '6px 14px', borderRadius: 100,
@@ -183,9 +225,20 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
                 {f}
               </button>
             ))}
+            <span style={{ width: 1, alignSelf: 'stretch', minHeight: 18, background: 'rgba(58,74,64,0.18)', margin: '0 2px' }} />
+            {FUND_METRICS.map((m) => (
+              <button key={m.key} onClick={() => setSortBy(sortBy === m.key ? null : m.key)}
+                title={`Urutkan: ${m.label} (${m.dir === 'asc' ? 'terkecil dulu' : 'terbesar dulu'})`}
+                style={{ cursor: 'pointer', fontSize: 11, fontWeight: 600, padding: '6px 11px', borderRadius: 100,
+                  background: sortBy === m.key ? C.cuan : 'transparent',
+                  border: `1px solid ${sortBy === m.key ? C.cuan : 'rgba(58,74,64,0.25)'}`,
+                  color: sortBy === m.key ? '#fff' : C.inkSoft }}>
+                {m.label}
+              </button>
+            ))}
           </div>
           <p style={{ fontSize: 11, color: C.inkSoft, marginTop: 8 }}>
-            {shown.length} analisis{filter === 'Syariah' ? ' · emiten dalam indeks ISSI' : ''}{q && !isPorto ? ` · hasil "${query.trim()}"` : ''}
+            {shown.length} analisis{filter === 'Syariah' ? ' · emiten dalam indeks ISSI' : ''}{q && !isPorto ? ` · hasil "${query.trim()}"` : ''}{metric ? ` · urut ${metric.label} (${metric.dir === 'asc' ? 'terkecil dulu' : 'terbesar dulu'})` : ''}
           </p>
         </div>
       )}
@@ -232,17 +285,22 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
             <div style={{ fontSize: 14, color: C.inkSoft, marginBottom: 12 }}>Belum ada analisis untuk saham di portofoliomu — daftar emitennya ada di bawah, akan kami prioritaskan.</div>
           )}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(78px, 1fr))', gap: 8 }}>
-            {[...shown].sort((a, b) => a.symbol.localeCompare(b.symbol)).map((a) => (
+            {ordered.map((a) => {
+              const v = metric ? fval(a) : null;
+              const disp = !metric ? null : (v == null ? '—' : `${metric.key === 'profit_growth' && v > 0 ? '+' : ''}${fmtNum(v)}${metric.unit}`);
+              return (
               <button
                 key={a.symbol}
                 title={a.name}
                 onClick={() => { listScrollY.current = window.scrollY; setOpen(a.symbol); supabase.rpc('increment_analysis_view', { p_symbol: a.symbol }); }}
                 className="mono"
-                style={{ width: '100%', textAlign: 'center', background: C.cream2, border: 'none', borderRadius: 100, padding: '9px 0', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: C.ink, letterSpacing: '0.04em', fontFamily: 'inherit' }}
+                style={{ width: '100%', textAlign: 'center', background: C.cream2, border: 'none', borderRadius: metric ? 12 : 100, padding: metric ? '7px 0' : '9px 0', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}
               >
-                {a.symbol}
+                <span style={{ fontSize: 13, fontWeight: 700, color: C.ink, letterSpacing: '0.04em' }}>{a.symbol}</span>
+                {metric && <span style={{ fontSize: 10, fontWeight: 600, color: disp === '—' ? C.inkSoft : C.forest }}>{disp}</span>}
               </button>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
