@@ -245,12 +245,12 @@ export default function Backtest({ userId }) {
         {mode === 'single' && myHoldings.length > 0 && (
           <div style={{ marginBottom: 12 }}>
             <label style={lbl}>Pilih cepat dari portofoliomu</label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(72px, 1fr))', gap: 6, marginTop: 6 }}>
               {myHoldings.map((h) => h.symbol).map((s) => (
                 <button
                   key={s}
                   onClick={() => setSymbol(s)}
-                  style={{ background: symbol === s ? C.forest : C.cream, color: symbol === s ? C.cream : C.ink, border: `1px solid ${symbol === s ? C.forest : 'rgba(26,42,32,0.2)'}`, borderRadius: 100, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+                  style={{ width: '100%', textAlign: 'center', background: symbol === s ? C.forest : C.cream, color: symbol === s ? C.cream : C.ink, border: `1px solid ${symbol === s ? C.forest : 'rgba(26,42,32,0.2)'}`, borderRadius: 100, padding: '6px 0', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
                 >
                   {s}
                 </button>
