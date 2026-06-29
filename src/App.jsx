@@ -1097,7 +1097,7 @@ export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0
                   </svg>
                 </button>
                 {menuOpen && (
-                  <div ref={menuRef} style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 60, background: C.cream, border: `1px solid rgba(26,42,32,0.12)`, borderRadius: 12, boxShadow: '0 12px 32px rgba(26,42,32,0.18)', minWidth: 210, overflow: 'hidden' }}>
+                  <div ref={menuRef} style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 60, background: C.cream, border: `1.5px solid ${C.cuan}`, borderRadius: 14, boxShadow: '0 12px 32px rgba(26,42,32,0.18), 0 0 0 3px rgba(196,155,60,0.12)', minWidth: 210, overflow: 'hidden' }}>
                       <div style={{ padding: '12px 14px', borderBottom: `1px solid rgba(26,42,32,0.08)` }}>
                         <div style={{ fontSize: 11, color: C.inkSoft }}>Masuk sebagai</div>
                         <div style={{ fontSize: 13, color: C.ink, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userEmail}</div>
