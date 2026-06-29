@@ -166,6 +166,11 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
   // Skor Overall (persentil rata-rata metrik) — HARUS sebelum early return di bawah
   // agar urutan hooks konsisten (kalau di bawah, detail blank karena hooks mismatch).
   const overallScores = useMemo(() => computeOverall(funds), [funds]);
+  // Tanggal data fundamental terbaru (dari updated_at) untuk keterangan sumber
+  const fundsUpdated = useMemo(() => {
+    const ds = Object.values(funds).map((r) => r && r.updated_at).filter(Boolean);
+    return ds.length ? ds.sort().slice(-1)[0] : null;
+  }, [funds]);
 
   if (open) {
     const a = items.find((x) => x.symbol === open);
@@ -251,17 +256,24 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
                 {f}
               </button>
             ))}
-            <span style={{ width: 1, alignSelf: 'stretch', minHeight: 18, background: 'rgba(58,74,64,0.18)', margin: '0 2px' }} />
-            {[...FUND_METRICS, OVERALL_METRIC].map((m) => (
-              <button key={m.key} onClick={() => setSortBy(sortBy === m.key ? null : m.key)}
-                title={m.key === 'overall' ? 'Urutkan: skor Overall (ringkasan 6 metrik, tertinggi dulu)' : `Urutkan: ${m.label} (${m.dir === 'asc' ? 'terkecil dulu' : 'terbesar dulu'})`}
-                style={{ cursor: 'pointer', fontSize: 11, fontWeight: m.key === 'overall' ? 700 : 600, padding: '6px 11px', borderRadius: 100,
-                  background: sortBy === m.key ? C.cuan : 'transparent',
-                  border: `1px solid ${sortBy === m.key ? C.cuan : 'rgba(58,74,64,0.25)'}`,
-                  color: sortBy === m.key ? '#fff' : C.inkSoft }}>
-                {m.label}
-              </button>
-            ))}
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <div className="mono" style={{ fontSize: 9, color: C.inkSoft, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 7, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <span>Urutkan · indikator fundamental</span>
+              <span style={{ padding: '2px 7px', borderRadius: 100, background: C.cream2, color: C.inkSoft, fontSize: 8.5, letterSpacing: '0.05em', fontWeight: 700 }}>DATA PUBLIK · YAHOO{fundsUpdated ? ` · PER ${fmtDate(fundsUpdated).toUpperCase()}` : ''}</span>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {[...FUND_METRICS, OVERALL_METRIC].map((m) => (
+                <button key={m.key} onClick={() => setSortBy(sortBy === m.key ? null : m.key)}
+                  title={m.key === 'overall' ? 'Urutkan: skor Overall (ringkasan 4 metrik, tertinggi dulu)' : `Urutkan: ${m.label} (${m.dir === 'asc' ? 'terkecil dulu' : 'terbesar dulu'})`}
+                  style={{ cursor: 'pointer', fontSize: 11, fontWeight: m.key === 'overall' ? 700 : 600, padding: '6px 12px', borderRadius: 100,
+                    background: sortBy === m.key ? C.cuan : 'transparent',
+                    border: `1px solid ${sortBy === m.key ? C.cuan : 'rgba(58,74,64,0.25)'}`,
+                    color: sortBy === m.key ? '#fff' : C.inkSoft }}>
+                  {m.label}
+                </button>
+              ))}
+            </div>
           </div>
           <p style={{ fontSize: 11, color: C.inkSoft, marginTop: 8 }}>
             {shown.length} analisis{filter === 'Syariah' ? ' · emiten dalam indeks ISSI' : ''}{q && !isPorto ? ` · hasil "${query.trim()}"` : ''}{metric ? ` · urut ${metric.label} (${metric.key === 'overall' ? 'tertinggi dulu' : (metric.dir === 'asc' ? 'terkecil dulu' : 'terbesar dulu')})` : ''}
