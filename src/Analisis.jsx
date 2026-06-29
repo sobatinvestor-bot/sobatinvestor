@@ -309,6 +309,28 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
           {isPorto && shown.length === 0 && (
             <div style={{ fontSize: 14, color: C.inkSoft, marginBottom: 12 }}>Belum ada analisis untuk saham di portofoliomu — daftar emitennya ada di bawah, akan kami prioritaskan.</div>
           )}
+          {metric && metric.key === 'overall' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+            {ordered.map((a) => {
+              const v = fval(a);
+              const pct = v == null ? 0 : Math.max(2, Math.min(100, v));
+              return (
+              <button
+                key={a.symbol}
+                title={a.name}
+                onClick={() => { listScrollY.current = window.scrollY; setOpen(a.symbol); supabase.rpc('increment_analysis_view', { p_symbol: a.symbol }); }}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit', width: '100%' }}
+              >
+                <span className="mono" style={{ width: 62, flexShrink: 0, textAlign: 'center', fontSize: 12, fontWeight: 700, color: C.ink, letterSpacing: '0.04em', background: C.cream2, borderRadius: 8, padding: '8px 0' }}>{a.symbol}</span>
+                <span style={{ flex: 1, position: 'relative', height: 30, background: C.cream2, borderRadius: 8, overflow: 'hidden' }}>
+                  <span style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%`, background: `linear-gradient(90deg, ${C.sage}, ${C.forest})`, borderRadius: 8 }} />
+                </span>
+                <span className="mono" style={{ width: 30, flexShrink: 0, textAlign: 'right', fontSize: 13, fontWeight: 700, color: v == null ? C.inkSoft : C.ink }}>{v == null ? '—' : v}</span>
+              </button>
+              );
+            })}
+          </div>
+          ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(78px, 1fr))', gap: 8 }}>
             {ordered.map((a) => {
               const v = metric ? fval(a) : null;
@@ -327,6 +349,7 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
               );
             })}
           </div>
+          )}
         </div>
       )}
 
