@@ -73,13 +73,15 @@ async function fetchOne(sym, sess) {
   const derRaw = num(fd.debtToEquity);                 // Yahoo: persen total-debt/ekuitas
   const roa = num(fd.returnOnAssets);                  // fraksi
   const npm = num(fd.profitMargins);                   // fraksi
-  const dy = num(sd.dividendYield) ?? num(sd.trailingAnnualDividendYield); // fraksi
+  const dy = num(sd.trailingAnnualDividendYield) ?? num(sd.dividendYield); // trailing (cocok Stockbit) dulu
   const pg = num(fd.earningsGrowth) ?? num(ks.earningsQuarterlyGrowth);    // fraksi
 
   // sanity check: buang nilai tak masuk akal -> null (lebih baik kosong daripada salah)
   const sane = (v, lo, hi) => (v === null || v < lo || v > hi ? null : v);
   const perOk = sane(per, -1000, 1000);
   const pbvOk = sane(pbv, 0, 1000);
+  const dyPct = dy === null ? null : dy * 100;
+  const dyOk = sane(dyPct, 0, 50); // yield > 50% hampir pasti artefak data
 
   return {
     symbol: sym,
@@ -88,7 +90,7 @@ async function fetchOne(sym, sess) {
     der: derRaw === null ? null : round(derRaw / 100, 2), // -> rasio
     roa: roa === null ? null : round(roa * 100, 2),       // -> %
     npm: npm === null ? null : round(npm * 100, 2),       // -> %
-    div_yield: dy === null ? null : round(dy * 100, 2),   // -> %
+    div_yield: round(dyOk, 2),                            // -> % (trailing 12 bulan)
     profit_growth: pg === null ? null : round(pg * 100, 2), // -> %
     updated_at: new Date().toISOString(),
   };

@@ -1,0 +1,26 @@
+# Diagnostik dividend yield — cetak field mentah Yahoo ke log (TIDAK menulis DB).
+# Taruh di: .github/workflows/fundamentals-debug.yml
+# Skrip:    scripts/fundamentals-debug.mjs
+# Jalankan: Actions -> "Fundamentals Debug" -> Run workflow (boleh isi daftar simbol).
+name: Fundamentals Debug
+
+on:
+  workflow_dispatch:
+    inputs:
+      symbols:
+        description: 'Daftar simbol dipisah koma (tanpa .JK)'
+        required: false
+        default: 'MSTI,MPMX,TLDN,BSSR,ADRO,BBCA,SIDO'
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Cetak field dividend Yahoo
+        env:
+          SYMBOLS: ${{ inputs.symbols }}
+        run: node scripts/fundamentals-debug.mjs
