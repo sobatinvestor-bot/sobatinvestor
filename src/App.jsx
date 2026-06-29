@@ -707,11 +707,18 @@ function MarketsTab({ active, userId, onRequireLogin }) {
           <div style={{ color: C.inkSoft, fontSize: 13, padding: '20px 0' }}>Gagal memuat data pasar. Coba lagi sebentar.</div>
         )}
 
-        {allGroups.map((g) => (
+        {allGroups.map((g) => {
+          const srcNote = g.note || (
+            /kripto/i.test(g.title) ? 'Harga 24 jam dari feed pasar publik · nilai rupiah dihitung dari kurs USD/IDR berjalan.'
+            : /(kurs|imbal hasil|suku bunga)/i.test(g.title) ? 'Kurs & US Treasury 10Y harian dari feed pasar publik; BI Rate, Fed Funds & 10Y Jepang diperbarui manual (lihat tanggal tiap baris).'
+            : /(indeks|saham)/i.test(g.title) ? 'Data delayed dari feed pasar publik · mengikuti jam bursa (di luar jam: harga penutupan terakhir).'
+            : 'Data delayed dari sumber publik.'
+          );
+          return (
           <div key={g.title} style={{ marginBottom: 22 }}>
             <div className="mono" style={{ fontSize: 11, letterSpacing: '0.1em', color: C.inkSoft, marginBottom: 8, fontWeight: 600 }}>{g.title.toUpperCase()}</div>
-            {g.note && (
-              <div style={{ fontSize: 11.5, color: C.inkSoft, opacity: 0.75, marginTop: -4, marginBottom: 8, lineHeight: 1.4 }}>{g.note}</div>
+            {srcNote && (
+              <div style={{ fontSize: 11.5, color: C.inkSoft, opacity: 0.75, marginTop: -4, marginBottom: 8, lineHeight: 1.4 }}>{srcNote}</div>
             )}
             <div style={{ background: C.cream2, borderRadius: 16, overflow: 'hidden' }}>
               {g.items.map((it, i) => (
@@ -734,7 +741,8 @@ function MarketsTab({ active, userId, onRequireLogin }) {
               ))}
             </div>
           </div>
-        ))}
+          );
+        })}
 
         {(data || commodityItems.length > 0 || econItems.length > 0) && (
           <div style={{ fontSize: 11, color: C.inkSoft, lineHeight: 1.5, marginTop: 4 }}>
