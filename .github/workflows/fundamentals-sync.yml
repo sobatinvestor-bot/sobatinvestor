@@ -1,0 +1,26 @@
+# GitHub Actions — sinkron data fundamental (PER/PBV/DER/ROA/NPM/div yield/growth laba).
+# Taruh file ini di:  .github/workflows/fundamentals-sync.yml
+# Skrip ada di:        scripts/fundamentals-sync.mjs
+#
+# Rahasia (sekali): repo GitHub -> Settings -> Secrets and variables -> Actions
+#   -> SUPABASE_SERVICE_ROLE_KEY = <service_role key>  (kemungkinan sudah ada utk dividen)
+name: Fundamentals Sync
+
+on:
+  schedule:
+    - cron: '0 16 * * 6'    # Sabtu 16:00 UTC = Sabtu 23:00 WIB (mingguan; fundamental jarang berubah)
+  workflow_dispatch:         # tombol "Run workflow" untuk jalankan manual / uji
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Jalankan sinkron fundamental
+        env:
+          SUPABASE_URL: https://hmkeqvxcifggxownzrhx.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/fundamentals-sync.mjs

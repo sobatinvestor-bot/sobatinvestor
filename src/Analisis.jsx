@@ -24,6 +24,8 @@ const fmtTime = (s) =>
 const fmtDate = (s) =>
   new Date(s).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
 
+const fmtNum = (n) => (n == null ? '—' : Number(n).toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 }));
+
 export default function AnalisisTab({ userId, userName, onRequireLogin, initialPage, onPageConsumed, initialSymbol, onSymbolConsumed, onGoPortfolio }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -126,7 +128,7 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
     : items;
   const q = query.trim().toUpperCase();
   const shown = base.filter((a) => {
-    if (!isPorto && filter === 'Syariah' && a.is_syariah !== true) return false;
+    if (filter === 'Syariah' && a.is_syariah !== true) return false;
     if (!isPorto && q) {
       const hay = `${(a.symbol || '').toUpperCase()} ${(a.name || '').toUpperCase()}`;
       if (!hay.includes(q)) return false;
@@ -154,9 +156,10 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
         ))}
       </div>
 
-      {/* Filter Semua | Syariah (ISSI) - hanya di Analisis Umum */}
-      {page === 'umum' && (
+      {/* Filter Semua | Syariah (ISSI) - di Analisis Umum & Saham Kamu; pencarian hanya di Umum */}
+      {(page === 'umum' || page === 'porto') && (
         <div style={{ marginBottom: 18 }}>
+          {page === 'umum' && (
           <div style={{ position: 'relative', marginBottom: 12 }}>
             <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: C.inkSoft, pointerEvents: 'none' }} />
             <input value={query} onChange={(e) => setQuery(e.target.value)}
@@ -169,6 +172,7 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
               </button>
             )}
           </div>
+          )}
           <div style={{ display: 'inline-flex', gap: 8 }}>
             {['Semua', 'Syariah'].map((f) => (
               <button key={f} onClick={() => setFilter(f)}
@@ -181,7 +185,7 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
             ))}
           </div>
           <p style={{ fontSize: 11, color: C.inkSoft, marginTop: 8 }}>
-            {shown.length} analisis{filter === 'Syariah' ? ' · emiten dalam indeks ISSI' : ''}{q ? ` · hasil "${query.trim()}"` : ''}
+            {shown.length} analisis{filter === 'Syariah' ? ' · emiten dalam indeks ISSI' : ''}{q && !isPorto ? ` · hasil "${query.trim()}"` : ''}
           </p>
         </div>
       )}
@@ -263,6 +267,47 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
   );
 }
 
+function FundamentalStrip({ symbol }) {
+  const [f, setF] = useState(undefined); // undefined = memuat, null = tak ada, objek = data
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const { data } = await supabase.from('fundamentals').select('*').eq('symbol', symbol).maybeSingle();
+        if (alive) setF(data || null);
+      } catch { if (alive) setF(null); }
+    })();
+    return () => { alive = false; };
+  }, [symbol]);
+
+  if (f === undefined || f === null) return null; // memuat / belum ada data → tak tampil
+  const items = [
+    ['PER', f.per != null ? `${fmtNum(f.per)}x` : '—'],
+    ['PBV', f.pbv != null ? `${fmtNum(f.pbv)}x` : '—'],
+    ['DER', f.der != null ? fmtNum(f.der) : '—'],
+    ['ROA', f.roa != null ? `${fmtNum(f.roa)}%` : '—'],
+    ['NPM', f.npm != null ? `${fmtNum(f.npm)}%` : '—'],
+    ['Div Yield', f.div_yield != null ? `${fmtNum(f.div_yield)}%` : '—'],
+    ['Growth Laba', f.profit_growth != null ? `${f.profit_growth > 0 ? '+' : ''}${fmtNum(f.profit_growth)}%` : '—'],
+  ];
+  if (!items.some(([, v]) => v !== '—')) return null; // semua kosong → jangan tampilkan strip
+  return (
+    <div style={{ margin: '4px 0 18px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(86px, 1fr))', gap: 8 }}>
+        {items.map(([label, val]) => (
+          <div key={label} style={{ background: C.cream2, borderRadius: 12, padding: '10px 12px' }}>
+            <div className="mono" style={{ fontSize: 9, color: C.inkSoft, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>{label}</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: val === '—' ? C.inkSoft : C.ink }}>{val}</div>
+          </div>
+        ))}
+      </div>
+      <p className="mono" style={{ fontSize: 9.5, color: C.inkSoft, marginTop: 8, lineHeight: 1.5 }}>
+        Data publik, dapat berbeda dari laporan resmi emiten{f.updated_at ? ` · per ${fmtDate(f.updated_at)}` : ''}. DER = total debt/ekuitas; Growth Laba = pertumbuhan laba (YoY). Edukatif, bukan rekomendasi.
+      </p>
+    </div>
+  );
+}
+
 function AnalisisDetail({ a, onBack, onPortfolio, userId, userName, onRequireLogin }) {
   const updated = a.updated_at && a.created_at && (new Date(a.updated_at).getTime() - new Date(a.created_at).getTime() > 60000);
   return (
@@ -280,6 +325,8 @@ function AnalisisDetail({ a, onBack, onPortfolio, userId, userName, onRequireLog
         {a.created_at && <>Dibuat: {fmtDate(a.created_at)}</>}
         {updated && <> &middot; Diperbarui: {fmtDate(a.updated_at)}</>}
       </div>
+
+      <FundamentalStrip symbol={a.symbol} />
 
       {a.ringkasan && <p style={{ fontSize: 15, color: C.ink, lineHeight: 1.6, marginBottom: 18 }}>{a.ringkasan}</p>}
 
