@@ -163,6 +163,10 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
     return () => { active = false; };
   }, []);
 
+  // Skor Overall (persentil rata-rata metrik) — HARUS sebelum early return di bawah
+  // agar urutan hooks konsisten (kalau di bawah, detail blank karena hooks mismatch).
+  const overallScores = useMemo(() => computeOverall(funds), [funds]);
+
   if (open) {
     const a = items.find((x) => x.symbol === open);
     if (a) return <AnalisisDetail a={a} funds={funds} onBack={() => setOpen(null)} onPortfolio={onGoPortfolio ? () => { setOpen(null); onGoPortfolio(); } : null} userId={userId} userName={userName} onRequireLogin={onRequireLogin} />;
@@ -184,9 +188,6 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
   const noAnalysis = isPorto && Array.isArray(mySymbols)
     ? mySymbols.filter((s) => !items.some((a) => (a.symbol || '').toUpperCase() === s)).sort()
     : [];
-
-  // Skor Overall (persentil rata-rata 6 metrik) untuk seluruh emiten berdata
-  const overallScores = useMemo(() => computeOverall(funds), [funds]);
 
   // Urutan tampil: A-Z default; jika sortBy aktif → urut metrik (yang kosong di bawah)
   const metric = sortBy === 'overall' ? OVERALL_METRIC : (sortBy ? FUND_METRICS.find((m) => m.key === sortBy) : null);
