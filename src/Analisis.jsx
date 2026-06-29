@@ -26,14 +26,12 @@ const fmtDate = (s) =>
 
 const fmtNum = (n) => (n == null ? '—' : Number(n).toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 }));
 
-// 6 metrik fundamental untuk pengurutan. dir='asc' = makin kecil makin baik (atas).
+// 4 metrik fundamental andal (Yahoo) untuk pengurutan. dir='asc' = makin kecil makin baik.
 const FUND_METRICS = [
   { key: 'per', label: 'PER', dir: 'asc', unit: 'x' },
   { key: 'pbv', label: 'PBV', dir: 'asc', unit: 'x' },
-  { key: 'der', label: 'DER', dir: 'asc', unit: '' },
   { key: 'roa', label: 'ROA', dir: 'desc', unit: '%' },
   { key: 'npm', label: 'NPM', dir: 'desc', unit: '%' },
-  { key: 'div_yield', label: 'Yield', dir: 'desc', unit: '%' },
 ];
 const OVERALL_METRIC = { key: 'overall', label: 'Overall', dir: 'desc', unit: '' };
 
@@ -360,10 +358,8 @@ function FundamentalStrip({ symbol, funds }) {
   const items = [
     ['PER', f.per != null ? `${fmtNum(f.per)}x` : '—'],
     ['PBV', f.pbv != null ? `${fmtNum(f.pbv)}x` : '—'],
-    ['DER', f.der != null ? fmtNum(f.der) : '—'],
     ['ROA', f.roa != null ? `${fmtNum(f.roa)}%` : '—'],
     ['NPM', f.npm != null ? `${fmtNum(f.npm)}%` : '—'],
-    ['Div Yield', f.div_yield != null ? `${fmtNum(f.div_yield)}%` : '—'],
     ['Overall', overall != null ? `${overall}` : '—'],
   ];
   if (!items.some(([, v]) => v !== '—')) return null; // semua kosong → jangan tampilkan strip
@@ -381,7 +377,7 @@ function FundamentalStrip({ symbol, funds }) {
         })}
       </div>
       <p className="mono" style={{ fontSize: 9.5, color: C.inkSoft, marginTop: 8, lineHeight: 1.5 }}>
-        Data publik, dapat berbeda dari laporan resmi emiten{f.updated_at ? ` · per ${fmtDate(f.updated_at)}` : ''}. DER = total debt/ekuitas. Overall = skor relatif 0–100 (rata-rata peringkat 6 metrik dibanding emiten lain), bukan nilai absolut. Edukatif, bukan rekomendasi.
+        Data publik, dapat berbeda dari laporan resmi emiten{f.updated_at ? ` · per ${fmtDate(f.updated_at)}` : ''}. Overall = skor relatif 0–100 (rata-rata peringkat 4 metrik dibanding emiten lain), bukan nilai absolut. Edukatif, bukan rekomendasi.
       </p>
     </div>
   );

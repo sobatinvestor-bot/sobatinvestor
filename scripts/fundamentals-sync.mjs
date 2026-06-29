@@ -70,28 +70,22 @@ async function fetchOne(sym, sess) {
 
   const per = num(sd.trailingPE) ?? num(ks.trailingPE);
   const pbv = num(sd.priceToBook) ?? num(ks.priceToBook);   // summaryDetail dulu (lebih andal)
-  const derRaw = num(fd.debtToEquity);                 // Yahoo: persen total-debt/ekuitas
   const roa = num(fd.returnOnAssets);                  // fraksi
   const npm = num(fd.profitMargins);                   // fraksi
-  const dy = num(sd.trailingAnnualDividendYield) ?? num(sd.dividendYield); // trailing (cocok Stockbit) dulu
-  const pg = num(fd.earningsGrowth) ?? num(ks.earningsQuarterlyGrowth);    // fraksi
+  // Catatan: DER, Yield, Growth dari Yahoo TIDAK andal untuk emiten IDX (terbukti via debug),
+  // jadi tidak ditulis. Hanya PER/PBV/ROA/NPM yang dipakai.
 
   // sanity check: buang nilai tak masuk akal -> null (lebih baik kosong daripada salah)
   const sane = (v, lo, hi) => (v === null || v < lo || v > hi ? null : v);
   const perOk = sane(per, -1000, 1000);
   const pbvOk = sane(pbv, 0, 1000);
-  const dyPct = dy === null ? null : dy * 100;
-  const dyOk = sane(dyPct, 0, 50); // yield > 50% hampir pasti artefak data
 
   return {
     symbol: sym,
     per: round(perOk, 2),
     pbv: round(pbvOk, 2),
-    der: derRaw === null ? null : round(derRaw / 100, 2), // -> rasio
     roa: roa === null ? null : round(roa * 100, 2),       // -> %
     npm: npm === null ? null : round(npm * 100, 2),       // -> %
-    div_yield: round(dyOk, 2),                            // -> % (trailing 12 bulan)
-    profit_growth: pg === null ? null : round(pg * 100, 2), // -> %
     updated_at: new Date().toISOString(),
   };
 }
@@ -122,8 +116,8 @@ async function main() {
     try {
       const row = await fetchOne(sym, sess);
       out.push(row);
-      const filled = ['per','pbv','der','roa','npm','div_yield','profit_growth'].filter((k) => row[k] !== null).length;
-      console.log(`  ${sym}: ${filled}/7 terisi`);
+      const filled = ['per', 'pbv', 'roa', 'npm'].filter((k) => row[k] !== null).length;
+      console.log(`  ${sym}: ${filled}/4 terisi`);
       ok++;
     } catch (e) {
       console.error(`  ${sym}: GAGAL — ${e.message}`);
