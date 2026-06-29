@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useLayoutEffect, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, lazy, Suspense } from 'react';
 import { ChevronLeft, Send, Trash2, Loader2, TrendingUp, TrendingDown, MessageCircle, Search, X, Briefcase } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell } from 'recharts';
 import { supabase } from './lib/supabase';
@@ -26,7 +26,7 @@ const fmtDate = (s) =>
 
 const fmtNum = (n) => (n == null ? '—' : Number(n).toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 }));
 
-// 7 metrik fundamental untuk pengurutan. dir='asc' = makin kecil makin baik (atas).
+// 6 metrik fundamental untuk pengurutan. dir='asc' = makin kecil makin baik (atas).
 const FUND_METRICS = [
   { key: 'per', label: 'PER', dir: 'asc', unit: 'x' },
   { key: 'pbv', label: 'PBV', dir: 'asc', unit: 'x' },
@@ -34,8 +34,31 @@ const FUND_METRICS = [
   { key: 'roa', label: 'ROA', dir: 'desc', unit: '%' },
   { key: 'npm', label: 'NPM', dir: 'desc', unit: '%' },
   { key: 'div_yield', label: 'Yield', dir: 'desc', unit: '%' },
-  { key: 'profit_growth', label: 'Growth', dir: 'desc', unit: '%' },
 ];
+const OVERALL_METRIC = { key: 'overall', label: 'Overall', dir: 'desc', unit: '' };
+
+const toNum = (v) => (v == null || isNaN(Number(v)) ? null : Number(v));
+
+// Skor Overall 0-100: rata-rata PERSENTIL peringkat di 6 metrik, relatif ke seluruh
+// emiten yang punya data. Bobot sama, transparan; metrik yang kosong di-skip (tak dihukum).
+function computeOverall(fundsMap) {
+  const syms = Object.keys(fundsMap || {});
+  const acc = {};
+  syms.forEach((s) => { acc[s] = []; });
+  FUND_METRICS.forEach((m) => {
+    const vals = syms.map((s) => ({ s, v: toNum(fundsMap[s][m.key]) })).filter((x) => x.v !== null);
+    if (vals.length < 2) return;
+    vals.sort((a, b) => (m.dir === 'asc' ? a.v - b.v : b.v - a.v)); // index 0 = terbaik
+    const n = vals.length;
+    vals.forEach((x, i) => { acc[x.s].push(1 - i / (n - 1)); }); // 1=terbaik, 0=terburuk
+  });
+  const out = {};
+  syms.forEach((s) => {
+    const arr = acc[s];
+    out[s] = arr.length ? Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 100) : null;
+  });
+  return out;
+}
 
 export default function AnalisisTab({ userId, userName, onRequireLogin, initialPage, onPageConsumed, initialSymbol, onSymbolConsumed, onGoPortfolio }) {
   const [items, setItems] = useState([]);
@@ -144,7 +167,7 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
 
   if (open) {
     const a = items.find((x) => x.symbol === open);
-    if (a) return <AnalisisDetail a={a} onBack={() => setOpen(null)} onPortfolio={onGoPortfolio ? () => { setOpen(null); onGoPortfolio(); } : null} userId={userId} userName={userName} onRequireLogin={onRequireLogin} />;
+    if (a) return <AnalisisDetail a={a} funds={funds} onBack={() => setOpen(null)} onPortfolio={onGoPortfolio ? () => { setOpen(null); onGoPortfolio(); } : null} userId={userId} userName={userName} onRequireLogin={onRequireLogin} />;
   }
 
   const isPorto = page === 'porto';
@@ -164,12 +187,16 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
     ? mySymbols.filter((s) => !items.some((a) => (a.symbol || '').toUpperCase() === s)).sort()
     : [];
 
+  // Skor Overall (persentil rata-rata 6 metrik) untuk seluruh emiten berdata
+  const overallScores = useMemo(() => computeOverall(funds), [funds]);
+
   // Urutan tampil: A-Z default; jika sortBy aktif → urut metrik (yang kosong di bawah)
-  const metric = sortBy ? FUND_METRICS.find((m) => m.key === sortBy) : null;
+  const metric = sortBy === 'overall' ? OVERALL_METRIC : (sortBy ? FUND_METRICS.find((m) => m.key === sortBy) : null);
   const fval = (a) => {
-    const f = funds[(a.symbol || '').toUpperCase()];
-    const v = f && metric ? f[metric.key] : null;
-    return (v == null || isNaN(Number(v))) ? null : Number(v);
+    if (!metric) return null;
+    const sym = (a.symbol || '').toUpperCase();
+    if (metric.key === 'overall') { const v = overallScores[sym]; return v == null ? null : Number(v); }
+    return toNum(funds[sym] ? funds[sym][metric.key] : null);
   };
   const ordered = metric
     ? [...shown].sort((a, b) => {
@@ -226,10 +253,10 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
               </button>
             ))}
             <span style={{ width: 1, alignSelf: 'stretch', minHeight: 18, background: 'rgba(58,74,64,0.18)', margin: '0 2px' }} />
-            {FUND_METRICS.map((m) => (
+            {[...FUND_METRICS, OVERALL_METRIC].map((m) => (
               <button key={m.key} onClick={() => setSortBy(sortBy === m.key ? null : m.key)}
-                title={`Urutkan: ${m.label} (${m.dir === 'asc' ? 'terkecil dulu' : 'terbesar dulu'})`}
-                style={{ cursor: 'pointer', fontSize: 11, fontWeight: 600, padding: '6px 11px', borderRadius: 100,
+                title={m.key === 'overall' ? 'Urutkan: skor Overall (ringkasan 6 metrik, tertinggi dulu)' : `Urutkan: ${m.label} (${m.dir === 'asc' ? 'terkecil dulu' : 'terbesar dulu'})`}
+                style={{ cursor: 'pointer', fontSize: 11, fontWeight: m.key === 'overall' ? 700 : 600, padding: '6px 11px', borderRadius: 100,
                   background: sortBy === m.key ? C.cuan : 'transparent',
                   border: `1px solid ${sortBy === m.key ? C.cuan : 'rgba(58,74,64,0.25)'}`,
                   color: sortBy === m.key ? '#fff' : C.inkSoft }}>
@@ -238,7 +265,7 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
             ))}
           </div>
           <p style={{ fontSize: 11, color: C.inkSoft, marginTop: 8 }}>
-            {shown.length} analisis{filter === 'Syariah' ? ' · emiten dalam indeks ISSI' : ''}{q && !isPorto ? ` · hasil "${query.trim()}"` : ''}{metric ? ` · urut ${metric.label} (${metric.dir === 'asc' ? 'terkecil dulu' : 'terbesar dulu'})` : ''}
+            {shown.length} analisis{filter === 'Syariah' ? ' · emiten dalam indeks ISSI' : ''}{q && !isPorto ? ` · hasil "${query.trim()}"` : ''}{metric ? ` · urut ${metric.label} (${metric.key === 'overall' ? 'tertinggi dulu' : (metric.dir === 'asc' ? 'terkecil dulu' : 'terbesar dulu')})` : ''}
           </p>
         </div>
       )}
@@ -287,7 +314,7 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(78px, 1fr))', gap: 8 }}>
             {ordered.map((a) => {
               const v = metric ? fval(a) : null;
-              const disp = !metric ? null : (v == null ? '—' : `${metric.key === 'profit_growth' && v > 0 ? '+' : ''}${fmtNum(v)}${metric.unit}`);
+              const disp = !metric ? null : (v == null ? '—' : `${fmtNum(v)}${metric.unit}`);
               return (
               <button
                 key={a.symbol}
@@ -325,20 +352,11 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
   );
 }
 
-function FundamentalStrip({ symbol }) {
-  const [f, setF] = useState(undefined); // undefined = memuat, null = tak ada, objek = data
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        const { data } = await supabase.from('fundamentals').select('*').eq('symbol', symbol).maybeSingle();
-        if (alive) setF(data || null);
-      } catch { if (alive) setF(null); }
-    })();
-    return () => { alive = false; };
-  }, [symbol]);
-
-  if (f === undefined || f === null) return null; // memuat / belum ada data → tak tampil
+function FundamentalStrip({ symbol, funds }) {
+  const sym = (symbol || '').toUpperCase();
+  const f = funds ? funds[sym] : null;
+  const overall = useMemo(() => (funds ? (computeOverall(funds)[sym] ?? null) : null), [funds, sym]);
+  if (!f) return null;
   const items = [
     ['PER', f.per != null ? `${fmtNum(f.per)}x` : '—'],
     ['PBV', f.pbv != null ? `${fmtNum(f.pbv)}x` : '—'],
@@ -346,27 +364,30 @@ function FundamentalStrip({ symbol }) {
     ['ROA', f.roa != null ? `${fmtNum(f.roa)}%` : '—'],
     ['NPM', f.npm != null ? `${fmtNum(f.npm)}%` : '—'],
     ['Div Yield', f.div_yield != null ? `${fmtNum(f.div_yield)}%` : '—'],
-    ['Growth Laba', f.profit_growth != null ? `${f.profit_growth > 0 ? '+' : ''}${fmtNum(f.profit_growth)}%` : '—'],
+    ['Overall', overall != null ? `${overall}` : '—'],
   ];
   if (!items.some(([, v]) => v !== '—')) return null; // semua kosong → jangan tampilkan strip
   return (
     <div style={{ margin: '4px 0 18px' }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(86px, 1fr))', gap: 8 }}>
-        {items.map(([label, val]) => (
-          <div key={label} style={{ background: C.cream2, borderRadius: 12, padding: '10px 12px' }}>
-            <div className="mono" style={{ fontSize: 9, color: C.inkSoft, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>{label}</div>
+        {items.map(([label, val]) => {
+          const isOverall = label === 'Overall';
+          return (
+          <div key={label} style={{ background: isOverall ? 'rgba(196,155,60,0.14)' : C.cream2, borderRadius: 12, padding: '10px 12px', border: isOverall ? `1px solid ${C.cuan}` : '1px solid transparent' }}>
+            <div className="mono" style={{ fontSize: 9, color: isOverall ? C.cuan : C.inkSoft, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>{label}{isOverall ? ' /100' : ''}</div>
             <div style={{ fontSize: 15, fontWeight: 700, color: val === '—' ? C.inkSoft : C.ink }}>{val}</div>
           </div>
-        ))}
+          );
+        })}
       </div>
       <p className="mono" style={{ fontSize: 9.5, color: C.inkSoft, marginTop: 8, lineHeight: 1.5 }}>
-        Data publik, dapat berbeda dari laporan resmi emiten{f.updated_at ? ` · per ${fmtDate(f.updated_at)}` : ''}. DER = total debt/ekuitas; Growth Laba = pertumbuhan laba (YoY). Edukatif, bukan rekomendasi.
+        Data publik, dapat berbeda dari laporan resmi emiten{f.updated_at ? ` · per ${fmtDate(f.updated_at)}` : ''}. DER = total debt/ekuitas. Overall = skor relatif 0–100 (rata-rata peringkat 6 metrik dibanding emiten lain), bukan nilai absolut. Edukatif, bukan rekomendasi.
       </p>
     </div>
   );
 }
 
-function AnalisisDetail({ a, onBack, onPortfolio, userId, userName, onRequireLogin }) {
+function AnalisisDetail({ a, funds, onBack, onPortfolio, userId, userName, onRequireLogin }) {
   const updated = a.updated_at && a.created_at && (new Date(a.updated_at).getTime() - new Date(a.created_at).getTime() > 60000);
   return (
     <div className="fade-up" style={{ padding: '20px 20px 40px', maxWidth: 1100, margin: '0 auto' }}>
@@ -384,7 +405,7 @@ function AnalisisDetail({ a, onBack, onPortfolio, userId, userName, onRequireLog
         {updated && <> &middot; Diperbarui: {fmtDate(a.updated_at)}</>}
       </div>
 
-      <FundamentalStrip symbol={a.symbol} />
+      <FundamentalStrip symbol={a.symbol} funds={funds} />
 
       {a.ringkasan && <p style={{ fontSize: 15, color: C.ink, lineHeight: 1.6, marginBottom: 18 }}>{a.ringkasan}</p>}
 
