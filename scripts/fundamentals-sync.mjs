@@ -69,17 +69,22 @@ async function fetchOne(sym, sess) {
   const ks = res.defaultKeyStatistics || {};
 
   const per = num(sd.trailingPE) ?? num(ks.trailingPE);
-  const pbv = num(ks.priceToBook) ?? num(sd.priceToBook);
+  const pbv = num(sd.priceToBook) ?? num(ks.priceToBook);   // summaryDetail dulu (lebih andal)
   const derRaw = num(fd.debtToEquity);                 // Yahoo: persen total-debt/ekuitas
   const roa = num(fd.returnOnAssets);                  // fraksi
   const npm = num(fd.profitMargins);                   // fraksi
   const dy = num(sd.dividendYield) ?? num(sd.trailingAnnualDividendYield); // fraksi
   const pg = num(fd.earningsGrowth) ?? num(ks.earningsQuarterlyGrowth);    // fraksi
 
+  // sanity check: buang nilai tak masuk akal -> null (lebih baik kosong daripada salah)
+  const sane = (v, lo, hi) => (v === null || v < lo || v > hi ? null : v);
+  const perOk = sane(per, -1000, 1000);
+  const pbvOk = sane(pbv, 0, 1000);
+
   return {
     symbol: sym,
-    per: round(per, 2),
-    pbv: round(pbv, 2),
+    per: round(perOk, 2),
+    pbv: round(pbvOk, 2),
     der: derRaw === null ? null : round(derRaw / 100, 2), // -> rasio
     roa: roa === null ? null : round(roa * 100, 2),       // -> %
     npm: npm === null ? null : round(npm * 100, 2),       // -> %
