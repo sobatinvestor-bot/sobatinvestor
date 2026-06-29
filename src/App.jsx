@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
-import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Upload, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus, Users, Globe, ArrowDown, Linkedin, Instagram } from 'lucide-react';
+import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Upload, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus, Users, Globe, ArrowDown, Linkedin, Instagram, Eye, EyeOff } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import useBackGuard from './useBackGuard.js';
 import { Auth, usePortfolio, Editor, logout, SellEditor, RdnCard, StockNews, parseSobatCSV, ChangePassword, SetNewPassword } from './Account.jsx';
@@ -1010,6 +1010,14 @@ const PWD_POLICY_CUTOFF = '2026-06-20T00:00:00Z';
 export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0, plPortfolioPct = null, plModalPct = null, modalAwal = 0, rdn = 0, onChangePassword }) {
   const isMobile = useIsMobile();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [hideBalance, setHideBalance] = useState(() => {
+    try { return localStorage.getItem('si_hideBal') === '1'; } catch { return false; }
+  });
+  const toggleHideBalance = () => setHideBalance((v) => {
+    const nv = !v;
+    try { localStorage.setItem('si_hideBal', nv ? '1' : '0'); } catch { /* abaikan */ }
+    return nv;
+  });
   const menuRef = useRef(null);
   const avatarRef = useRef(null);
   // Tutup menu saat klik di luar (menu/avatar). Tidak pakai backdrop fixed karena
@@ -1085,11 +1093,18 @@ export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0
                       <div style={{ padding: '12px 14px', borderBottom: `1px solid rgba(26,42,32,0.08)` }}>
                         <div style={{ fontSize: 11, color: C.inkSoft }}>Masuk sebagai</div>
                         <div style={{ fontSize: 13, color: C.ink, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userEmail}</div>
-                        <div style={{ marginTop: 10, fontSize: 11, color: C.inkSoft }}>Nilai Portofolio</div>
-                        <div className="mono" style={{ fontSize: 16, color: C.ink, fontWeight: 700 }}>{fmtRp(portfolioTotal)}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
+                          <span style={{ fontSize: 11, color: C.inkSoft }}>Nilai Portofolio</span>
+                          <button onClick={toggleHideBalance}
+                            title={hideBalance ? 'Tampilkan nominal' : 'Sembunyikan nominal'} aria-label={hideBalance ? 'Tampilkan nominal' : 'Sembunyikan nominal'}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.inkSoft, padding: 2, display: 'inline-flex', alignItems: 'center' }}>
+                            {hideBalance ? <EyeOff size={15} /> : <Eye size={15} />}
+                          </button>
+                        </div>
+                        <div className="mono" style={{ fontSize: 16, color: C.ink, fontWeight: 700 }}>{hideBalance ? 'Rp ••••••' : fmtRp(portfolioTotal)}</div>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
                           <span style={{ fontSize: 11, color: C.inkSoft }}>Cash RDN</span>
-                          <span className="mono" style={{ fontSize: 13, fontWeight: 700, color: C.ink }}>{fmtRp(rdn)}</span>
+                          <span className="mono" style={{ fontSize: 13, fontWeight: 700, color: C.ink }}>{hideBalance ? 'Rp ••••••' : fmtRp(rdn)}</span>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 }}>
                           <span style={{ fontSize: 11, color: C.inkSoft }}>P/L Portofolio</span>
@@ -1111,7 +1126,7 @@ export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0
                           </span>
                         </div>
                         {modalAwal > 0 && (
-                          <div className="mono" style={{ fontSize: 10, color: C.inkSoft, textAlign: 'right', marginTop: 2 }}>modal awal {fmtRp(modalAwal)}</div>
+                          <div className="mono" style={{ fontSize: 10, color: C.inkSoft, textAlign: 'right', marginTop: 2 }}>modal awal {hideBalance ? 'Rp ••••••' : fmtRp(modalAwal)}</div>
                         )}
                       </div>
                       {isOldAccount && !pwdReminderOff && (
