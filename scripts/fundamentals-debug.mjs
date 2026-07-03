@@ -1,17 +1,16 @@
 // ============================================================
-// DIAGNOSTIK FUNDAMENTAL LENGKAP — cetak field mentah Yahoo, TIDAK menulis DB.
-// Untuk verifikasi PER/PBV/DER/ROA/NPM/yield vs sumber tepercaya (Stockbit) sebelum tayang.
-// Termasuk komponen neraca agar bisa bandingkan DER versi "utang berbunga" vs "total liabilitas".
+// DIAGNOSTIK EPS GROWTH — cek apakah Yahoo memberi growth kuartalan Q1'26 vs Q1'25
+// untuk emiten IDX, LENGKAP dengan TANGGAL periode. TIDAK menulis DB.
 // Jalankan via .github/workflows/fundamentals-debug.yml (workflow_dispatch). Node 20+.
 // ============================================================
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
-const SYMBOLS = (process.env.SYMBOLS || 'BBCA,BBRI,TLKM,ASII,ICBP,SIDO,ACES,ANTM,ADRO,UNTR,PGAS,MSTI')
+const SYMBOLS = (process.env.SYMBOLS || 'LSIP,BSSR,INDF,DMAS,SIDO')
   .split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
-const MODULES = 'summaryDetail,financialData,defaultKeyStatistics,price,balanceSheetHistory';
+const MODULES = 'financialData,defaultKeyStatistics,earnings,earningsHistory,earningsTrend';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const raw = (x) => (x && typeof x === 'object' && 'raw' in x ? x.raw : x);
-const f2 = (v) => (v == null || isNaN(Number(v)) ? '\u2014' : Number(v).toFixed(2));
+const pct = (v) => (v == null ? '\u2014' : (v * 100).toFixed(2) + '%');
 
 async function getSession() {
   const r1 = await fetch('https://fc.yahoo.com', { headers: { 'User-Agent': UA }, redirect: 'manual' });
@@ -31,39 +30,33 @@ async function fetchOne(sym, sess) {
   if (!res.ok) { console.log(`\n${sym}: HTTP ${res.status}`); return; }
   const j = await res.json();
   const d = j?.quoteSummary?.result?.[0] || {};
-  const sd = d.summaryDetail || {}, fd = d.financialData || {}, ks = d.defaultKeyStatistics || {}, pr = d.price || {};
-  const bs = (d.balanceSheetHistory && d.balanceSheetHistory.balanceSheetStatements && d.balanceSheetHistory.balanceSheetStatements[0]) || {};
+  const fd = d.financialData || {}, ks = d.defaultKeyStatistics || {};
+  const eh = d.earningsHistory?.history || [];
+  const et = d.earningsTrend?.trend || [];
 
-  const per = raw(sd.trailingPE) ?? raw(ks.trailingPE);
-  const pbvSd = raw(sd.priceToBook), pbvKs = raw(ks.priceToBook);
-  const derY = raw(fd.debtToEquity);
-  const roa = raw(fd.returnOnAssets);
-  const npm = raw(fd.profitMargins);
-  const tady = raw(sd.trailingAnnualDividendYield);
-  const dy = raw(sd.dividendYield);
-  const price = raw(pr.regularMarketPrice);
+  console.log(`\n=== ${sym}.JK ===`);
+  console.log(`  [field yg dulu dipakai]`);
+  console.log(`    financialData.earningsGrowth        = ${pct(raw(fd.earningsGrowth))}  (periode TIDAK jelas)`);
+  console.log(`    defaultKeyStats.earningsQuarterlyGrowth = ${pct(raw(ks.earningsQuarterlyGrowth))}  (klaim: kuartalan YoY)`);
 
-  const totalDebt = raw(fd.totalDebt);
-  const equity = raw(bs.totalStockholderEquity) ?? raw(bs.totalEquityGrossMinorityInterest);
-  const totalLiab = raw(bs.totalLiab) ?? raw(bs.totalLiabilitiesNetMinorityInterest);
-  const derDebt = (totalDebt != null && equity) ? totalDebt / equity : null;
-  const derLiab = (totalLiab != null && equity) ? totalLiab / equity : null;
+  console.log(`  [earningsHistory — 4 kuartal terakhir, dgn TANGGAL]`);
+  if (!eh.length) console.log(`    (kosong)`);
+  eh.forEach((h) => {
+    console.log(`    ${h.quarter?.fmt || '?'}: EPS aktual=${raw(h.epsActual)}  estimasi=${raw(h.epsEstimate)}`);
+  });
 
-  console.log(`\n=== ${sym}.JK  (harga ${price}) ===`);
-  console.log(`  PER  trailingPE=${f2(per)}`);
-  console.log(`  PBV  summaryDetail=${f2(pbvSd)}  defaultKeyStats=${f2(pbvKs)}`);
-  console.log(`  ROA  returnOnAssets x100=${roa != null ? (roa * 100).toFixed(2) : '\u2014'}%`);
-  console.log(`  NPM  profitMargins x100=${npm != null ? (npm * 100).toFixed(2) : '\u2014'}%`);
-  console.log(`  YIELD trailingAnnual x100=${tady != null ? (tady * 100).toFixed(2) : '\u2014'}%   dividendYield x100=${dy != null ? (dy * 100).toFixed(2) : '\u2014'}%`);
-  console.log(`  DER  Yahoo debtToEquity/100=${derY != null ? (derY / 100).toFixed(2) : '\u2014'}  (basis: utang berbunga)`);
-  console.log(`       neraca: totalDebt=${totalDebt}  totalLiab=${totalLiab}  equity=${equity}`);
-  console.log(`       DER(utang berbunga/ekuitas)=${f2(derDebt)}   DER(total liabilitas/ekuitas)=${f2(derLiab)}`);
+  console.log(`  [earningsTrend — proyeksi growth per periode]`);
+  if (!et.length) console.log(`    (kosong)`);
+  et.forEach((t) => {
+    const g = raw(t.growth);
+    if (t.period) console.log(`    period=${t.period} endDate=${t.endDate || '?'}  growth=${pct(g)}`);
+  });
 }
 
 async function main() {
   const sess = await getSession();
   console.log(`Sesi Yahoo OK (crumb: ${sess.crumb ? 'ada' : 'KOSONG'})`);
-  console.log(`Bandingkan tiap baris dengan Stockbit. Cari nilai yang jauh beda, dan DER versi mana yang cocok.`);
+  console.log(`Tujuan: lihat apakah ada growth kuartalan dgn TANGGAL Q1'26 vs Q1'25. Bandingkan dgn laporan resmi IDX.`);
   for (const s of SYMBOLS) { try { await fetchOne(s, sess); } catch (e) { console.log(`${s}: ERROR ${e.message}`); } await sleep(500); }
   console.log('\nSelesai.');
 }
