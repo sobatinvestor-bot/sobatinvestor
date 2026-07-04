@@ -1010,6 +1010,27 @@ function useIsMobile(bp = 768) {
   return m;
 }
 
+// Toggle "sembunyikan saldo" dipakai di >1 tempat (Nav & Ringkasan Dashboard).
+// Sumber state tunggal via localStorage + custom event, supaya kedua toggle selalu sinkron.
+const HIDEBAL_EVENT = 'si-hidebal-sync';
+function useHideBalance() {
+  const [hideBalance, setHideBalance] = useState(() => {
+    try { return localStorage.getItem('si_hideBal') === '1'; } catch { return false; }
+  });
+  useEffect(() => {
+    function onSync(e) { setHideBalance(e.detail); }
+    window.addEventListener(HIDEBAL_EVENT, onSync);
+    return () => window.removeEventListener(HIDEBAL_EVENT, onSync);
+  }, []);
+  const toggleHideBalance = () => setHideBalance((v) => {
+    const nv = !v;
+    try { localStorage.setItem('si_hideBal', nv ? '1' : '0'); } catch { /* abaikan */ }
+    window.dispatchEvent(new CustomEvent(HIDEBAL_EVENT, { detail: nv }));
+    return nv;
+  });
+  return [hideBalance, toggleHideBalance];
+}
+
 // Tanggal kebijakan password kuat (min 10 + simbol) diaktifkan di Supabase.
 // Akun yang dibuat SEBELUM tanggal ini mungkin masih pakai password lemah → tampilkan reminder.
 // >>> SESUAIKAN ke tanggal kamu benar-benar mengaktifkan aturan tersebut <<<
@@ -1018,14 +1039,7 @@ const PWD_POLICY_CUTOFF = '2026-06-20T00:00:00Z';
 export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0, plPortfolioPct = null, plModalPct = null, modalAwal = 0, rdn = 0, onChangePassword }) {
   const isMobile = useIsMobile();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [hideBalance, setHideBalance] = useState(() => {
-    try { return localStorage.getItem('si_hideBal') === '1'; } catch { return false; }
-  });
-  const toggleHideBalance = () => setHideBalance((v) => {
-    const nv = !v;
-    try { localStorage.setItem('si_hideBal', nv ? '1' : '0'); } catch { /* abaikan */ }
-    return nv;
-  });
+  const [hideBalance, toggleHideBalance] = useHideBalance();
   const menuRef = useRef(null);
   const avatarRef = useRef(null);
   // Tutup menu saat klik di luar (menu/avatar). Tidak pakai backdrop fixed karena
@@ -1372,6 +1386,7 @@ function PerfTooltip({ active, payload }) {
 }
 
 function DashboardTab({ stocks, ihsgQuote, onSymbol }) {
+  const [hideBalance, toggleHideBalance] = useHideBalance();
   const ihsgChange = ihsgQuote && typeof ihsgQuote.change === 'number' ? ihsgQuote.change : null;
   const ihsgLive = ihsgQuote && typeof ihsgQuote.value === 'number' ? ihsgQuote.value : null;
   const totalValue = stocks.reduce((sum, s) => sum + s.price * s.qty, 0);
@@ -1564,11 +1579,18 @@ function DashboardTab({ stocks, ihsgQuote, onSymbol }) {
 
   return (
     <div className="fade-up" style={{ padding: '24px 20px', maxWidth: 1100, margin: '0 auto' }}>
-      <h2 className="serif" style={{ fontSize: 32, fontWeight: 500, letterSpacing: '-0.02em', marginBottom: 20 }}>Ringkasan</h2>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+        <h2 className="serif" style={{ fontSize: 32, fontWeight: 500, letterSpacing: '-0.02em', margin: 0 }}>Ringkasan</h2>
+        <button onClick={toggleHideBalance} title={hideBalance ? 'Tampilkan nominal' : 'Sembunyikan nominal'}
+          aria-label={hideBalance ? 'Tampilkan nominal' : 'Sembunyikan nominal'}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.inkSoft, display: 'flex', alignItems: 'center', padding: 4 }}>
+          {hideBalance ? <EyeOff size={20} /> : <Eye size={20} />}
+        </button>
+      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 20 }}>
-        <StatCard label="PORTFOLIO" value={fmtRp(totalValue)} sub={fmtPct(totalPLPct)} positive={totalPL >= 0} highlight />
-        <StatCard label="UNREALIZED P/L" value={fmtRp(totalPL)} sub={`dari ${fmtRp(totalCost)}`} positive={totalPL >= 0} />
+        <StatCard label="PORTFOLIO" value={hideBalance ? 'Rp ••••••' : fmtRp(totalValue)} sub={fmtPct(totalPLPct)} positive={totalPL >= 0} highlight />
+        <StatCard label="UNREALIZED P/L" value={hideBalance ? 'Rp ••••••' : fmtRp(totalPL)} sub={hideBalance ? '' : `dari ${fmtRp(totalCost)}`} positive={totalPL >= 0} />
         <StatCard label="HOLDINGS" value={stocks.length.toString()} sub="emiten aktif" />
       </div>
 
