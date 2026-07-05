@@ -2360,6 +2360,9 @@ export function DividendCard({ stocks, onSymbol }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lots, raw, symKey, schedule]);
   const fmtDate = (d) => d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+  const [showHist, setShowHist] = useState(false);  // detail riwayat: default tersembunyi
+  const [showProj, setShowProj] = useState(false);  // detail akan datang: default tersembunyi
+  const toggleBtnStyle = { background: 'none', border: 'none', cursor: 'pointer', color: C.inkSoft, fontSize: 10, letterSpacing: '0.08em', padding: '2px 4px', fontFamily: 'inherit' };
 
   return (
     <div style={{ background: C.cream2, borderRadius: 20, padding: 20, marginTop: 16 }}>
@@ -2375,8 +2378,13 @@ export function DividendCard({ stocks, onSymbol }) {
             <h4 className="serif" style={{ fontSize: 15, fontWeight: 600 }}>Riwayat Dividen</h4>
             <span className="mono" style={{ fontSize: 10, color: C.inkSoft, letterSpacing: '0.08em' }}>12 BULAN TERAKHIR</span>
           </div>
-          <div className="serif" style={{ fontSize: 20, fontWeight: 600, color: C.green, marginBottom: 8 }}>{fmtRp(totalHist)}</div>
-          {hist.map((r, i) => (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+            <div className="serif" style={{ fontSize: 20, fontWeight: 600, color: C.green }}>{fmtRp(totalHist)}</div>
+            <button className="mono" onClick={() => setShowHist((v) => !v)} style={toggleBtnStyle}>
+              {showHist ? 'SEMBUNYIKAN ▴' : 'DETAIL ▾'}
+            </button>
+          </div>
+          {showHist && hist.map((r, i) => (
             <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 8, alignItems: 'center', padding: '10px 0', borderBottom: `1px solid rgba(26,42,32,0.06)` }}>
               <div>
                 <div onClick={onSymbol ? () => onSymbol(r.symbol) : undefined} title={onSymbol ? `Lihat analisis ${r.symbol}` : undefined} style={{ fontWeight: 700, fontSize: 13, cursor: onSymbol ? 'pointer' : 'default', textDecoration: onSymbol ? 'underline' : 'none', textDecorationStyle: 'dotted', textDecorationColor: 'rgba(26,42,32,0.35)', textUnderlineOffset: 3, display: 'inline-block' }}>{r.symbol}</div>
@@ -2397,9 +2405,16 @@ export function DividendCard({ stocks, onSymbol }) {
         <span className="mono" style={{ fontSize: 10, color: C.inkSoft, letterSpacing: '0.08em' }}>12 BULAN KE DEPAN</span>
       </div>
       {rows.length > 0 && (
-        <div className="serif" style={{ fontSize: 20, fontWeight: 600, color: C.green, marginBottom: 4 }}>{fmtRp(total12)}</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+          <div className="serif" style={{ fontSize: 20, fontWeight: 600, color: C.green }}>{fmtRp(total12)}</div>
+          <button className="mono" onClick={() => setShowProj((v) => !v)} style={toggleBtnStyle}>
+            {showProj ? 'SEMBUNYIKAN ▴' : 'DETAIL ▾'}
+          </button>
+        </div>
       )}
-      <div style={{ fontSize: 12, color: C.inkSoft, marginBottom: 12 }}>perkiraan dividen 12 bulan ke depan — tanggal pasti dipakai bila sudah diumumkan, sisanya proyeksi pola tahun lalu</div>
+      {showProj && (
+        <div style={{ fontSize: 12, color: C.inkSoft, marginBottom: 12 }}>perkiraan dividen 12 bulan ke depan — tanggal pasti dipakai bila sudah diumumkan, sisanya proyeksi pola tahun lalu</div>
+      )}
 
       {loading ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: C.inkSoft, fontSize: 13 }}>
@@ -2407,7 +2422,7 @@ export function DividendCard({ stocks, onSymbol }) {
         </div>
       ) : rows.length === 0 ? (
         <div style={{ fontSize: 13, color: C.inkSoft }}>Belum ada dividen 12 bulan terakhir untuk diproyeksikan.</div>
-      ) : (
+      ) : showProj && (
         <div>
           {rows.map((r, i) => (
             <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 8, alignItems: 'center', padding: '10px 0', borderBottom: `1px solid rgba(26,42,32,0.06)` }}>
