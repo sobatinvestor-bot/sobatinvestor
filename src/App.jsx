@@ -2188,31 +2188,41 @@ export function DividendCard({ stocks, onSymbol }) {
       .then(({ data }) => { if (active) setLots(data || []); })
       .catch(() => { if (active) setLots([]); });
     return () => { active = false; };
-  }, [symKey]);
+  }, []);
 
-  // Jadwal dividen resmi (tanggal bayar yang sudah diumumkan) untuk saham yang dipegang
+  // Simbol untuk query dividen = holdings aktif + simbol historis dari lots
+  // (12 bln terakhir masih relevan utk Riwayat Dividen meski posisinya sudah dijual habis).
+  const histSymbols = React.useMemo(() => {
+    const s = new Set(stocks.map((x) => x.symbol));
+    (lots || []).forEach((l) => { if (l.symbol) s.add(l.symbol.toUpperCase()); });
+    return [...s].sort();
+  }, [symKey, lots]);
+  const fetchKey = histSymbols.join(',');
+
+  // Jadwal dividen resmi (tanggal bayar yang sudah diumumkan) — termasuk simbol yang sudah dijual habis
   useEffect(() => {
-    if (!symKey) { setSchedule([]); return; }
+    if (!fetchKey) { setSchedule([]); return; }
     let active = true;
     supabase.from('dividend_schedule').select('symbol,ex_date,pay_date,amount')
       .eq('confirmed', true)
-      .in('symbol', stocks.map((s) => s.symbol))
+      .in('symbol', histSymbols)
       .then(({ data }) => { if (active) setSchedule(data || []); })
       .catch(() => { if (active) setSchedule([]); });
     return () => { active = false; };
-  }, [symKey]);
+  }, [fetchKey]);
 
 
   useEffect(() => {
-    if (!symKey) { setRaw([]); setLoading(false); return; }
+    if (lots === null) return; // tunggu lots termuat supaya simbol historis ikut ter-query
+    if (!fetchKey) { setRaw([]); setLoading(false); return; }
     let active = true;
     setLoading(true);
-    fetch(`/api/dividends?symbols=${encodeURIComponent(symKey)}&range=2y`)
+    fetch(`/api/dividends?symbols=${encodeURIComponent(fetchKey)}&range=2y`)
       .then((r) => (r.ok ? r.json() : { dividends: [] }))
       .then((d) => { if (active) { setRaw(d.dividends || []); setLoading(false); } })
       .catch(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [symKey]);
+  }, [fetchKey, lots === null]);
 
   const qtyMap = {};
   stocks.forEach((s) => { qtyMap[s.symbol] = s.qty; });
