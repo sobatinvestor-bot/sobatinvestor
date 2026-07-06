@@ -877,13 +877,42 @@ function PortfolioMacroAnalysis({ userId, onRequireLogin, marketSummary, marketR
       const portLines = port.slice().sort((a, b) => b.val - a.val)
         .map((p) => `${p.sym} (${p.name}) — sektor ${p.sector}, bobot ~${Math.round((p.val / total) * 100)}%`).join('\n');
 
+      // Analisis terkurasi (published) untuk emiten portofolio — sama sumbernya dengan tab Analisis.
+      // Hanya pakai data terkurasi manual, BUKAN fundamentals mentah Yahoo (blank > salah).
+      let curatedBlock = '';
+      try {
+        const syms = [...new Set(port.map((p) => p.sym))];
+        if (syms.length > 0) {
+          const { data: ana } = await supabase
+            .from('analyses').select('symbol,ringkasan,bull,bear,chart,updated_at')
+            .in('symbol', syms).eq('published', true);
+          const anaMap = {};
+          (ana || []).forEach((a) => { anaMap[a.symbol] = a; });
+          const lines = syms.map((sym) => {
+            const a = anaMap[sym];
+            if (!a) return `${sym}: (belum ada analisis terkurasi di aplikasi)`;
+            const angka = a.chart && a.chart.data
+              ? `${a.chart.title || 'Data'}: ` + a.chart.data.map((p) => `${p.label} ${p.value}`).join(', ')
+              : '';
+            const bull = Array.isArray(a.bull) ? a.bull.slice(0, 3).join('; ') : '';
+            const bear = Array.isArray(a.bear) ? a.bear.slice(0, 3).join('; ') : '';
+            let s = `${sym} (analisis per ${(a.updated_at || '').slice(0, 10)}): ${a.ringkasan || ''}`;
+            if (angka) s += ` Angka kunci: ${angka}.`;
+            if (bull) s += ` Positif: ${bull}.`;
+            if (bear) s += ` Risiko: ${bear}.`;
+            return s;
+          });
+          curatedBlock = `\n\nANALISIS TERKURASI APLIKASI (sumber resmi & kurasi manual — pakai HANYA angka di sini untuk fakta fundamental; JANGAN mengarang atau menebak angka laporan keuangan untuk emiten yang ditandai "belum ada analisis terkurasi"):\n${lines.join('\n')}`;
+        }
+      } catch { /* abaikan; AI jalan tanpa blok terkurasi */ }
+
       const dataBlock = `KONDISI MAKRO/GLOBAL TERKINI (dari halaman Global, data delayed):
 ${marketSummary}
 
 PORTOFOLIO SAYA (bobot = perkiraan dari modal: qty × harga rata-rata):
 Komposisi sektor: ${sectorLines}
 Rincian emiten:
-${portLines}`;
+${portLines}${curatedBlock}`;
 
       const isAdmin = userId === 'fb34e91b-dde7-42ce-83e9-ff70a2eaf52f';
 
