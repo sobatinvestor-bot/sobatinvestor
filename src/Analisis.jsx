@@ -396,6 +396,9 @@ function FundamentalStrip({ symbol, funds }) {
     ['PBV', f.pbv != null ? `${fmtNum(f.pbv)}x` : '—'],
     ['ROA', f.roa != null ? `${fmtNum(f.roa)}%` : '—'],
     ['NPM', f.npm != null ? `${fmtNum(f.npm)}%` : '—'],
+    ['DER', f.der != null ? `${fmtNum(f.der)}x` : '—'],
+    ['Yield', f.div_yield != null ? `${fmtNum(f.div_yield)}%` : '—'],
+    ['Growth EPS', f.eps_growth != null ? `${fmtNum(f.eps_growth)}%` : '—'],
     ['Overall', overall != null ? `${overall}` : '—'],
   ];
   if (!items.some(([, v]) => v !== '—')) return null; // semua kosong → jangan tampilkan strip
@@ -413,7 +416,7 @@ function FundamentalStrip({ symbol, funds }) {
         })}
       </div>
       <p className="mono" style={{ fontSize: 9.5, color: C.inkSoft, marginTop: 8, lineHeight: 1.5 }}>
-        Data publik, dapat berbeda dari laporan resmi emiten{f.updated_at ? ` · per ${fmtDate(f.updated_at)}` : ''}. Overall = skor relatif 0–100 (rata-rata peringkat 4 metrik dibanding emiten lain), bukan nilai absolut. Edukatif, bukan rekomendasi.
+        PER/PBV/ROA/NPM dari data publik (Yahoo), dapat berbeda dari laporan resmi; DER/Yield/Growth EPS dihitung dari laporan keuangan resmi emiten{f.updated_at ? ` · per ${fmtDate(f.updated_at)}` : ''}. Overall = skor relatif 0–100 (rata-rata peringkat 4 metrik inti dibanding emiten lain), bukan nilai absolut. Edukatif, bukan rekomendasi.
       </p>
     </div>
   );
