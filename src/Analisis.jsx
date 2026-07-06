@@ -37,7 +37,7 @@ const OVERALL_METRIC = { key: 'overall', label: 'Overall', dir: 'desc', unit: ''
 
 const toNum = (v) => (v == null || isNaN(Number(v)) ? null : Number(v));
 
-// Skor Overall 0-100: rata-rata PERSENTIL peringkat di 6 metrik, relatif ke seluruh
+// Skor Overall 0-100: rata-rata PERSENTIL peringkat di 4 metrik inti, relatif ke seluruh
 // emiten yang punya data. Bobot sama, transparan; metrik yang kosong di-skip (tak dihukum).
 function computeOverall(fundsMap) {
   const syms = Object.keys(fundsMap || {});
@@ -386,7 +386,7 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
   );
 }
 
-function FundamentalStrip({ symbol, funds }) {
+export function FundamentalStrip({ symbol, funds }) {
   const sym = (symbol || '').toUpperCase();
   const f = funds ? funds[sym] : null;
   const overall = useMemo(() => (funds ? (computeOverall(funds)[sym] ?? null) : null), [funds, sym]);
