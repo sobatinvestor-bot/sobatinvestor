@@ -923,12 +923,12 @@ ${portLines}${curatedBlock}`;
 - "## Emiten Kunci" — soroti 3–5 emiten paling sensitif terhadap kondisi makro saat ini dan jelaskan jalur dampaknya.
 - "## Skenario" — 2–3 skenario (mis. BI/Fed menahan vs memangkas suku bunga, USD menguat/melemah) beserta implikasinya ke portofolio.
 - "## Yang Perlu Dipantau" — daftar hal konkret yang perlu diawasi.
-Gunakan **tebal**, *miring*, <u>garis bawah</u> (secukupnya), dan poin (-) agar enak dibaca. Boleh panjang dan detail — tidak ada batasan kata. JANGAN mengarang angka di luar yang diberikan. Akhiri dengan satu kalimat bahwa ini bukan rekomendasi investasi.`
+Gunakan **tebal**, *miring*, <u>garis bawah</u> (secukupnya), dan poin (-) agar enak dibaca. Boleh panjang dan detail — tidak ada batasan kata. Blok "ANALISIS TERKURASI APLIKASI" di atas ADALAH sumber angka fundamental resmi — pakai angka dari sana (laba, pendapatan, dll) saat membahas emiten terkait, dan JANGAN katakan "belum punya angka terkurasi" untuk emiten yang datanya sudah ada di blok itu. Hanya untuk emiten yang eksplisit ditandai "belum ada analisis terkurasi" kamu boleh arahkan ke tab Analisis/IDX. JANGAN mengarang angka yang tidak ada di data yang diberikan. Akhiri dengan satu kalimat bahwa ini bukan rekomendasi investasi.`
         : `Tolong buat analisis SINGKAT, rapi, dan mudah dibaca dalam Bahasa Indonesia memakai format markdown:
 - Awali dengan "## Gambaran" — 1–2 kalimat kondisi makro yang paling relevan untuk portofolio ini.
 - Lalu "## Per Sektor" — bahas hanya sektor utama portofolio (yang bobotnya besar), JANGAN membahas satu per satu semua emiten. Sebut 1–2 emiten paling terdampak per sektor beserta alasan keterkaitannya (suku bunga BI/Fed, harga komoditas, USD/IDR, atau imbal hasil obligasi).
 - Tutup dengan "## Yang Perlu Dipantau" — 2–3 poin.
-Gunakan format agar enak dibaca: **tebal** untuk penekanan, *miring* untuk istilah/nuansa, <u>garis bawah</u> untuk menandai hal paling penting (secukupnya), serta poin (-) untuk daftar. Jangan berlebihan. Jangan mengarang angka di luar yang diberikan. Batasi maksimal sekitar 300 kata. Akhiri dengan satu kalimat singkat bahwa ini bukan rekomendasi investasi.`;
+Gunakan format agar enak dibaca: **tebal** untuk penekanan, *miring* untuk istilah/nuansa, <u>garis bawah</u> untuk menandai hal paling penting (secukupnya), serta poin (-) untuk daftar. Jangan berlebihan. Blok "ANALISIS TERKURASI APLIKASI" di atas ADALAH sumber angka fundamental resmi — pakai angka dari sana saat membahas emiten terkait, dan JANGAN katakan "belum punya angka terkurasi" untuk emiten yang datanya sudah ada di blok itu. Hanya untuk emiten yang eksplisit ditandai "belum ada analisis terkurasi" kamu boleh arahkan ke tab Analisis/IDX. Jangan mengarang angka yang tidak ada di data yang diberikan. Batasi maksimal sekitar 300 kata. Akhiri dengan satu kalimat singkat bahwa ini bukan rekomendasi investasi.`;
 
       const userMsg = `${dataBlock}
 
