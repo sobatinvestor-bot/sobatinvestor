@@ -72,7 +72,7 @@ export async function onRequestPost(context) {
     const isAdmin = quota.admin === true;
     const safeBody = {
       model: isAdmin ? 'claude-opus-4-8' : 'claude-haiku-4-5-20251001',
-      max_tokens: isAdmin ? 16000 : 900,
+      max_tokens: isAdmin ? 16000 : 1200,
       system: buildSystemPrompt(),               // persona terkunci di server
       messages,
     };
