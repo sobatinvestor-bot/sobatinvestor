@@ -1,7 +1,7 @@
 // functions/api/news.js
 // Berita per-emiten (judul + sumber + TAUTAN ke artikel asli; tanpa muat teks penuh).
 // Endpoint: GET /api/news?symbols=BBCA|Bank Central Asia,TLKM|Telkom&limit=20
-//   &debug=1  -> sertakan diagnosa per sumber (status, jumlah item, cuplikan)
+//   (diag internal tidak diekspos ke client)
 //
 // Sumber: Google News RSS (utama) -> fallback Bing News RSS bila Google kosong.
 // Legal: hanya judul, tanggal, sumber, link. Pengguna diarahkan ke penerbit asli.
@@ -10,7 +10,6 @@ export async function onRequestGet(context) {
   const url = new URL(context.request.url);
   const param = url.searchParams.get("symbols");
   const limit = Math.min(parseInt(url.searchParams.get("limit") || "8", 10), 20);
-  const debug = url.searchParams.get("debug") === "1";
   if (!param) return json({ news: [] });
 
   const items = param
@@ -34,7 +33,9 @@ export async function onRequestGet(context) {
     .slice(0, limit)
     .map(({ time, ...rest }) => ({ ...rest, date: new Date(time).toISOString() }));
 
-  return json(debug ? { news, diag } : { news });
+  // diag (status/error/cuplikan) hanya dipakai internal bila perlu debugging via log —
+  // TIDAK PERNAH dikirim ke client, agar tak membocorkan perilaku fetch internal.
+  return json({ news });
 }
 
 // Coba Google dulu; kalau 0 item, fallback ke Bing.
