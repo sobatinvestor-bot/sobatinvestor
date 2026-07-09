@@ -2116,26 +2116,26 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
         </div>
       ) : (
         <div style={{ background: C.cream2, borderRadius: 20, overflow: 'hidden' }}>
-          <div className="mono" style={{ display: 'grid', gridTemplateColumns: '1fr 48px 72px 86px 100px', padding: '14px 16px', fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', color: C.inkSoft, textTransform: 'uppercase', borderBottom: `1px solid rgba(26,42,32,0.08)` }}>
+          <div className="mono" style={{ display: 'grid', gridTemplateColumns: '1fr 48px 68px 68px 86px 100px', padding: '14px 16px', fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', color: C.inkSoft, textTransform: 'uppercase', borderBottom: `1px solid rgba(26,42,32,0.08)` }}>
             <span>SAHAM</span>
             <span style={{ textAlign: 'right' }}>QTY</span>
-            <span style={{ textAlign: 'right' }}>HARGA</span>
+            <span style={{ textAlign: 'right' }}>BELI</span>
+            <span style={{ textAlign: 'right' }}>SAAT INI</span>
             <span style={{ textAlign: 'right' }}>P/L</span>
             <span></span>
           </div>
+          <div style={{ maxHeight: 420, overflowY: 'auto' }}>
           {[...stocks].sort((a, b) => (b.price * b.qty) - (a.price * a.qty)).map((s) => {
             const plPct = (s.hasLive && s.avg) ? (s.price - s.avg) / s.avg * 100 : null;
             const plRp = s.hasLive ? (s.price - s.avg) * s.qty : null;
             return (
-              <div key={s.id || s.symbol} style={{ display: 'grid', gridTemplateColumns: '1fr 48px 72px 86px 100px', padding: '14px 16px', borderBottom: `1px solid rgba(26,42,32,0.06)`, alignItems: 'center' }}>
+              <div key={s.id || s.symbol} style={{ display: 'grid', gridTemplateColumns: '1fr 48px 68px 68px 86px 100px', padding: '14px 16px', borderBottom: `1px solid rgba(26,42,32,0.06)`, alignItems: 'center' }}>
                 <div>
                   <div onClick={onSymbol ? () => onSymbol(s.symbol) : undefined} title={onSymbol ? `Lihat analisis ${s.symbol}` : undefined} style={{ fontWeight: 700, fontSize: 14, cursor: onSymbol ? 'pointer' : 'default', textDecoration: onSymbol ? 'underline' : 'none', textDecorationStyle: 'dotted', textDecorationColor: 'rgba(26,42,32,0.35)', textUnderlineOffset: 3, display: 'inline-block' }}>{s.symbol}</div>
                   <div style={{ fontSize: 11, color: C.inkSoft, marginTop: 2 }}>{s.name}</div>
-                  <div className="mono" style={{ fontSize: 10, color: C.inkSoft, marginTop: 2 }}>
-                    avg Rp{Math.round(s.avg).toLocaleString('id-ID')}{s.buyDate ? ` · beli ${new Date(s.buyDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}
-                  </div>
                 </div>
                 <div className="mono" style={{ fontSize: 13, textAlign: 'right' }}>{s.qty.toLocaleString('id-ID')}</div>
+                <div className="mono" style={{ fontSize: 13, textAlign: 'right' }}>{Math.round(s.avg).toLocaleString('id-ID')}</div>
                 <div className="mono" style={{ fontSize: 13, textAlign: 'right', fontWeight: 600 }}>
                   {s.hasLive ? Math.round(s.price).toLocaleString('id-ID') : <span style={{ color: C.inkSoft }} title="harga live tak tersedia">—</span>}
                 </div>
@@ -2155,6 +2155,7 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
               </div>
             );
           })}
+          </div>
         </div>
       )}
 
