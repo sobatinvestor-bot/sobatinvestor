@@ -553,7 +553,7 @@ function PrivateArea({ tab, userId, ihsgQuote, goAnalisis, onPortfolioTotal, onP
         <div id="sec-rdn" style={{ scrollMarginTop: 70, maxWidth: 1100, margin: '0 auto', padding: '0 20px' }}><RdnCard settings={settings} onAdjust={adjustRdn} onSaveFees={saveFees} userId={userId} /></div>
         {(stocks.length > 0 || Number(settings.rdn) !== 0) && <DeleteAllPortfolio count={stocks.length} onDeleteAll={deleteAll} />}
         <div id="sec-berita" style={{ scrollMarginTop: 70, maxWidth: 1100, margin: '0 auto', padding: '0 20px' }}><StockNews stocks={stocks} /></div>
-        {userId === ADMIN_UID && <div id="sec-admin" style={{ scrollMarginTop: 70, maxWidth: 1100, margin: '0 auto', padding: '0 20px' }}><DividendAdmin userId={userId} /></div>}
+        {userId === ADMIN_UID && <div id="sec-admin" style={{ scrollMarginTop: 70, maxWidth: 1100, margin: '0 auto', padding: '0 20px' }}><AdminMFASetup userId={userId} /><DividendAdmin userId={userId} /></div>}
       </div>
       <ChatTab stocks={stocks} active={tab === 'chat'} />
       {editing && <Editor holding={editing} onSave={handleSave} onClose={() => setEditing(null)} />}
@@ -2157,6 +2157,134 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
               </button>
             </div>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Panel admin: aktifkan & kelola 2FA (TOTP — kompatibel Google Authenticator/Authy/1Password).
+// Native Supabase, gratis. Hanya admin yang melihatnya. Faktor kedua = "sesuatu yang kamu punya".
+// FASE 1: enrol saja (additive, tanpa gate) — tidak ada risiko terkunci di tahap ini.
+function AdminMFASetup({ userId }) {
+  const [phase, setPhase] = useState('loading'); // loading | none | enrolling | active | error
+  const [factors, setFactors] = useState([]);
+  const [enrollData, setEnrollData] = useState(null); // { id, qr, secret }
+  const [code, setCode] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  async function refresh() {
+    try {
+      const { data, error } = await supabase.auth.mfa.listFactors();
+      if (error) throw error;
+      const verified = (data && data.totp ? data.totp : []).filter((f) => f.status === 'verified');
+      setFactors(verified);
+      setPhase(verified.length > 0 ? 'active' : 'none');
+    } catch (e) {
+      setMsg((e && e.message) || 'Gagal memuat status 2FA');
+      setPhase('error');
+    }
+  }
+
+  useEffect(() => { refresh(); }, []);
+
+  async function startEnroll() {
+    setBusy(true); setMsg('');
+    try {
+      const { data, error } = await supabase.auth.mfa.enroll({
+        factorType: 'totp',
+        friendlyName: 'sobat-' + Date.now().toString(36),
+      });
+      if (error) throw error;
+      setEnrollData({ id: data.id, qr: data.totp.qr_code, secret: data.totp.secret });
+      setCode('');
+      setPhase('enrolling');
+    } catch (e) {
+      setMsg((e && e.message) || 'Gagal memulai pendaftaran');
+    }
+    setBusy(false);
+  }
+
+  async function verifyCode() {
+    const c = code.trim();
+    if (c.length < 6) { setMsg('Masukkan 6 digit kode dari aplikasi authenticator'); return; }
+    setBusy(true); setMsg('');
+    try {
+      const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: enrollData.id, code: c });
+      if (error) throw error;
+      setEnrollData(null); setCode('');
+      setMsg('2FA aktif. Sesi ini naik ke AAL2.');
+      await refresh();
+    } catch (e) {
+      setMsg((e && e.message) || 'Kode salah — coba lagi');
+    }
+    setBusy(false);
+  }
+
+  async function cancelEnroll() {
+    if (enrollData && enrollData.id) {
+      try { await supabase.auth.mfa.unenroll({ factorId: enrollData.id }); } catch (e) { /* abaikan */ }
+    }
+    setEnrollData(null); setCode(''); setMsg('');
+    refresh();
+  }
+
+  if (userId !== ADMIN_UID) return null;
+
+  const wrap = { background: C.cream2, borderRadius: 12, padding: 16, marginBottom: 12, border: '1px solid ' + C.cream };
+  const btn = (bg) => ({ background: bg, color: '#fff', border: 'none', borderRadius: 8, padding: '9px 16px', fontSize: 13, fontWeight: 600, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1 });
+  const outlineBtn = { background: 'transparent', color: C.forest, border: '1px solid ' + C.forest, borderRadius: 8, padding: '9px 16px', fontSize: 13, fontWeight: 600, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1 };
+  const inp = { width: 140, padding: '9px 12px', fontSize: 16, letterSpacing: 3, textAlign: 'center', border: '1px solid ' + C.sage, borderRadius: 8, background: '#fff', color: C.ink };
+
+  return (
+    <div style={wrap}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <Lock size={16} color={C.forest} />
+        <h3 className="serif" style={{ fontSize: 16, fontWeight: 600 }}>Keamanan Admin · 2FA (Authenticator)</h3>
+      </div>
+
+      {phase === 'loading' && <div style={{ fontSize: 13, color: C.inkSoft }}>Memuat status…</div>}
+
+      {phase === 'error' && (
+        <div style={{ fontSize: 13, color: C.rust }}>{msg || 'Gagal memuat.'}{' '}
+          <button onClick={refresh} style={btn(C.inkSoft)}>Coba lagi</button>
+        </div>
+      )}
+
+      {phase === 'none' && (
+        <div>
+          <p style={{ fontSize: 13, color: C.inkSoft, marginBottom: 10 }}>Belum ada faktor kedua. Aktifkan agar login admin butuh kode dari Google Authenticator / Authy / 1Password.</p>
+          <button onClick={startEnroll} disabled={busy} style={btn(C.forest)}>{busy ? 'Menyiapkan…' : 'Aktifkan 2FA'}</button>
+          {msg && <div style={{ fontSize: 12, color: C.rust, marginTop: 8 }}>{msg}</div>}
+        </div>
+      )}
+
+      {phase === 'enrolling' && enrollData && (
+        <div>
+          <p style={{ fontSize: 13, color: C.inkSoft, marginBottom: 10 }}>1) Scan QR ini dengan aplikasi authenticator. 2) Masukkan 6 digit kode yang muncul.</p>
+          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+            <img src={enrollData.qr} alt="QR 2FA" width={160} height={160} style={{ background: '#fff', borderRadius: 8, padding: 6 }} />
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <div style={{ fontSize: 11, color: C.inkSoft, marginBottom: 4 }}>Atau masukkan kunci manual:</div>
+              <code style={{ fontSize: 12, wordBreak: 'break-all', display: 'block', marginBottom: 12, color: C.ink }}>{enrollData.secret}</code>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <input value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="123456" inputMode="numeric" style={inp} />
+                <button onClick={verifyCode} disabled={busy} style={btn(C.forest)}>{busy ? 'Memverifikasi…' : 'Verifikasi'}</button>
+                <button onClick={cancelEnroll} disabled={busy} style={{ background: 'transparent', color: C.inkSoft, border: '1px solid ' + C.sage, borderRadius: 8, padding: '9px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Batal</button>
+              </div>
+              {msg && <div style={{ fontSize: 12, color: msg.indexOf('aktif') >= 0 ? C.green : C.rust, marginTop: 8 }}>{msg}</div>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {phase === 'active' && (
+        <div>
+          <div style={{ fontSize: 13, color: C.green, fontWeight: 600, marginBottom: 6 }}>✓ 2FA aktif ({factors.length} faktor terdaftar)</div>
+          <p style={{ fontSize: 12, color: C.inkSoft, marginBottom: 10 }}>Disarankan punya <b>2 faktor</b> (utama + cadangan di aplikasi/perangkat lain) agar tak terkunci bila HP hilang.</p>
+          <button onClick={startEnroll} disabled={busy} style={outlineBtn}>{busy ? 'Menyiapkan…' : '+ Tambah faktor cadangan'}</button>
+          {msg && <div style={{ fontSize: 12, color: msg.indexOf('aktif') >= 0 ? C.green : C.rust, marginTop: 8 }}>{msg}</div>}
         </div>
       )}
     </div>
