@@ -2230,6 +2230,39 @@ function AdminMFASetup({ userId }) {
     refresh();
   }
 
+  // Menambah faktor baru mensyaratkan sesi AAL2. Bila masih aal1, minta step-up dulu.
+  async function addBackup() {
+    setBusy(true); setMsg('');
+    try {
+      const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (data && data.currentLevel === 'aal2') {
+        setBusy(false);
+        return startEnroll();
+      }
+      setCode(''); setPhase('stepup');
+    } catch (e) {
+      setMsg((e && e.message) || 'Gagal memeriksa level keamanan');
+    }
+    setBusy(false);
+  }
+
+  async function stepUpVerify() {
+    const c = code.trim();
+    if (c.length < 6) { setMsg('Masukkan 6 digit kode dari authenticator kamu'); return; }
+    if (!factors.length) { setMsg('Tidak ada faktor terverifikasi'); return; }
+    setBusy(true); setMsg('');
+    try {
+      const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: factors[0].id, code: c });
+      if (error) throw error;
+      setCode('');
+      setBusy(false);
+      return startEnroll();
+    } catch (e) {
+      setMsg((e && e.message) || 'Kode salah — coba lagi');
+      setBusy(false);
+    }
+  }
+
   if (userId !== ADMIN_UID) return null;
 
   const wrap = { background: C.cream2, borderRadius: 12, padding: 16, marginBottom: 12, border: '1px solid ' + C.cream };
@@ -2279,11 +2312,23 @@ function AdminMFASetup({ userId }) {
         </div>
       )}
 
+      {phase === 'stepup' && (
+        <div>
+          <p style={{ fontSize: 13, color: C.inkSoft, marginBottom: 10 }}>Untuk menambah faktor cadangan, verifikasi dulu dengan <b>kode dari authenticator kamu saat ini</b>.</p>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <input value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="123456" inputMode="numeric" style={inp} />
+            <button onClick={stepUpVerify} disabled={busy} style={btn(C.forest)}>{busy ? 'Memverifikasi…' : 'Verifikasi'}</button>
+            <button onClick={() => { setPhase('active'); setCode(''); setMsg(''); }} disabled={busy} style={{ background: 'transparent', color: C.inkSoft, border: '1px solid ' + C.sage, borderRadius: 8, padding: '9px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Batal</button>
+          </div>
+          {msg && <div style={{ fontSize: 12, color: C.rust, marginTop: 8 }}>{msg}</div>}
+        </div>
+      )}
+
       {phase === 'active' && (
         <div>
           <div style={{ fontSize: 13, color: C.green, fontWeight: 600, marginBottom: 6 }}>✓ 2FA aktif ({factors.length} faktor terdaftar)</div>
           <p style={{ fontSize: 12, color: C.inkSoft, marginBottom: 10 }}>Disarankan punya <b>2 faktor</b> (utama + cadangan di aplikasi/perangkat lain) agar tak terkunci bila HP hilang.</p>
-          <button onClick={startEnroll} disabled={busy} style={outlineBtn}>{busy ? 'Menyiapkan…' : '+ Tambah faktor cadangan'}</button>
+          <button onClick={addBackup} disabled={busy} style={outlineBtn}>{busy ? 'Menyiapkan…' : '+ Tambah faktor cadangan'}</button>
           {msg && <div style={{ fontSize: 12, color: msg.indexOf('aktif') >= 0 ? C.green : C.rust, marginTop: 8 }}>{msg}</div>}
         </div>
       )}
