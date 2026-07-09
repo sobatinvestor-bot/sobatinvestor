@@ -2228,14 +2228,17 @@ function MFAChallenge({ onVerified }) {
     const c = code.trim();
     if (c.length < 6) { setMsg('Masukkan 6 digit kode'); return; }
     setBusy(true); setMsg('');
-    try {
-      const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId, code: c });
-      if (error) throw error;
-      onVerified();
-    } catch (e) {
-      setMsg((e && e.message) || 'Kode salah — coba lagi');
-      setBusy(false);
+    // Coba kode ke SEMUA faktor terverifikasi. Satu kode TOTP hanya cocok ke satu faktor,
+    // jadi user tak perlu memilih faktor yang benar lebih dulu.
+    const list = (factors && factors.length) ? factors : [];
+    for (const f of list) {
+      try {
+        const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: f.id, code: c });
+        if (!error) { onVerified(); return; }
+      } catch (e) { /* lanjut coba faktor lain */ }
     }
+    setMsg('Kode salah — coba lagi (pastikan jam HP tepat & kode belum kedaluwarsa)');
+    setBusy(false);
   }
 
   const card = { background: '#fff', borderRadius: 16, padding: 24, maxWidth: 360, width: '100%', boxShadow: '0 8px 30px rgba(26,42,32,0.12)' };
@@ -2249,12 +2252,6 @@ function MFAChallenge({ onVerified }) {
         <p style={{ fontSize: 13, color: C.inkSoft, marginBottom: 16 }}>Masukkan 6 digit dari aplikasi authenticator untuk melanjutkan.</p>
 
         {factors === null && <div style={{ fontSize: 13, color: C.inkSoft }}>Memuat…</div>}
-
-        {factors && factors.length > 1 && (
-          <select value={factorId} onChange={(e) => setFactorId(e.target.value)} style={{ width: '100%', padding: '9px 12px', marginBottom: 10, borderRadius: 8, border: '1px solid ' + C.sage, background: '#fff', color: C.ink, fontSize: 13 }}>
-            {factors.map((f) => <option key={f.id} value={f.id}>{f.friendly_name || 'Faktor'}</option>)}
-          </select>
-        )}
 
         {factors && factors.length > 0 && (
           <div>
@@ -2304,7 +2301,7 @@ function AdminMFASetup({ userId }) {
     try {
       const { data, error } = await supabase.auth.mfa.enroll({
         factorType: 'totp',
-        friendlyName: 'sobat-' + Date.now().toString(36),
+        friendlyName: 'SobatInvestor ' + new Date().toLocaleString('id-ID', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
       });
       if (error) throw error;
       setEnrollData({ id: data.id, qr: data.totp.qr_code, secret: data.totp.secret });
