@@ -355,6 +355,7 @@ export default function App() {
   const [pfStats, setPfStats] = useState({ plPortfolioPct: null, plModalPct: null, modalAwal: 0, rdn: 0 }); // % P/L portofolio, modal awal & saldo RDN
   const [showChangePw, setShowChangePw] = useState(false); // modal ganti kata sandi
   const [recoveryMode, setRecoveryMode] = useState(false); // halaman set-password dari link email (Jalur B)
+  const [mfaGate, setMfaGate] = useState('checking'); // checking | need | ok — gate AAL2 utk akun ber-2FA (admin)
 
   function goTo(tabId, page) {
     setAnalisisPage(page || null);
@@ -394,6 +395,27 @@ export default function App() {
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => { setSession(s); if (_e === 'PASSWORD_RECOVERY') setRecoveryMode(true); });
     return () => sub.subscription.unsubscribe();
   }, []);
+
+  // Gate MFA (AAL2): bila akun punya faktor terverifikasi tapi sesi masih aal1, minta kode dulu.
+  // Hanya berdampak ke akun ber-2FA (admin). Gagal cek → jangan kunci (hindari lockout);
+  // penegakan server-side sebenarnya ada di RLS AAL2 (Fase 3).
+  useEffect(() => {
+    let active = true;
+    if (!session) { setMfaGate('ok'); return; }
+    setMfaGate('checking');
+    (async () => {
+      try {
+        const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+        if (!active) return;
+        if (error) { setMfaGate('ok'); return; }
+        const need = data && data.nextLevel === 'aal2' && data.currentLevel !== 'aal2';
+        setMfaGate(need ? 'need' : 'ok');
+      } catch (e) {
+        if (active) setMfaGate('ok');
+      }
+    })();
+    return () => { active = false; };
+  }, [session]);
 
   // Auto sign-out (keamanan). Aktif hanya saat sudah login.
   // Keluar bila: 3 menit TANPA aktivitas, ATAU tab tersembunyi/minimize ≥ 3 menit.
@@ -446,6 +468,18 @@ export default function App() {
         <Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} />
       </div>
     );
+  }
+
+  // Gate MFA: tahan render app sampai AAL2 terpenuhi (hanya untuk akun ber-2FA).
+  if (session && mfaGate === 'checking') {
+    return (
+      <div style={{ background: C.cream, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.inkSoft }}>
+        <Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} />
+      </div>
+    );
+  }
+  if (session && mfaGate === 'need') {
+    return <MFAChallenge onVerified={() => setMfaGate('ok')} />;
   }
 
   const ihsg = market.ihsg ? market.ihsg.value : 7800;
@@ -2159,6 +2193,82 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// Gate login: minta 6-digit dari authenticator sebelum app terbuka (menaikkan sesi ke AAL2).
+// Hanya muncul untuk akun yang punya faktor terverifikasi (praktis: admin).
+function MFAChallenge({ onVerified }) {
+  const [factors, setFactors] = useState(null); // null=loading | array terverifikasi
+  const [factorId, setFactorId] = useState('');
+  const [code, setCode] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const { data, error } = await supabase.auth.mfa.listFactors();
+        if (!active) return;
+        if (error) throw error;
+        const verified = (data && data.totp ? data.totp : []).filter((f) => f.status === 'verified');
+        setFactors(verified);
+        if (verified.length) setFactorId(verified[0].id);
+        else onVerified(); // tak ada faktor → jangan kunci
+      } catch (e) {
+        if (active) { setFactors([]); setMsg((e && e.message) || 'Gagal memuat faktor'); }
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+
+  async function verify() {
+    const c = code.trim();
+    if (c.length < 6) { setMsg('Masukkan 6 digit kode'); return; }
+    setBusy(true); setMsg('');
+    try {
+      const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId, code: c });
+      if (error) throw error;
+      onVerified();
+    } catch (e) {
+      setMsg((e && e.message) || 'Kode salah — coba lagi');
+      setBusy(false);
+    }
+  }
+
+  const card = { background: '#fff', borderRadius: 16, padding: 24, maxWidth: 360, width: '100%', boxShadow: '0 8px 30px rgba(26,42,32,0.12)' };
+  return (
+    <div style={{ background: C.cream, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, color: C.ink }}>
+      <div style={card}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+          <Lock size={18} color={C.forest} />
+          <h2 className="serif" style={{ fontSize: 19, fontWeight: 700 }}>Verifikasi 2FA</h2>
+        </div>
+        <p style={{ fontSize: 13, color: C.inkSoft, marginBottom: 16 }}>Masukkan 6 digit dari aplikasi authenticator untuk melanjutkan.</p>
+
+        {factors === null && <div style={{ fontSize: 13, color: C.inkSoft }}>Memuat…</div>}
+
+        {factors && factors.length > 1 && (
+          <select value={factorId} onChange={(e) => setFactorId(e.target.value)} style={{ width: '100%', padding: '9px 12px', marginBottom: 10, borderRadius: 8, border: '1px solid ' + C.sage, background: '#fff', color: C.ink, fontSize: 13 }}>
+            {factors.map((f) => <option key={f.id} value={f.id}>{f.friendly_name || 'Faktor'}</option>)}
+          </select>
+        )}
+
+        {factors && factors.length > 0 && (
+          <div>
+            <input value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="123456" inputMode="numeric" autoFocus
+              onKeyDown={(e) => { if (e.key === 'Enter') verify(); }}
+              style={{ width: '100%', padding: '12px', fontSize: 20, letterSpacing: 6, textAlign: 'center', border: '1px solid ' + C.sage, borderRadius: 8, background: '#fff', color: C.ink, marginBottom: 12, boxSizing: 'border-box' }} />
+            <button onClick={verify} disabled={busy} style={{ width: '100%', background: C.forest, color: '#fff', border: 'none', borderRadius: 8, padding: '12px', fontSize: 14, fontWeight: 600, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1 }}>{busy ? 'Memverifikasi…' : 'Masuk'}</button>
+          </div>
+        )}
+
+        {msg && <div style={{ fontSize: 12, color: C.rust, marginTop: 10 }}>{msg}</div>}
+
+        <button onClick={() => logout()} style={{ width: '100%', background: 'transparent', color: C.inkSoft, border: 'none', padding: '12px', fontSize: 13, marginTop: 8, cursor: 'pointer' }}>Keluar</button>
+      </div>
     </div>
   );
 }
