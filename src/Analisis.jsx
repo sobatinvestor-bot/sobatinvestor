@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, lazy, Suspense } from 'react';
 import { ChevronLeft, Send, Trash2, Loader2, TrendingUp, TrendingDown, MessageCircle, Search, X, Briefcase } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell, LineChart, Line, CartesianGrid } from 'recharts';
 import { supabase } from './lib/supabase';
 import useBackGuard from './useBackGuard.js';
 const Backtest = lazy(() => import('./Backtest.jsx'));
@@ -442,6 +442,8 @@ function AnalisisDetail({ a, funds, onBack, onPortfolio, userId, userName, onReq
 
       <FundamentalStrip symbol={a.symbol} funds={funds} />
 
+      <PriceChart symbol={a.symbol} />
+
       {a.ringkasan && <p style={{ fontSize: 15, color: C.ink, lineHeight: 1.6, marginBottom: 18 }}>{a.ringkasan}</p>}
 
       <AnalysisChart chart={a.chart} />
@@ -498,6 +500,95 @@ function Body({ text }) {
         }
         return <p key={i} style={{ fontSize: 14, color: C.inkSoft, lineHeight: 1.65, marginBottom: 10 }}>{t}</p>;
       })}
+    </div>
+  );
+}
+
+function PriceChart({ symbol }) {
+  const RANGES = [
+    { key: '1mo', label: '1B' },
+    { key: '3mo', label: '3B' },
+    { key: '6mo', label: '6B' },
+    { key: 'ytd', label: 'YTD' },
+  ];
+  const [range, setRange] = useState('ytd');
+  const [series, setSeries] = useState(null); // null=loading, []=kosong
+  const [err, setErr] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    setSeries(null); setErr(false);
+    fetch(`/api/history?symbols=${encodeURIComponent(symbol)}&range=${range}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d) => {
+        if (!active) return;
+        const s = (d.history && d.history[symbol]) || [];
+        setSeries(s.map((p) => ({ t: p.t, close: p.close })));
+      })
+      .catch(() => { if (active) { setErr(true); setSeries([]); } });
+    return () => { active = false; };
+  }, [symbol, range]);
+
+  const first = series && series.length ? series[0].close : null;
+  const last = series && series.length ? series[series.length - 1].close : null;
+  const chg = (first && last) ? ((last - first) / first) * 100 : null;
+  const up = chg != null && chg >= 0;
+  const lineColor = up ? C.green : C.red;
+
+  return (
+    <div style={{ background: C.cream2, borderRadius: 16, padding: 16, marginBottom: 18 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: C.ink }}>Harga</span>
+          {chg != null && (
+            <span className="mono" style={{ fontSize: 12, fontWeight: 700, color: lineColor }}>
+              {up ? '+' : ''}{chg.toFixed(2)}%
+            </span>
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: 4 }}>
+          {RANGES.map((r) => (
+            <button key={r.key} onClick={() => setRange(r.key)}
+              className="mono"
+              style={{
+                background: range === r.key ? C.forest : 'transparent',
+                color: range === r.key ? C.cream : C.inkSoft,
+                border: `1px solid ${range === r.key ? C.forest : 'rgba(26,42,32,0.15)'}`,
+                borderRadius: 8, padding: '3px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer',
+              }}>
+              {r.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {series === null ? (
+        <div style={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.inkSoft, fontSize: 13, gap: 8 }}>
+          <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Memuat harga…
+        </div>
+      ) : series.length === 0 ? (
+        <div style={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.inkSoft, fontSize: 13 }}>
+          {err ? 'Data harga tidak tersedia.' : 'Belum ada data harga.'}
+        </div>
+      ) : (
+        <ResponsiveContainer width="100%" height={180}>
+          <LineChart data={series} margin={{ top: 6, right: 8, bottom: 0, left: 8 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(26,42,32,0.06)" vertical={false} />
+            <XAxis dataKey="t" tick={{ fontSize: 10, fill: C.inkSoft }} axisLine={false} tickLine={false}
+              tickFormatter={(t) => new Date(t).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+              minTickGap={40} />
+            <YAxis domain={['auto', 'auto']} tick={{ fontSize: 10, fill: C.inkSoft }} axisLine={false} tickLine={false}
+              width={44} tickFormatter={(v) => Number(v).toLocaleString('id-ID')} />
+            <Tooltip
+              labelFormatter={(t) => new Date(t).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+              formatter={(v) => [`Rp${Number(v).toLocaleString('id-ID')}`, 'Tutup']}
+              contentStyle={{ background: C.ink, border: 'none', borderRadius: 8, fontSize: 12 }}
+              labelStyle={{ color: C.cream }} itemStyle={{ color: C.cuanBright }} />
+            <Line type="monotone" dataKey="close" stroke={lineColor} strokeWidth={2} dot={false} />
+          </LineChart>
+        </ResponsiveContainer>
+      )}
+      <div style={{ fontSize: 10, color: C.inkSoft, marginTop: 6 }}>Harga penutupan harian (data delayed). Bukan rekomendasi.</div>
     </div>
   );
 }
