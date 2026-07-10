@@ -2086,7 +2086,7 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
   return (
     <div className="fade-up" style={{ padding: '24px 20px', maxWidth: 1100, margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-        <h2 className="serif" style={{ fontSize: 32, fontWeight: 500, letterSpacing: '-0.02em' }}>Daftar Saham</h2>
+        <h2 className="serif" style={{ fontSize: 40, fontWeight: 800, letterSpacing: '-0.02em', color: C.ink }}>Daftar Saham</h2>
         <div style={{ display: 'flex', gap: 8 }}>
           <button
             onClick={onAdd}
@@ -2119,7 +2119,7 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
           <div style={{ overflowX: 'auto' }}>
           <div style={{ minWidth: 560 }}>
           <div className="mono" style={{ display: 'grid', gridTemplateColumns: '1fr 48px 68px 68px 86px 100px', padding: '14px 16px', fontSize: 12, fontWeight: 800, letterSpacing: '0.06em', color: C.forest, textTransform: 'uppercase', borderBottom: `1px solid rgba(26,42,32,0.08)` }}>
-            <span>SAHAM</span>
+            <span style={{ position: 'sticky', left: 0, background: C.cream2, paddingRight: 8, zIndex: 2 }}>SAHAM</span>
             <span style={{ textAlign: 'right' }}>QTY</span>
             <span style={{ textAlign: 'right' }}>BELI</span>
             <span style={{ textAlign: 'right' }}>SAAT INI</span>
@@ -2132,7 +2132,7 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
             const plRp = s.hasLive ? (s.price - s.avg) * s.qty : null;
             return (
               <div key={s.id || s.symbol} style={{ display: 'grid', gridTemplateColumns: '1fr 48px 68px 68px 86px 100px', padding: '14px 16px', borderBottom: `1px solid rgba(26,42,32,0.06)`, alignItems: 'center' }}>
-                <div>
+                <div style={{ position: 'sticky', left: 0, background: C.cream2, paddingRight: 8, zIndex: 1 }}>
                   <div onClick={onSymbol ? () => onSymbol(s.symbol) : undefined} title={onSymbol ? `Lihat analisis ${s.symbol}` : undefined} style={{ fontWeight: 700, fontSize: 14, cursor: onSymbol ? 'pointer' : 'default', textDecoration: onSymbol ? 'underline' : 'none', textDecorationStyle: 'dotted', textDecorationColor: 'rgba(26,42,32,0.35)', textUnderlineOffset: 3, display: 'inline-block' }}>{s.symbol}</div>
                 </div>
                 <div className="mono" style={{ fontSize: 13, textAlign: 'right' }}>{s.qty.toLocaleString('id-ID')}</div>
