@@ -571,7 +571,7 @@ function PrivateArea({ tab, userId, ihsgQuote, goAnalisis, onPortfolioTotal, onP
   return (
     <>
       <div style={{ display: tab === 'portfolio' ? 'block' : 'none' }}>
-        <DashboardTab stocks={stocks} ihsgQuote={ihsgQuote} onSymbol={goAnalisis} />
+        <DashboardTab stocks={stocks} ihsgQuote={ihsgQuote} onSymbol={goAnalisis} isAdmin={!!(session && session.user && session.user.id === ADMIN_UID)} />
         <div id="sec-saham" style={{ scrollMarginTop: 70 }}>
           <PortfolioTab
             stocks={stocks}
@@ -1448,7 +1448,37 @@ function PerfTooltip({ active, payload }) {
   );
 }
 
-function DashboardTab({ stocks, ihsgQuote, onSymbol }) {
+function ZakatCard() {
+  const [input, setInput] = useState('');
+  const val = parseFloat((input || '').replace(/[^0-9]/g, '')) || 0;
+  const zakat = val * 0.025;
+  return (
+    <div style={{ marginTop: 16, background: C.cream2, borderRadius: 20, padding: 20 }}>
+      <h3 className="serif" style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>Zakat Dividen</h3>
+      <div style={{ fontSize: 12, color: C.inkSoft, marginBottom: 14 }}>2,5% dari total dividen yang dibayarkan.</div>
+
+      <label style={{ display: 'block', fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', color: C.inkSoft, textTransform: 'uppercase', marginBottom: 6 }}>Dividen Dibayarkan (Rp)</label>
+      <input
+        inputMode="numeric"
+        value={input}
+        onChange={(e) => {
+          const digits = e.target.value.replace(/[^0-9]/g, '');
+          setInput(digits ? Number(digits).toLocaleString('id-ID') : '');
+        }}
+        placeholder="contoh: 10.000.000"
+        className="mono"
+        style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', fontSize: 15, border: `1px solid rgba(26,42,32,0.15)`, borderRadius: 10, background: C.cream, color: C.ink, marginBottom: 14 }}
+      />
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '12px 14px', background: 'rgba(107,142,90,0.12)', borderRadius: 12 }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: C.ink }}>Zakat (2,5%)</span>
+        <span className="serif" style={{ fontSize: 22, fontWeight: 700, color: C.forest }}>{fmtRp(zakat)}</span>
+      </div>
+    </div>
+  );
+}
+
+function DashboardTab({ stocks, ihsgQuote, onSymbol, isAdmin }) {
   const [hideBalance, toggleHideBalance] = useHideBalance();
   const ihsgChange = ihsgQuote && typeof ihsgQuote.change === 'number' ? ihsgQuote.change : null;
   const ihsgLive = ihsgQuote && typeof ihsgQuote.value === 'number' ? ihsgQuote.value : null;
@@ -2163,6 +2193,8 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
       )}
 
       {stocks.length > 0 && <div id="sec-dividen" style={{ scrollMarginTop: 70 }}><DividendCard stocks={stocks} onSymbol={onSymbol} /></div>}
+
+      {stocks.length > 0 && isAdmin && <div id="sec-zakat" style={{ scrollMarginTop: 70 }}><ZakatCard /></div>}
 
       <div style={{ marginTop: 16, padding: 14, background: 'rgba(196,155,60,0.1)', borderRadius: 12, fontSize: 12, color: C.inkSoft, lineHeight: 1.5 }}>
         💡 <strong style={{ color: C.ink }}>Privat:</strong> Hanya kamu yang bisa melihat portofolio ini. Tersimpan di akunmu &amp; sinkron lintas perangkat. Harga live (delayed) dari pasar.
