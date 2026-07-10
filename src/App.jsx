@@ -2116,7 +2116,9 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
         </div>
       ) : (
         <div style={{ background: C.cream2, borderRadius: 20, overflow: 'hidden' }}>
-          <div className="mono" style={{ display: 'grid', gridTemplateColumns: '1fr 48px 68px 68px 86px 100px', padding: '14px 16px', fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', color: C.inkSoft, textTransform: 'uppercase', borderBottom: `1px solid rgba(26,42,32,0.08)` }}>
+          <div style={{ overflowX: 'auto' }}>
+          <div style={{ minWidth: 560 }}>
+          <div className="mono" style={{ display: 'grid', gridTemplateColumns: '1fr 48px 68px 68px 86px 100px', padding: '14px 16px', fontSize: 12, fontWeight: 800, letterSpacing: '0.06em', color: C.forest, textTransform: 'uppercase', borderBottom: `1px solid rgba(26,42,32,0.08)` }}>
             <span>SAHAM</span>
             <span style={{ textAlign: 'right' }}>QTY</span>
             <span style={{ textAlign: 'right' }}>BELI</span>
@@ -2154,6 +2156,8 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
               </div>
             );
           })}
+          </div>
+          </div>
           </div>
         </div>
       )}
