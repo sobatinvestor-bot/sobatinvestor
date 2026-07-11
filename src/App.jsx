@@ -539,7 +539,7 @@ export default function App() {
 
 // Area privat (hanya saat sudah login): Dashboard, Sobat AI, Portfolio
 function PrivateArea({ tab, userId, ihsgQuote, goAnalisis, onPortfolioTotal, onPortfolioStats }) {
-  const { stocks, addHolding, updateHolding, deleteHolding, deleteAll, sellHolding, settings, adjustRdn, saveFees, saveModalAwal, exportCSV, importData } = usePortfolio(userId);
+  const { stocks, addHolding, updateHolding, deleteHolding, deleteAll, sellHolding, settings, adjustRdn, saveFees, saveModalAwal, saveZakatPaid, exportCSV, importData } = usePortfolio(userId);
   const pfTotalValue = stocks.reduce((sum, s) => sum + (s.price || 0) * (s.qty || 0), 0);
   const costBasis = stocks.reduce((sum, s) => sum + (s.avg || 0) * (s.qty || 0), 0);
   const rdn = Number(settings.rdn || 0);
@@ -583,9 +583,16 @@ function PrivateArea({ tab, userId, ihsgQuote, goAnalisis, onPortfolioTotal, onP
             onImport={importData}
             onSymbol={goAnalisis}
             isAdmin={userId === ADMIN_UID}
+            zakatPaid={Number(settings.zakat_paid || 0)}
+            onSaveZakat={saveZakatPaid}
           />
         </div>
         <div id="sec-rdn" style={{ scrollMarginTop: 70, maxWidth: 1100, margin: '0 auto', padding: '0 20px' }}><RdnCard settings={settings} onAdjust={adjustRdn} onSaveFees={saveFees} userId={userId} /></div>
+        <div style={{ maxWidth: 1100, margin: '16px auto 0', padding: '0 20px' }}>
+          <div style={{ padding: 14, background: 'rgba(196,155,60,0.1)', borderRadius: 12, fontSize: 12, color: C.inkSoft, lineHeight: 1.5 }}>
+            💡 <strong style={{ color: C.ink }}>Privat:</strong> Hanya kamu yang bisa melihat portofolio ini. Tersimpan di akunmu &amp; sinkron lintas perangkat. Harga live (delayed) dari pasar.
+          </div>
+        </div>
         {(stocks.length > 0 || Number(settings.rdn) !== 0) && <DeleteAllPortfolio count={stocks.length} onDeleteAll={deleteAll} />}
         <div id="sec-berita" style={{ scrollMarginTop: 70, maxWidth: 1100, margin: '0 auto', padding: '0 20px' }}><StockNews stocks={stocks} /></div>
         {userId === ADMIN_UID && <div id="sec-admin" style={{ scrollMarginTop: 70, maxWidth: 1100, margin: '0 auto', padding: '0 20px' }}><AdminMFASetup userId={userId} /><DividendAdmin userId={userId} /></div>}
@@ -1449,21 +1456,54 @@ function PerfTooltip({ active, payload }) {
   );
 }
 
-function ZakatCard({ dividenDibayar = 0 }) {
+function ZakatCard({ dividenDibayar = 0, zakatPaid = 0, onSaveZakat }) {
   const zakat = dividenDibayar * 0.025;
+  const [input, setInput] = useState('');
+  const [saving, setSaving] = useState(false);
+  useEffect(() => { setInput(zakatPaid ? Number(zakatPaid).toLocaleString('id-ID') : ''); }, [zakatPaid]);
+  const paid = parseFloat((input || '').replace(/[^0-9]/g, '')) || 0;
+  const sisa = Math.max(0, zakat - paid);
+  const dirty = paid !== Number(zakatPaid || 0);
+
   return (
     <div style={{ marginTop: 16, background: C.cream2, borderRadius: 20, padding: 20 }}>
       <h3 className="serif" style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>Zakat Dividen</h3>
       <div style={{ fontSize: 12, color: C.inkSoft, marginBottom: 14 }}>2,5% dari dividen dibayarkan (12 bulan terakhir).</div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
         <span style={{ fontSize: 13, color: C.inkSoft }}>Dividen dibayarkan</span>
         <span className="mono" style={{ fontSize: 15, fontWeight: 600, color: C.ink }}>{fmtRp(dividenDibayar)}</span>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '12px 14px', background: 'rgba(107,142,90,0.12)', borderRadius: 12 }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: C.ink }}>Zakat (2,5%)</span>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '12px 14px', background: 'rgba(107,142,90,0.12)', borderRadius: 12, marginBottom: 14 }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: C.ink }}>Zakat wajib (2,5%)</span>
         <span className="serif" style={{ fontSize: 22, fontWeight: 700, color: C.forest }}>{fmtRp(zakat)}</span>
+      </div>
+
+      <label style={{ display: 'block', fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', color: C.inkSoft, textTransform: 'uppercase', marginBottom: 6 }}>Sudah Dibayar (Rp)</label>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+        <input
+          inputMode="numeric"
+          value={input}
+          onChange={(e) => {
+            const digits = e.target.value.replace(/[^0-9]/g, '');
+            setInput(digits ? Number(digits).toLocaleString('id-ID') : '');
+          }}
+          placeholder="0"
+          className="mono"
+          style={{ flex: 1, boxSizing: 'border-box', padding: '10px 12px', fontSize: 15, border: `1px solid rgba(26,42,32,0.15)`, borderRadius: 10, background: C.cream, color: C.ink }}
+        />
+        <button
+          disabled={!dirty || saving || !onSaveZakat}
+          onClick={async () => { setSaving(true); await onSaveZakat(paid); setSaving(false); }}
+          style={{ padding: '10px 16px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 10, cursor: (dirty && !saving) ? 'pointer' : 'default', background: (dirty && !saving) ? C.forest : 'rgba(26,42,32,0.15)', color: (dirty && !saving) ? C.cream : C.inkSoft }}>
+          {saving ? '…' : 'Simpan'}
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '12px 14px', background: sisa > 0 ? 'rgba(184,92,56,0.12)' : 'rgba(107,142,90,0.12)', borderRadius: 12 }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: C.ink }}>{sisa > 0 ? 'Sisa perlu dibayar' : 'Zakat lunas'}</span>
+        <span className="serif" style={{ fontSize: 22, fontWeight: 700, color: sisa > 0 ? C.rust : C.forest }}>{fmtRp(sisa)}</span>
       </div>
     </div>
   );
@@ -2101,7 +2141,7 @@ function DeleteAllPortfolio({ count, onDeleteAll }) {
   );
 }
 
-function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImport, onSymbol, isAdmin }) {
+function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImport, onSymbol, isAdmin, zakatPaid, onSaveZakat }) {
   const [confirmDel, setConfirmDel] = useState(null); // stock yang mau dihapus
   const [divTotalHist, setDivTotalHist] = useState(0); // total dividen dibayarkan 12 bln (dari DividendCard)
 
@@ -2186,11 +2226,7 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
 
       {stocks.length > 0 && <div id="sec-dividen" style={{ scrollMarginTop: 70 }}><DividendCard stocks={stocks} onSymbol={onSymbol} onTotalHist={setDivTotalHist} /></div>}
 
-      {stocks.length > 0 && isAdmin && <div id="sec-zakat" style={{ scrollMarginTop: 70 }}><ZakatCard dividenDibayar={divTotalHist} /></div>}
-
-      <div style={{ marginTop: 16, padding: 14, background: 'rgba(196,155,60,0.1)', borderRadius: 12, fontSize: 12, color: C.inkSoft, lineHeight: 1.5 }}>
-        💡 <strong style={{ color: C.ink }}>Privat:</strong> Hanya kamu yang bisa melihat portofolio ini. Tersimpan di akunmu &amp; sinkron lintas perangkat. Harga live (delayed) dari pasar.
-      </div>
+      {stocks.length > 0 && isAdmin && <div id="sec-zakat" style={{ scrollMarginTop: 70 }}><ZakatCard dividenDibayar={divTotalHist} zakatPaid={zakatPaid} onSaveZakat={onSaveZakat} /></div>}
 
       {/* Konfirmasi hapus */}
       {confirmDel && (

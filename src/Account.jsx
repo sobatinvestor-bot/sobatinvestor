@@ -94,10 +94,10 @@ export function usePortfolio(userId) {
   const [ihsg, setIhsg] = useState(null);
   const [loading, setLoading] = useState(true);
   // Fee transaksi (persen) + saldo RDN — dimuat dari user_settings, default praktik umum IDX
-  const [settings, setSettings] = useState({ fee_buy: 0.15, fee_sell: 0.15, tax_sell: 0.10, rdn: 0, modal_awal: 0 });
+  const [settings, setSettings] = useState({ fee_buy: 0.15, fee_sell: 0.15, tax_sell: 0.10, rdn: 0, modal_awal: 0, zakat_paid: 0 });
 
   const loadSettings = useCallback(async () => {
-    const { data } = await supabase.from('user_settings').select('fee_buy,fee_sell,tax_sell,rdn,modal_awal').maybeSingle();
+    const { data } = await supabase.from('user_settings').select('fee_buy,fee_sell,tax_sell,rdn,modal_awal,zakat_paid').maybeSingle();
     if (data) setSettings(data);
   }, []);
   useEffect(() => { if (userId) loadSettings(); }, [userId, loadSettings]);
@@ -121,6 +121,16 @@ export function usePortfolio(userId) {
     const { error } = await supabase.from('user_settings').upsert(row, { onConflict: 'user_id' });
     if (error) alert('Gagal menyimpan fee: ' + error.message);
     else setSettings((p) => ({ ...p, ...row }));
+  }
+
+  // Zakat dividen yang sudah dibayar — input manual, tersimpan di user_settings
+  async function saveZakatPaid(v) {
+    const val = Math.max(0, Math.round(Number(v) || 0));
+    const row = { user_id: userId, fee_buy: Number(settings.fee_buy), fee_sell: Number(settings.fee_sell), tax_sell: Number(settings.tax_sell), zakat_paid: val };
+    const { error } = await supabase.from('user_settings').upsert(row, { onConflict: 'user_id' });
+    if (error) { alert('Gagal menyimpan zakat dibayar: ' + error.message); return false; }
+    setSettings((p) => ({ ...p, zakat_paid: val }));
+    return true;
   }
 
   // Modal awal banget (setoran pokok, dipisah dari gain & dividen) — input manual
@@ -348,7 +358,7 @@ export function usePortfolio(userId) {
     ihsg: ihsg ? ihsg.value : 7800,
     ihsgChange: ihsg ? ihsg.change : 0,
     addHolding, updateHolding, deleteHolding, deleteAll, sellHolding,
-    settings, adjustRdn, saveFees, saveModalAwal, exportCSV, importData,
+    settings, adjustRdn, saveFees, saveModalAwal, saveZakatPaid, exportCSV, importData,
   };
 }
 
