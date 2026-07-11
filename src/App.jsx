@@ -571,7 +571,7 @@ function PrivateArea({ tab, userId, ihsgQuote, goAnalisis, onPortfolioTotal, onP
   return (
     <>
       <div style={{ display: tab === 'portfolio' ? 'block' : 'none' }}>
-        <DashboardTab stocks={stocks} ihsgQuote={ihsgQuote} onSymbol={goAnalisis} isAdmin={!!(session && session.user && session.user.id === ADMIN_UID)} />
+        <DashboardTab stocks={stocks} ihsgQuote={ihsgQuote} onSymbol={goAnalisis} isAdmin={userId === ADMIN_UID} />
         <div id="sec-saham" style={{ scrollMarginTop: 70 }}>
           <PortfolioTab
             stocks={stocks}
