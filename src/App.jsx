@@ -1449,27 +1449,17 @@ function PerfTooltip({ active, payload }) {
   );
 }
 
-function ZakatCard() {
-  const [input, setInput] = useState('');
-  const val = parseFloat((input || '').replace(/[^0-9]/g, '')) || 0;
-  const zakat = val * 0.025;
+function ZakatCard({ dividenDibayar = 0 }) {
+  const zakat = dividenDibayar * 0.025;
   return (
     <div style={{ marginTop: 16, background: C.cream2, borderRadius: 20, padding: 20 }}>
       <h3 className="serif" style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>Zakat Dividen</h3>
-      <div style={{ fontSize: 12, color: C.inkSoft, marginBottom: 14 }}>2,5% dari total dividen yang dibayarkan.</div>
+      <div style={{ fontSize: 12, color: C.inkSoft, marginBottom: 14 }}>2,5% dari dividen dibayarkan (12 bulan terakhir).</div>
 
-      <label style={{ display: 'block', fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', color: C.inkSoft, textTransform: 'uppercase', marginBottom: 6 }}>Dividen Dibayarkan (Rp)</label>
-      <input
-        inputMode="numeric"
-        value={input}
-        onChange={(e) => {
-          const digits = e.target.value.replace(/[^0-9]/g, '');
-          setInput(digits ? Number(digits).toLocaleString('id-ID') : '');
-        }}
-        placeholder="contoh: 10.000.000"
-        className="mono"
-        style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', fontSize: 15, border: `1px solid rgba(26,42,32,0.15)`, borderRadius: 10, background: C.cream, color: C.ink, marginBottom: 14 }}
-      />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>
+        <span style={{ fontSize: 13, color: C.inkSoft }}>Dividen dibayarkan</span>
+        <span className="mono" style={{ fontSize: 15, fontWeight: 600, color: C.ink }}>{fmtRp(dividenDibayar)}</span>
+      </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '12px 14px', background: 'rgba(107,142,90,0.12)', borderRadius: 12 }}>
         <span style={{ fontSize: 13, fontWeight: 600, color: C.ink }}>Zakat (2,5%)</span>
@@ -2113,6 +2103,7 @@ function DeleteAllPortfolio({ count, onDeleteAll }) {
 
 function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImport, onSymbol, isAdmin }) {
   const [confirmDel, setConfirmDel] = useState(null); // stock yang mau dihapus
+  const [divTotalHist, setDivTotalHist] = useState(0); // total dividen dibayarkan 12 bln (dari DividendCard)
 
   return (
     <div className="fade-up" style={{ padding: '24px 20px', maxWidth: 1100, margin: '0 auto' }}>
@@ -2147,23 +2138,23 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
         </div>
       ) : (
         <div style={{ background: C.cream2, borderRadius: 20, overflow: 'hidden' }}>
-          <div style={{ overflowX: 'auto' }}>
+          <div style={{ overflow: 'auto', maxHeight: 460 }}>
           <div style={{ minWidth: 560 }}>
-          <div className="mono" style={{ display: 'grid', gridTemplateColumns: '1fr 48px 68px 68px 86px 100px', padding: '14px 16px', fontSize: 12, fontWeight: 800, letterSpacing: '0.06em', color: C.forest, textTransform: 'uppercase', borderBottom: `1px solid rgba(26,42,32,0.08)` }}>
-            <span style={{ position: 'sticky', left: 0, background: C.cream2, paddingRight: 8, zIndex: 2 }}>SAHAM</span>
+          <div className="mono" style={{ display: 'grid', gridTemplateColumns: '90px 56px 72px 72px 92px 96px', padding: '14px 16px', fontSize: 12, fontWeight: 800, letterSpacing: '0.06em', color: C.forest, textTransform: 'uppercase', borderBottom: `1px solid rgba(26,42,32,0.08)`, position: 'sticky', top: 0, background: C.cream2, zIndex: 3 }}>
+            <span style={{ position: 'sticky', left: 0, background: C.cream2, zIndex: 4 }}>SAHAM</span>
             <span style={{ textAlign: 'right' }}>QTY</span>
             <span style={{ textAlign: 'right' }}>BELI</span>
             <span style={{ textAlign: 'right' }}>SAAT INI</span>
             <span style={{ textAlign: 'right' }}>P/L</span>
             <span></span>
           </div>
-          <div style={{ maxHeight: 420, overflowY: 'auto' }}>
+          <div>
           {[...stocks].sort((a, b) => (b.price * b.qty) - (a.price * a.qty)).map((s) => {
             const plPct = (s.hasLive && s.avg) ? (s.price - s.avg) / s.avg * 100 : null;
             const plRp = s.hasLive ? (s.price - s.avg) * s.qty : null;
             return (
-              <div key={s.id || s.symbol} style={{ display: 'grid', gridTemplateColumns: '1fr 48px 68px 68px 86px 100px', padding: '14px 16px', borderBottom: `1px solid rgba(26,42,32,0.06)`, alignItems: 'center' }}>
-                <div style={{ position: 'sticky', left: 0, background: C.cream2, paddingRight: 8, zIndex: 1 }}>
+              <div key={s.id || s.symbol} style={{ display: 'grid', gridTemplateColumns: '90px 56px 72px 72px 92px 96px', padding: '14px 16px', borderBottom: `1px solid rgba(26,42,32,0.06)`, alignItems: 'center' }}>
+                <div style={{ position: 'sticky', left: 0, background: C.cream2, zIndex: 1 }}>
                   <div onClick={onSymbol ? () => onSymbol(s.symbol) : undefined} title={onSymbol ? `Lihat analisis ${s.symbol}` : undefined} style={{ fontWeight: 700, fontSize: 14, cursor: onSymbol ? 'pointer' : 'default', textDecoration: onSymbol ? 'underline' : 'none', textDecorationStyle: 'dotted', textDecorationColor: 'rgba(26,42,32,0.35)', textUnderlineOffset: 3, display: 'inline-block' }}>{s.symbol}</div>
                 </div>
                 <div className="mono" style={{ fontSize: 13, textAlign: 'right' }}>{s.qty.toLocaleString('id-ID')}</div>
@@ -2193,9 +2184,9 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
         </div>
       )}
 
-      {stocks.length > 0 && <div id="sec-dividen" style={{ scrollMarginTop: 70 }}><DividendCard stocks={stocks} onSymbol={onSymbol} /></div>}
+      {stocks.length > 0 && <div id="sec-dividen" style={{ scrollMarginTop: 70 }}><DividendCard stocks={stocks} onSymbol={onSymbol} onTotalHist={setDivTotalHist} /></div>}
 
-      {stocks.length > 0 && isAdmin && <div id="sec-zakat" style={{ scrollMarginTop: 70 }}><ZakatCard /></div>}
+      {stocks.length > 0 && isAdmin && <div id="sec-zakat" style={{ scrollMarginTop: 70 }}><ZakatCard dividenDibayar={divTotalHist} /></div>}
 
       <div style={{ marginTop: 16, padding: 14, background: 'rgba(196,155,60,0.1)', borderRadius: 12, fontSize: 12, color: C.inkSoft, lineHeight: 1.5 }}>
         💡 <strong style={{ color: C.ink }}>Privat:</strong> Hanya kamu yang bisa melihat portofolio ini. Tersimpan di akunmu &amp; sinkron lintas perangkat. Harga live (delayed) dari pasar.
@@ -2520,7 +2511,7 @@ function DividendAdmin({ userId }) {
 
 // Cash from Dividend — jumlah real dari Yahoo; tanggal bayar = resmi dari tabel
 // dividend_schedule (bila diumumkan) atau perkiraan (ex-date + offset).
-export function DividendCard({ stocks, onSymbol }) {
+export function DividendCard({ stocks, onSymbol, onTotalHist }) {
   const symKey = stocks.map((s) => s.symbol).join(',');
   const [raw, setRaw] = useState([]);   // [{ symbol, amount, exDate }]
   const [loading, setLoading] = useState(true);
@@ -2663,6 +2654,8 @@ export function DividendCard({ stocks, onSymbol }) {
     .filter((r) => r.exTime <= now && r.exTime >= now - YEAR && r.cash > 0)
     .sort((a, b) => b.exTime - a.exTime);
   const totalHist = hist.reduce((s, r) => s + r.cash, 0);
+
+  useEffect(() => { if (onTotalHist) onTotalHist(totalHist); }, [totalHist, onTotalHist]);
 
   // Kredit otomatis dividen yang tanggal bayarnya sudah lewat ke saldo RDN.
   // Dua sumber: (1) feed Yahoo (raw), (2) dividend_schedule confirmed yang punya `amount`
