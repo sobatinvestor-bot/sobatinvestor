@@ -571,7 +571,7 @@ function PrivateArea({ tab, userId, ihsgQuote, goAnalisis, onPortfolioTotal, onP
   return (
     <>
       <div style={{ display: tab === 'portfolio' ? 'block' : 'none' }}>
-        <DashboardTab stocks={stocks} ihsgQuote={ihsgQuote} onSymbol={goAnalisis} isAdmin={userId === ADMIN_UID} />
+        <DashboardTab stocks={stocks} ihsgQuote={ihsgQuote} onSymbol={goAnalisis} />
         <div id="sec-saham" style={{ scrollMarginTop: 70 }}>
           <PortfolioTab
             stocks={stocks}
@@ -582,6 +582,7 @@ function PrivateArea({ tab, userId, ihsgQuote, goAnalisis, onPortfolioTotal, onP
             onExport={exportCSV}
             onImport={importData}
             onSymbol={goAnalisis}
+            isAdmin={userId === ADMIN_UID}
           />
         </div>
         <div id="sec-rdn" style={{ scrollMarginTop: 70, maxWidth: 1100, margin: '0 auto', padding: '0 20px' }}><RdnCard settings={settings} onAdjust={adjustRdn} onSaveFees={saveFees} userId={userId} /></div>
@@ -1478,7 +1479,7 @@ function ZakatCard() {
   );
 }
 
-function DashboardTab({ stocks, ihsgQuote, onSymbol, isAdmin }) {
+function DashboardTab({ stocks, ihsgQuote, onSymbol }) {
   const [hideBalance, toggleHideBalance] = useHideBalance();
   const ihsgChange = ihsgQuote && typeof ihsgQuote.change === 'number' ? ihsgQuote.change : null;
   const ihsgLive = ihsgQuote && typeof ihsgQuote.value === 'number' ? ihsgQuote.value : null;
@@ -2110,7 +2111,7 @@ function DeleteAllPortfolio({ count, onDeleteAll }) {
   );
 }
 
-function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImport, onSymbol }) {
+function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImport, onSymbol, isAdmin }) {
   const [confirmDel, setConfirmDel] = useState(null); // stock yang mau dihapus
 
   return (
