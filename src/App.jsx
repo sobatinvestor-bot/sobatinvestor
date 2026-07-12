@@ -2498,8 +2498,14 @@ function AdminMFASetup({ userId }) {
       {phase === 'active' && (
         <div>
           <div style={{ fontSize: 13, color: C.green, fontWeight: 600, marginBottom: 6 }}>✓ 2FA aktif ({factors.length} faktor terdaftar)</div>
-          <p style={{ fontSize: 12, color: C.inkSoft, marginBottom: 10 }}>Disarankan punya <b>2 faktor</b> (utama + cadangan di aplikasi/perangkat lain) agar tak terkunci bila HP hilang.</p>
-          <button onClick={addBackup} disabled={busy} style={outlineBtn}>{busy ? 'Menyiapkan…' : '+ Tambah faktor cadangan'}</button>
+          {factors.length >= 2 ? (
+            <p style={{ fontSize: 12, color: C.inkSoft, marginBottom: 0 }}>Keamanan optimal — kamu punya faktor utama dan cadangan, jadi tak akan terkunci meski satu perangkat hilang.</p>
+          ) : (
+            <>
+              <p style={{ fontSize: 12, color: C.inkSoft, marginBottom: 10 }}>Disarankan punya <b>2 faktor</b> (utama + cadangan di aplikasi/perangkat lain) agar tak terkunci bila HP hilang.</p>
+              <button onClick={addBackup} disabled={busy} style={outlineBtn}>{busy ? 'Menyiapkan…' : '+ Tambah faktor cadangan'}</button>
+            </>
+          )}
           {msg && <div style={{ fontSize: 12, color: msg.indexOf('aktif') >= 0 ? C.green : C.rust, marginTop: 8 }}>{msg}</div>}
         </div>
       )}
