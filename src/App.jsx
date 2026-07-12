@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Upload, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus, Users, Globe, ArrowDown, Linkedin, Instagram, Eye, EyeOff } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import useBackGuard from './useBackGuard.js';
@@ -345,6 +345,66 @@ function InstallPrompt() {
   return <InstallBanner mode={mode} onInstall={install} onDismiss={dismiss} />;
 }
 
+// Auto-logout setelah idle 7 menit; modal peringatan muncul di menit ke-6 (1 menit tersisa).
+// Aktivitas apa pun (mouse/keyboard/touch/scroll) mereset timer.
+const IDLE_LOGOUT_MS = 7 * 60 * 1000;   // 7 menit total
+const IDLE_WARN_MS = 6 * 60 * 1000;     // peringatan di menit ke-6
+function useIdleLogout(active, onLogout) {
+  const [warning, setWarning] = useState(false);
+  const warnRef = useRef(null);
+  const logoutRef = useRef(null);
+
+  const reset = useCallback(() => {
+    setWarning(false);
+    if (warnRef.current) clearTimeout(warnRef.current);
+    if (logoutRef.current) clearTimeout(logoutRef.current);
+    if (!active) return;
+    warnRef.current = setTimeout(() => setWarning(true), IDLE_WARN_MS);
+    logoutRef.current = setTimeout(() => { setWarning(false); onLogout(); }, IDLE_LOGOUT_MS);
+  }, [active, onLogout]);
+
+  useEffect(() => {
+    if (!active) {
+      if (warnRef.current) clearTimeout(warnRef.current);
+      if (logoutRef.current) clearTimeout(logoutRef.current);
+      setWarning(false);
+      return;
+    }
+    const events = ['mousedown', 'keydown', 'touchstart', 'scroll', 'mousemove'];
+    const onActivity = () => { if (!warning) reset(); }; // saat warning tampil, hanya tombol yg reset (biar user sadar)
+    events.forEach((e) => window.addEventListener(e, onActivity, { passive: true }));
+    reset();
+    return () => {
+      events.forEach((e) => window.removeEventListener(e, onActivity));
+      if (warnRef.current) clearTimeout(warnRef.current);
+      if (logoutRef.current) clearTimeout(logoutRef.current);
+    };
+  }, [active, reset, warning]);
+
+  return { warning, stayLoggedIn: reset };
+}
+
+function IdleWarningModal({ onStay }) {
+  const [left, setLeft] = useState(60);
+  useEffect(() => {
+    const iv = setInterval(() => setLeft((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(iv);
+  }, []);
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(26,42,32,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 20 }}>
+      <div style={{ background: C.cream, borderRadius: 20, padding: 24, maxWidth: 360, width: '100%', boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
+        <h3 className="serif" style={{ fontSize: 20, fontWeight: 600, marginBottom: 8, color: C.ink }}>Masih di sana?</h3>
+        <p style={{ fontSize: 14, color: C.inkSoft, lineHeight: 1.5, marginBottom: 18 }}>
+          Kamu akan keluar otomatis dalam <b style={{ color: C.rust }}>{left} detik</b> karena tidak ada aktivitas. Ini demi keamanan akunmu.
+        </p>
+        <button onClick={onStay} style={{ width: '100%', padding: '12px', fontSize: 15, fontWeight: 600, border: 'none', borderRadius: 12, cursor: 'pointer', background: C.forest, color: C.cream }}>
+          Tetap masuk
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [session, setSession] = useState(undefined); // undefined = masih cek
   const [tab, setTab] = useState('home');
@@ -356,6 +416,8 @@ export default function App() {
   const [showChangePw, setShowChangePw] = useState(false); // modal ganti kata sandi
   const [recoveryMode, setRecoveryMode] = useState(false); // halaman set-password dari link email (Jalur B)
   const [mfaGate, setMfaGate] = useState('checking'); // checking | need | ok — gate AAL2 utk akun ber-2FA (admin)
+
+  const { warning: idleWarning, stayLoggedIn } = useIdleLogout(!!(session && session.user), () => { logout(); });
 
   function goTo(tabId, page) {
     setAnalisisPage(page || null);
@@ -489,6 +551,7 @@ export default function App() {
 
   return (
     <div style={{ background: C.cream, minHeight: '100vh', color: C.ink }}>
+      {idleWarning && <IdleWarningModal onStay={stayLoggedIn} />}
       <Nav ihsg={ihsg} ihsgChange={ihsgChange} session={session} setTab={setTab} tab={tab} portfolioTotal={pfTotal} plPortfolioPct={pfStats.plPortfolioPct} plModalPct={pfStats.plModalPct} modalAwal={pfStats.modalAwal} rdn={pfStats.rdn} onChangePassword={() => setShowChangePw(true)} />
       <div style={{ paddingBottom: 100 }}>
         <div style={{ display: tab === 'home' ? 'block' : 'none' }}>
@@ -595,7 +658,7 @@ function PrivateArea({ tab, userId, ihsgQuote, goAnalisis, onPortfolioTotal, onP
         </div>
         {(stocks.length > 0 || Number(settings.rdn) !== 0) && <DeleteAllPortfolio count={stocks.length} onDeleteAll={deleteAll} />}
         <div id="sec-berita" style={{ scrollMarginTop: 70, maxWidth: 1100, margin: '0 auto', padding: '0 20px' }}><StockNews stocks={stocks} /></div>
-        {userId === ADMIN_UID && <div id="sec-admin" style={{ scrollMarginTop: 70, maxWidth: 1100, margin: '0 auto', padding: '0 20px' }}><AdminMFASetup userId={userId} /><DividendAdmin userId={userId} /></div>}
+        {userId === ADMIN_UID && <div id="sec-admin" style={{ scrollMarginTop: 70, maxWidth: 1100, margin: '0 auto', padding: '0 20px' }}><DividendAdmin userId={userId} /><AdminMFASetup userId={userId} /></div>}
       </div>
       <ChatTab stocks={stocks} active={tab === 'chat'} />
       {editing && <Editor holding={editing} onSave={handleSave} onClose={() => setEditing(null)} />}
