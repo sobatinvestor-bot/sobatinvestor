@@ -911,11 +911,11 @@ function RichText({ text }) {
           return <div key={i} className="serif" style={{ fontSize: b.level <= 2 ? 18 : 15, fontWeight: 700, color: C.ink, margin: i ? '14px 0 6px' : '0 0 6px' }}>{mdInline(b.text, `h${i}`)}</div>;
         }
         if (b.type === 'ul' || b.type === 'ol') {
-          const Tag = b.type === 'ul' ? 'ul' : 'ol';
+          // Selalu render sebagai bullet (ul) — hindari penomoran "1." berulang dari AI yg tampak aneh.
           return (
-            <Tag key={i} style={{ margin: '8px 0', paddingLeft: 22 }}>
+            <ul key={i} style={{ margin: '8px 0', paddingLeft: 22 }}>
               {b.items.map((it, j) => <li key={j} style={{ margin: '4px 0' }}>{mdInline(it, `l${i}-${j}`)}</li>)}
-            </Tag>
+            </ul>
           );
         }
         return <p key={i} style={{ margin: i ? '8px 0 0' : 0 }}>{mdInline(b.text, `p${i}`)}</p>;
