@@ -1011,29 +1011,48 @@ function PortfolioMacroAnalysis({ userId, onRequireLogin, marketSummary, marketR
         }
       } catch { /* abaikan; AI jalan tanpa blok terkurasi */ }
 
-      // Performa portofolio 30 hari terakhir vs IHSG (dari harga historis, qty saat ini).
-      // Aproksimasi: asumsi komposisi 30 hari lalu = sekarang.
+      // Performa portofolio 30 hari terakhir vs IHSG — METODE IDENTIK dengan chart tab Portofolio:
+      // titik awal = hari pertama (mulai today-30d) di mana nilai porto > 0; price-return murni.
       let perfBlock = '';
       try {
+        const DAY = 86400000;
         const syms = [...new Set(holdings.map((h) => h.symbol))];
-        const qtyBy = {}; holdings.forEach((h) => { qtyBy[h.symbol] = Number(h.qty) || 0; });
-        const res = await fetch(`/api/history?symbols=${encodeURIComponent(syms.join(',') + ',^JKSE')}&range=1mo`);
+        const qtyBy = {}; const buyBy = {};
+        holdings.forEach((h) => { qtyBy[h.symbol] = Number(h.qty) || 0; buyBy[h.symbol] = h.buy_date ? new Date(h.buy_date).getTime() : 0; });
+        const res = await fetch(`/api/history?symbols=${encodeURIComponent(syms.join(',') + ',^JKSE')}&range=2mo`);
         if (res.ok) {
           const { history = {} } = await res.json();
-          const firstClose = (s) => (history[s] && history[s].length ? history[s][0].close : null);
-          const lastClose = (s) => (history[s] && history[s].length ? history[s][history[s].length - 1].close : null);
-          let vStart = 0, vEnd = 0;
-          syms.forEach((s) => {
-            const f = firstClose(s), l = lastClose(s), q = qtyBy[s];
-            if (f && l && q) { vStart += f * q; vEnd += l * q; }
-          });
-          const portPct = vStart ? ((vEnd - vStart) / vStart) * 100 : null;
-          const jf = firstClose('^JKSE'), jl = lastClose('^JKSE');
-          const ihsgPct = (jf && jl) ? ((jl - jf) / jf) * 100 : null;
+          const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
+          const todayTime = midnight.getTime();
+          const startTime = todayTime - 30 * DAY;
+          const closeAt = (sym, t) => {
+            const s = history[sym];
+            if (!s || !s.length) return null;
+            const tDay = Math.floor(t / DAY);
+            let c = s[0].close;
+            for (let k = 0; k < s.length; k++) { if (Math.floor(s[k].t / DAY) <= tDay) c = s[k].close; else break; }
+            return c;
+          };
+          const priceLast = (sym) => (history[sym] && history[sym].length ? history[sym][history[sym].length - 1].close : null);
+          // Titik awal: hari pertama (dari startTime) dgn nilai porto > 0 — sama seperti chart.
+          const totalDays = Math.round((todayTime - startTime) / DAY) + 1;
+          let vStart = 0, ihsgStart = 0, baseSet = false;
+          for (let i = 0; i < totalDays; i++) {
+            const t = startTime + i * DAY;
+            let v = 0;
+            syms.forEach((s) => { if (t < (buyBy[s] || 0)) return; const px = closeAt(s, t); if (px) v += px * qtyBy[s]; });
+            if (v > 0) { vStart = v; ihsgStart = closeAt('^JKSE', t) || 0; baseSet = true; break; }
+          }
+          // Titik akhir: harga penutupan terakhir (price-return murni, tanpa dividen).
+          let vEnd = 0;
+          syms.forEach((s) => { const px = priceLast(s); if (px) vEnd += px * qtyBy[s]; });
+          const ihsgEnd = priceLast('^JKSE');
+          const portPct = (baseSet && vStart > 0) ? ((vEnd / vStart) - 1) * 100 : null;
+          const ihsgPct = (ihsgStart > 0 && ihsgEnd) ? ((ihsgEnd / ihsgStart) - 1) * 100 : null;
           if (portPct != null && ihsgPct != null) {
             const selisih = portPct - ihsgPct;
             const status = selisih >= 0 ? 'OUTPERFORM' : 'UNDERPERFORM';
-            perfBlock = `\n\nPERFORMA PORTOFOLIO (30 hari terakhir, dari harga pasar):
+            perfBlock = `\n\nPERFORMA PORTOFOLIO (30 hari terakhir, price-return dari harga pasar):
 Portofolio: ${portPct >= 0 ? '+' : ''}${portPct.toFixed(2)}% | IHSG: ${ihsgPct >= 0 ? '+' : ''}${ihsgPct.toFixed(2)}% | Selisih: ${selisih >= 0 ? '+' : ''}${selisih.toFixed(2)}% (${status} vs IHSG).
 Kaitkan performa ini dengan kondisi makro & emiten kunci dalam analisis — jelaskan APA yang menggerakkan, bukan sekadar mengulang angkanya.`;
           }
