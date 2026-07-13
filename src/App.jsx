@@ -1011,8 +1011,37 @@ function PortfolioMacroAnalysis({ userId, onRequireLogin, marketSummary, marketR
         }
       } catch { /* abaikan; AI jalan tanpa blok terkurasi */ }
 
+      // Performa portofolio 30 hari terakhir vs IHSG (dari harga historis, qty saat ini).
+      // Aproksimasi: asumsi komposisi 30 hari lalu = sekarang.
+      let perfBlock = '';
+      try {
+        const syms = [...new Set(holdings.map((h) => h.symbol))];
+        const qtyBy = {}; holdings.forEach((h) => { qtyBy[h.symbol] = Number(h.qty) || 0; });
+        const res = await fetch(`/api/history?symbols=${encodeURIComponent(syms.join(',') + ',^JKSE')}&range=1mo`);
+        if (res.ok) {
+          const { history = {} } = await res.json();
+          const firstClose = (s) => (history[s] && history[s].length ? history[s][0].close : null);
+          const lastClose = (s) => (history[s] && history[s].length ? history[s][history[s].length - 1].close : null);
+          let vStart = 0, vEnd = 0;
+          syms.forEach((s) => {
+            const f = firstClose(s), l = lastClose(s), q = qtyBy[s];
+            if (f && l && q) { vStart += f * q; vEnd += l * q; }
+          });
+          const portPct = vStart ? ((vEnd - vStart) / vStart) * 100 : null;
+          const jf = firstClose('^JKSE'), jl = lastClose('^JKSE');
+          const ihsgPct = (jf && jl) ? ((jl - jf) / jf) * 100 : null;
+          if (portPct != null && ihsgPct != null) {
+            const selisih = portPct - ihsgPct;
+            const status = selisih >= 0 ? 'OUTPERFORM' : 'UNDERPERFORM';
+            perfBlock = `\n\nPERFORMA PORTOFOLIO (30 hari terakhir, dari harga pasar):
+Portofolio: ${portPct >= 0 ? '+' : ''}${portPct.toFixed(2)}% | IHSG: ${ihsgPct >= 0 ? '+' : ''}${ihsgPct.toFixed(2)}% | Selisih: ${selisih >= 0 ? '+' : ''}${selisih.toFixed(2)}% (${status} vs IHSG).
+Kaitkan performa ini dengan kondisi makro & emiten kunci dalam analisis — jelaskan APA yang menggerakkan, bukan sekadar mengulang angkanya.`;
+          }
+        }
+      } catch { /* abaikan; analisis tetap jalan tanpa blok performa */ }
+
       const dataBlock = `KONDISI MAKRO/GLOBAL TERKINI (dari halaman Global, data delayed):
-${marketSummary}
+${marketSummary}${perfBlock}
 
 PORTOFOLIO SAYA (bobot = perkiraan dari modal: qty × harga rata-rata):
 Komposisi sektor: ${sectorLines}
