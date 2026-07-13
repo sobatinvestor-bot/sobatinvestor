@@ -510,6 +510,7 @@ function PriceChart({ symbol }) {
     { key: '3mo', label: '3B' },
     { key: '6mo', label: '6B' },
     { key: 'ytd', label: 'YTD' },
+    { key: 'max', label: 'MAX' },
   ];
   const [range, setRange] = useState('ytd');
   const [series, setSeries] = useState(null); // null=loading, []=kosong
@@ -575,7 +576,12 @@ function PriceChart({ symbol }) {
           <LineChart data={series} margin={{ top: 6, right: 8, bottom: 0, left: 8 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(26,42,32,0.06)" vertical={false} />
             <XAxis dataKey="t" tick={{ fontSize: 10, fill: C.inkSoft }} axisLine={false} tickLine={false}
-              tickFormatter={(t) => new Date(t).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+              tickFormatter={(t) => {
+                const d = new Date(t);
+                return range === 'max'
+                  ? String(d.getFullYear())
+                  : d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+              }}
               minTickGap={40} />
             <YAxis domain={['auto', 'auto']} tick={{ fontSize: 10, fill: C.inkSoft }} axisLine={false} tickLine={false}
               width={44} tickFormatter={(v) => Number(v).toLocaleString('id-ID')} />
