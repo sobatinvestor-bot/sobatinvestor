@@ -22,9 +22,19 @@ export async function onRequestGet(context) {
 }
 
 async function fetchHist(symbol, range) {
+  // Yahoo men-downsample range=max (sering jadi mingguan) walau interval=1d diminta.
+  // Untuk MAX, pakai period1/period2 agar granularitas benar-benar HARIAN penuh
+  // (inception -> sekarang), konsisten dengan timeframe lain & engine Backtest.
+  let query;
+  if (range === "max") {
+    const now = Math.floor(Date.now() / 1000);
+    query = `period1=0&period2=${now}&interval=1d`;
+  } else {
+    query = `interval=1d&range=${encodeURIComponent(range)}`;
+  }
   const u =
     `https://query1.finance.yahoo.com/v8/finance/chart/` +
-    `${encodeURIComponent(symbol)}?interval=1d&range=${encodeURIComponent(range)}`;
+    `${encodeURIComponent(symbol)}?${query}`;
 
   const res = await fetch(u, {
     headers: {
