@@ -36,7 +36,7 @@ function svcHeaders() {
 // Simbol yang angka fundamentalnya DIKUNCI MANUAL dari laporan keuangan resmi
 // (lebih akurat dari Yahoo). Worker tidak menimpa emiten ini.
 // Tambahkan di sini bila ada koreksi LK manual lain di masa depan.
-const MANUAL_LOCK = new Set(['DSSA', 'MSTI']);
+const MANUAL_LOCK = new Set(['MSTI']);
 
 async function getSymbols() {
   const r = await fetch(`${env.SUPABASE_URL}/rest/v1/analyses?select=symbol`, { headers: svcHeaders() });
