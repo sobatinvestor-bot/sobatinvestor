@@ -504,6 +504,26 @@ function Body({ text }) {
   );
 }
 
+// Resample deret harian -> mingguan/bulanan. Ambil harga penutupan TERAKHIR
+// tiap periode (konvensi standar). unit: 'day' | 'week' | 'month'.
+function resampleSeries(series, unit) {
+  if (!series || !series.length || unit === 'day') return series;
+  const keyOf = (t) => {
+    const d = new Date(t);
+    if (unit === 'month') return `${d.getUTCFullYear()}-${d.getUTCMonth()}`;
+    const oneJan = Date.UTC(d.getUTCFullYear(), 0, 1);
+    const wk = Math.floor((t - oneJan) / (7 * 86400000));
+    return `${d.getUTCFullYear()}-w${wk}`;
+  };
+  const map = new Map();
+  for (const p of series) {
+    const k = keyOf(p.t);
+    const cur = map.get(k);
+    if (!cur || p.t > cur.t) map.set(k, p); // simpan titik terakhir di periode
+  }
+  return [...map.values()].sort((a, b) => a.t - b.t);
+}
+
 function PriceChart({ symbol }) {
   const RANGES = [
     { key: '1mo', label: '1B' },
@@ -513,6 +533,7 @@ function PriceChart({ symbol }) {
     { key: 'max', label: 'MAX' },
   ];
   const [range, setRange] = useState('ytd');
+  const [unit, setUnit] = useState('day'); // 'day' | 'week' | 'month'
   const [showSMA, setShowSMA] = useState(false);
   const [series, setSeries] = useState(null); // null=loading, []=kosong
   const [err, setErr] = useState(false);
@@ -531,23 +552,24 @@ function PriceChart({ symbol }) {
     return () => { active = false; };
   }, [symbol, range]);
 
-  const first = series && series.length ? series[0].close : null;
-  const last = series && series.length ? series[series.length - 1].close : null;
+  const resampled = useMemo(() => resampleSeries(series, unit), [series, unit]);
+  const first = resampled && resampled.length ? resampled[0].close : null;
+  const last = resampled && resampled.length ? resampled[resampled.length - 1].close : null;
   const chg = (first && last) ? ((last - first) / first) * 100 : null;
   const up = chg != null && chg >= 0;
   const lineColor = up ? C.green : C.red;
 
-  // SMA sederhana (trailing) dari harga penutupan; null bila data belum cukup.
+  // SMA sederhana (trailing) atas deret terpilih; null bila data belum cukup.
   const withSMA = useMemo(() => {
-    if (!series || !series.length) return series;
+    if (!resampled || !resampled.length) return resampled;
     const sma = (i, w) => {
       if (i + 1 < w) return null;
       let s = 0;
-      for (let k = i - w + 1; k <= i; k++) s += series[k].close;
+      for (let k = i - w + 1; k <= i; k++) s += resampled[k].close;
       return Math.round((s / w) * 100) / 100;
     };
-    return series.map((p, i) => ({ ...p, sma20: sma(i, 20), sma50: sma(i, 50) }));
-  }, [series]);
+    return resampled.map((p, i) => ({ ...p, sma20: sma(i, 20), sma50: sma(i, 50) }));
+  }, [resampled]);
 
   return (
     <div style={{ background: C.cream2, borderRadius: 16, padding: 16, marginBottom: 18 }}>
@@ -561,6 +583,21 @@ function PriceChart({ symbol }) {
           )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 4 }}>
+            {[{ k: 'day', l: 'Hari' }, { k: 'week', l: 'Minggu' }, { k: 'month', l: 'Bulan' }].map((u) => (
+              <button key={u.k} onClick={() => setUnit(u.k)}
+                className="mono"
+                title="Satuan waktu harga & SMA"
+                style={{
+                  background: unit === u.k ? C.inkSoft : 'transparent',
+                  color: unit === u.k ? C.cream : C.inkSoft,
+                  border: `1px solid ${unit === u.k ? C.inkSoft : 'rgba(26,42,32,0.15)'}`,
+                  borderRadius: 8, padding: '3px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                }}>
+                {u.l}
+              </button>
+            ))}
+          </div>
           <button onClick={() => setShowSMA((v) => !v)} className="mono"
             title="Tampilkan/sembunyikan rata-rata bergerak SMA 20 & SMA 50"
             style={{
@@ -603,9 +640,9 @@ function PriceChart({ symbol }) {
             <XAxis dataKey="t" tick={{ fontSize: 10, fill: C.inkSoft }} axisLine={false} tickLine={false}
               tickFormatter={(t) => {
                 const d = new Date(t);
-                return range === 'max'
-                  ? String(d.getFullYear())
-                  : d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+                if (range === 'max') return String(d.getFullYear());
+                if (unit === 'month') return d.toLocaleDateString('id-ID', { month: 'short', year: '2-digit' });
+                return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
               }}
               minTickGap={40} />
             <YAxis domain={['auto', 'auto']} tick={{ fontSize: 10, fill: C.inkSoft }} axisLine={false} tickLine={false}
@@ -632,7 +669,7 @@ function PriceChart({ symbol }) {
           <span>Rata-rata bergerak sederhana harga penutupan.</span>
         </div>
       )}
-      <div style={{ fontSize: 10, color: C.inkSoft, marginTop: 6 }}>Harga penutupan harian (data delayed). Bukan rekomendasi.</div>
+      <div style={{ fontSize: 10, color: C.inkSoft, marginTop: 6 }}>Harga penutupan {unit === 'week' ? 'mingguan' : unit === 'month' ? 'bulanan' : 'harian'} (data delayed). Bukan rekomendasi.</div>
     </div>
   );
 }
