@@ -617,7 +617,7 @@ function PriceChart({ symbol }) {
               labelStyle={{ color: C.cream }} itemStyle={{ color: C.cuanBright }} />
             <Line type="monotone" dataKey="close" stroke={lineColor} strokeWidth={2} dot={false} />
             {showSMA && <Line type="monotone" dataKey="sma20" stroke={C.cuan} strokeWidth={1.5} dot={false} strokeDasharray="4 2" isAnimationActive={false} />}
-            {showSMA && <Line type="monotone" dataKey="sma50" stroke={C.sage} strokeWidth={1.5} dot={false} isAnimationActive={false} />}
+            {showSMA && <Line type="monotone" dataKey="sma50" stroke="#3B6EA5" strokeWidth={1.5} dot={false} strokeDasharray="6 3" isAnimationActive={false} />}
           </LineChart>
         </ResponsiveContainer>
       )}
@@ -627,7 +627,7 @@ function PriceChart({ symbol }) {
             <span style={{ width: 16, height: 0, borderTop: `2px dashed ${C.cuan}` }} /> SMA 20
           </span>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-            <span style={{ width: 16, height: 0, borderTop: `2px solid ${C.sage}` }} /> SMA 50
+            <span style={{ width: 16, height: 0, borderTop: `2px dashed #3B6EA5` }} /> SMA 50
           </span>
           <span>Rata-rata bergerak sederhana harga penutupan.</span>
         </div>
