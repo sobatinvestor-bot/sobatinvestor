@@ -513,6 +513,7 @@ function PriceChart({ symbol }) {
     { key: 'max', label: 'MAX' },
   ];
   const [range, setRange] = useState('ytd');
+  const [showSMA, setShowSMA] = useState(false);
   const [series, setSeries] = useState(null); // null=loading, []=kosong
   const [err, setErr] = useState(false);
 
@@ -536,6 +537,18 @@ function PriceChart({ symbol }) {
   const up = chg != null && chg >= 0;
   const lineColor = up ? C.green : C.red;
 
+  // SMA sederhana (trailing) dari harga penutupan; null bila data belum cukup.
+  const withSMA = useMemo(() => {
+    if (!series || !series.length) return series;
+    const sma = (i, w) => {
+      if (i + 1 < w) return null;
+      let s = 0;
+      for (let k = i - w + 1; k <= i; k++) s += series[k].close;
+      return Math.round((s / w) * 100) / 100;
+    };
+    return series.map((p, i) => ({ ...p, sma20: sma(i, 20), sma50: sma(i, 50) }));
+  }, [series]);
+
   return (
     <div style={{ background: C.cream2, borderRadius: 16, padding: 16, marginBottom: 18 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
@@ -547,19 +560,31 @@ function PriceChart({ symbol }) {
             </span>
           )}
         </div>
-        <div style={{ display: 'flex', gap: 4 }}>
-          {RANGES.map((r) => (
-            <button key={r.key} onClick={() => setRange(r.key)}
-              className="mono"
-              style={{
-                background: range === r.key ? C.forest : 'transparent',
-                color: range === r.key ? C.cream : C.inkSoft,
-                border: `1px solid ${range === r.key ? C.forest : 'rgba(26,42,32,0.15)'}`,
-                borderRadius: 8, padding: '3px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer',
-              }}>
-              {r.label}
-            </button>
-          ))}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <button onClick={() => setShowSMA((v) => !v)} className="mono"
+            title="Tampilkan/sembunyikan rata-rata bergerak SMA 20 & SMA 50"
+            style={{
+              background: showSMA ? C.cuan : 'transparent',
+              color: showSMA ? C.cream : C.inkSoft,
+              border: `1px solid ${showSMA ? C.cuan : 'rgba(26,42,32,0.15)'}`,
+              borderRadius: 8, padding: '3px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer',
+            }}>
+            SMA 20/50
+          </button>
+          <div style={{ display: 'flex', gap: 4 }}>
+            {RANGES.map((r) => (
+              <button key={r.key} onClick={() => setRange(r.key)}
+                className="mono"
+                style={{
+                  background: range === r.key ? C.forest : 'transparent',
+                  color: range === r.key ? C.cream : C.inkSoft,
+                  border: `1px solid ${range === r.key ? C.forest : 'rgba(26,42,32,0.15)'}`,
+                  borderRadius: 8, padding: '3px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                }}>
+                {r.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -573,7 +598,7 @@ function PriceChart({ symbol }) {
         </div>
       ) : (
         <ResponsiveContainer width="100%" height={180}>
-          <LineChart data={series} margin={{ top: 6, right: 8, bottom: 0, left: 8 }}>
+          <LineChart data={withSMA} margin={{ top: 6, right: 8, bottom: 0, left: 8 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(26,42,32,0.06)" vertical={false} />
             <XAxis dataKey="t" tick={{ fontSize: 10, fill: C.inkSoft }} axisLine={false} tickLine={false}
               tickFormatter={(t) => {
@@ -587,12 +612,25 @@ function PriceChart({ symbol }) {
               width={44} tickFormatter={(v) => Number(v).toLocaleString('id-ID')} />
             <Tooltip
               labelFormatter={(t) => new Date(t).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
-              formatter={(v) => [`Rp${Number(v).toLocaleString('id-ID')}`, 'Tutup']}
+              formatter={(v, name) => [`Rp${Number(v).toLocaleString('id-ID')}`, name === 'sma20' ? 'SMA 20' : name === 'sma50' ? 'SMA 50' : 'Tutup']}
               contentStyle={{ background: C.ink, border: 'none', borderRadius: 8, fontSize: 12 }}
               labelStyle={{ color: C.cream }} itemStyle={{ color: C.cuanBright }} />
             <Line type="monotone" dataKey="close" stroke={lineColor} strokeWidth={2} dot={false} />
+            {showSMA && <Line type="monotone" dataKey="sma20" stroke={C.cuan} strokeWidth={1.5} dot={false} strokeDasharray="4 2" isAnimationActive={false} />}
+            {showSMA && <Line type="monotone" dataKey="sma50" stroke={C.sage} strokeWidth={1.5} dot={false} isAnimationActive={false} />}
           </LineChart>
         </ResponsiveContainer>
+      )}
+      {showSMA && series && series.length > 0 && (
+        <div style={{ display: 'flex', gap: 14, alignItems: 'center', fontSize: 10, color: C.inkSoft, marginTop: 8, flexWrap: 'wrap' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ width: 16, height: 0, borderTop: `2px dashed ${C.cuan}` }} /> SMA 20
+          </span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ width: 16, height: 0, borderTop: `2px solid ${C.sage}` }} /> SMA 50
+          </span>
+          <span>Rata-rata bergerak sederhana harga penutupan.</span>
+        </div>
       )}
       <div style={{ fontSize: 10, color: C.inkSoft, marginTop: 6 }}>Harga penutupan harian (data delayed). Bukan rekomendasi.</div>
     </div>
