@@ -932,6 +932,23 @@ function fmtWIB(ts) {
 
 // Analisis dampak kondisi makro/global ke portofolio user — memakai mesin Sobat AI
 // (lewat /api/chat), jadi setiap analisis memotong kuota Sobat AI harian.
+// Ratakan kolom `body` analisis terkurasi (## Tentang bisnis / ## Snapshot kinerja)
+// menjadi satu baris untuk konteks AI.
+// PENTING: buang karakter zero-width (canary watermark anti-scraping) supaya tidak
+// ikut terkirim ke AI dan tidak berisiko terpantul balik ke jawaban pengguna.
+// `max` membatasi biaya token (Sobat AI memakai model murah + kuota harian).
+const ZERO_WIDTH = /[\u200B\u200C\u200D\u2060\uFEFF]/g;
+function flattenBody(body, max) {
+  if (!body) return '';
+  const clean = String(body)
+    .replace(ZERO_WIDTH, '')          // hapus canary
+    .replace(/\s*##\s*/g, ' | ')      // header markdown -> pemisah inline
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!max || clean.length <= max) return clean;
+  return clean.slice(0, max).replace(/\s+\S*$/, '') + '…';
+}
+
 function PortfolioMacroAnalysis({ userId, onRequireLogin, marketSummary, marketReady }) {
   const [holdings, setHoldings] = useState(null); // null = belum dimuat
   const [quota, setQuota] = useState(null);
@@ -989,7 +1006,7 @@ function PortfolioMacroAnalysis({ userId, onRequireLogin, marketSummary, marketR
         const syms = [...new Set(port.map((p) => p.sym))];
         if (syms.length > 0) {
           const { data: ana } = await supabase
-            .from('analyses').select('symbol,ringkasan,bull,bear,chart,updated_at')
+            .from('analyses').select('symbol,ringkasan,body,bull,bear,chart,updated_at')
             .in('symbol', syms).eq('published', true);
           const anaMap = {};
           (ana || []).forEach((a) => { anaMap[a.symbol] = a; });
@@ -999,9 +1016,12 @@ function PortfolioMacroAnalysis({ userId, onRequireLogin, marketSummary, marketR
             const angka = a.chart && a.chart.data
               ? `${a.chart.title || 'Data'}: ` + a.chart.data.map((p) => `${p.label} ${p.value}`).join(', ')
               : '';
-            const bull = Array.isArray(a.bull) ? a.bull.slice(0, 3).join('; ') : '';
-            const bear = Array.isArray(a.bear) ? a.bear.slice(0, 3).join('; ') : '';
+            // Analisis makro dipicu manual & jarang -> boleh detail penuh (1400 char).
+            const rinci = flattenBody(a.body, 1400);
+            const bull = Array.isArray(a.bull) ? a.bull.join('; ') : '';
+            const bear = Array.isArray(a.bear) ? a.bear.join('; ') : '';
             let s = `${sym} (analisis per ${(a.updated_at || '').slice(0, 10)}): ${a.ringkasan || ''}`;
+            if (rinci) s += ` Rincian: ${rinci}`;
             if (angka) s += ` Angka kunci: ${angka}.`;
             if (bull) s += ` Positif: ${bull}.`;
             if (bear) s += ` Risiko: ${bear}.`;
@@ -1999,10 +2019,14 @@ export function ChatTab({ stocks, active = true }) {
 
           // Analisis terkurasi: ringkasan + angka kunci + bull/bear (hanya yang published)
           const { data: ana } = await supabase
-            .from('analyses').select('symbol,name,sector,ringkasan,bull,bear,chart,updated_at')
+            .from('analyses').select('symbol,name,sector,ringkasan,body,bull,bear,chart,updated_at')
             .in('symbol', relevant).eq('published', true);
           const anaMap = {};
           (ana || []).forEach((a) => { anaMap[a.symbol] = a; });
+
+          // Hemat token: emiten yang DITANYA dapat rincian lebih panjang daripada
+          // emiten yang sekadar dimiliki (bisa sampai 12 dan sering tak relevan).
+          const askedSet = new Set(mentioned);
 
           const blocks = relevant.map((sym) => {
             const d = dirMap[sym] || {};
@@ -2015,9 +2039,11 @@ export function ChatTab({ stocks, active = true }) {
               const angka = a.chart && a.chart.data
                 ? `${a.chart.title || 'Data'}: ` + a.chart.data.map((p) => `${p.label} ${p.value}`).join(', ')
                 : '';
-              const bull = Array.isArray(a.bull) ? a.bull.slice(0, 3).join('; ') : '';
-              const bear = Array.isArray(a.bear) ? a.bear.slice(0, 3).join('; ') : '';
+              const rinci = flattenBody(a.body, askedSet.has(sym) ? 900 : 350);
+              const bull = Array.isArray(a.bull) ? a.bull.join('; ') : '';
+              const bear = Array.isArray(a.bear) ? a.bear.join('; ') : '';
               blok += `. ANALISIS (per ${(a.updated_at || '').slice(0, 10)}): ${a.ringkasan || ''}`;
+              if (rinci) blok += ` Rincian: ${rinci}`;
               if (angka) blok += ` Angka kunci: ${angka}.`;
               if (bull) blok += ` Positif: ${bull}.`;
               if (bear) blok += ` Risiko: ${bear}.`;
