@@ -1871,10 +1871,10 @@ function DashboardTab({ stocks, ihsgQuote, onSymbol }) {
           </div>
         </div>
         <Suspense fallback={<div style={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.inkSoft, fontSize: 12 }}>memuat grafik…</div>}>
-          <PerfChart perfData={perfData} todayLabel={todayLabel} hasIhsg={hasIhsg} />
+          <PerfChart perfData={perfData} todayLabel={todayLabel} hasIhsg={hasIhsg} hideBalance={hideBalance} />
         </Suspense>
         <div style={{ fontSize: 11, color: C.inkSoft, marginTop: 8, lineHeight: 1.5 }}>
-          Kiri "Hari ini" = harga historis asli tiap saham. Kanan = proyeksi datar di harga terakhir. Garis putus-putus = IHSG (disetarakan ke nilai awal). Lonjakan = dividen yang akan datang (perkiraan tgl bayar).{totalDivWindow > 0 ? ` Total dividen akan datang (30 hari): ${fmtRp(totalDivWindow)}.` : ''}
+          Kiri "Hari ini" = harga historis asli tiap saham. Kanan = proyeksi datar di harga terakhir. Garis putus-putus = IHSG (disetarakan ke nilai awal). Lonjakan = dividen yang akan datang (perkiraan tgl bayar).{totalDivWindow > 0 ? ` Total dividen akan datang (30 hari): ${hideBalance ? 'Rp ••••••' : fmtRp(totalDivWindow)}.` : ''}
         </div>
       </div>
 
@@ -1882,7 +1882,7 @@ function DashboardTab({ stocks, ihsgQuote, onSymbol }) {
         <div style={{ background: C.cream2, borderRadius: 20, padding: 20 }}>
           <h3 className="serif" style={{ fontSize: 18, fontWeight: 600, marginBottom: 12 }}>Alokasi Sektor</h3>
           <Suspense fallback={<div style={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.inkSoft, fontSize: 12 }}>memuat grafik…</div>}>
-            <SectorPie sectorData={sectorData} sectorColors={sectorColors} />
+            <SectorPie sectorData={sectorData} sectorColors={sectorColors} hideBalance={hideBalance} />
           </Suspense>
           <div style={{ marginTop: 8 }}>
             {sectorData.map((s, i) => (
