@@ -83,15 +83,27 @@ async function fetchOne(sym, sess) {
 
   // sanity check: buang nilai tak masuk akal -> null (lebih baik kosong daripada salah)
   const sane = (v, lo, hi) => (v === null || v < lo || v > hi ? null : v);
-  const perOk = sane(per, -1000, 1000);
+
+  // PER: emiten RUGI menghasilkan PER negatif. PER negatif TIDAK bermakna sebagai
+  // valuasi, dan karena pengurutan PER memakai dir='asc' (makin kecil makin baik),
+  // nilai negatif akan menempati peringkat teratas seolah "paling murah" -> skor
+  // Overall jadi menyesatkan. Maka PER < 0 dikosongkan.
+  const perOk = sane(per, 0, 1000);
+  // PBV: negatif hanya terjadi bila ekuitas negatif -> tidak bermakna, dikosongkan.
   const pbvOk = sane(pbv, 0, 1000);
+  // ROA & NPM: nilai NEGATIF adalah FAKTA (emiten rugi), bukan data salah -> TETAP
+  // ditampilkan. Pengurutannya dir='desc', jadi negatif otomatis peringkat terbawah:
+  // sudah benar. Batas di bawah hanya menyaring OUTLIER/sampah dari Yahoo,
+  // bukan menyaring kerugian. Satuan di sini masih fraksi (-10 = -1000%).
+  const roaOk = sane(roa, -10, 10);
+  const npmOk = sane(npm, -10, 10);
 
   return {
     symbol: sym,
     per: round(perOk, 2),
     pbv: round(pbvOk, 2),
-    roa: roa === null ? null : round(roa * 100, 2),       // -> %
-    npm: npm === null ? null : round(npm * 100, 2),       // -> %
+    roa: roaOk === null ? null : round(roaOk * 100, 2),   // -> %
+    npm: npmOk === null ? null : round(npmOk * 100, 2),   // -> %
     updated_at: new Date().toISOString(),
   };
 }
