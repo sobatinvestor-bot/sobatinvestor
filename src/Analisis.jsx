@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, lazy, Suspense } from 'react';
 import { ChevronLeft, Send, Trash2, Loader2, TrendingUp, TrendingDown, MessageCircle, Search, X, Briefcase } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell, LineChart, Line, CartesianGrid } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell, LineChart, Line, CartesianGrid, ReferenceLine } from 'recharts';
 import { supabase } from './lib/supabase';
 import useBackGuard from './useBackGuard.js';
 const Backtest = lazy(() => import('./Backtest.jsx'));
@@ -37,23 +37,54 @@ const OVERALL_METRIC = { key: 'overall', label: 'Overall', dir: 'desc', unit: ''
 
 const toNum = (v) => (v == null || isNaN(Number(v)) ? null : Number(v));
 
-// Skor Overall 0-100: rata-rata PERSENTIL peringkat di 4 metrik inti, relatif ke seluruh
-// emiten yang punya data. Bobot sama, transparan; metrik yang kosong di-skip (tak dihukum).
+// Skor Overall 0-100: rata-rata PERSENTIL peringkat di 4 metrik inti, relatif ke
+// seluruh emiten yang punya data. Bobot sama, transparan.
+//
+// DUA ATURAN KEJUJURAN (jangan dihapus tanpa memahami sebabnya):
+//
+// 1) BLANK = NETRAL, bukan di-skip.
+//    Dulu skor = rata-rata metrik yang ADA saja. Akibatnya pembagi mengecil,
+//    sehingga satu metrik bagus jadi berbobot lebih besar -> emiten dengan data
+//    BOLONG justru diuntungkan, dan emiten yang datanya lengkap dihukum.
+//    Menghukum blank juga salah (blank sering karena Yahoo, bukan salah emiten).
+//    Solusi: pembagi selalu 4; metrik kosong diberi persentil NETRAL (0,5).
+//    Blank jadi tidak untung, tidak rugi.
+//
+// 2) EMITEN RUGI TIDAK DIBERI SKOR.
+//    Untuk emiten rugi, PER tidak terdefinisi dan PBV terdistorsi karena
+//    ekuitasnya tergerus - PBV kecil terbaca "murah" padahal itu tanda tekanan
+//    (jebakan nilai). Memberi skor = mengklaim perbandingan yang tak terbukti.
+//    Lebih jujur dikosongkan; chip ROA/NPM negatif tetap menampilkan faktanya.
+const OVERALL_NEUTRAL = 0.5;  // persentil untuk metrik yang tidak tersedia
+const OVERALL_MIN_ADA = 2;    // minimal metrik nyata; di bawah ini skor tak bermakna
+
+// Emiten dianggap RUGI bila ROA atau NPM negatif (pakai yang tersedia).
+function isRugi(f) {
+  const roa = toNum(f.roa);
+  const npm = toNum(f.npm);
+  return (npm !== null && npm < 0) || (roa !== null && roa < 0);
+}
+
 function computeOverall(fundsMap) {
   const syms = Object.keys(fundsMap || {});
-  const acc = {};
-  syms.forEach((s) => { acc[s] = []; });
+  const pct = {};
+  syms.forEach((s) => { pct[s] = {}; });
   FUND_METRICS.forEach((m) => {
     const vals = syms.map((s) => ({ s, v: toNum(fundsMap[s][m.key]) })).filter((x) => x.v !== null);
     if (vals.length < 2) return;
     vals.sort((a, b) => (m.dir === 'asc' ? a.v - b.v : b.v - a.v)); // index 0 = terbaik
     const n = vals.length;
-    vals.forEach((x, i) => { acc[x.s].push(1 - i / (n - 1)); }); // 1=terbaik, 0=terburuk
+    vals.forEach((x, i) => { pct[x.s][m.key] = 1 - i / (n - 1); }); // 1=terbaik, 0=terburuk
   });
   const out = {};
   syms.forEach((s) => {
-    const arr = acc[s];
-    out[s] = arr.length ? Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 100) : null;
+    const f = fundsMap[s] || {};
+    if (isRugi(f)) { out[s] = null; return; }                       // aturan 2
+    const ada = FUND_METRICS.filter((m) => pct[s][m.key] !== undefined).length;
+    if (ada < OVERALL_MIN_ADA) { out[s] = null; return; }           // data terlalu tipis
+    const arr = FUND_METRICS.map((m) =>                             // aturan 1
+      (pct[s][m.key] !== undefined ? pct[s][m.key] : OVERALL_NEUTRAL));
+    out[s] = Math.round((arr.reduce((a, b) => a + b, 0) / FUND_METRICS.length) * 100);
   });
   return out;
 }
@@ -416,7 +447,7 @@ export function FundamentalStrip({ symbol, funds }) {
         })}
       </div>
       <p className="mono" style={{ fontSize: 9.5, color: C.inkSoft, marginTop: 8, lineHeight: 1.5 }}>
-        PER/PBV/ROA/NPM dari data publik (Yahoo), dapat berbeda dari laporan resmi; DER/Yield/Growth EPS dihitung dari laporan keuangan resmi emiten{f.updated_at ? ` · per ${fmtDate(f.updated_at)}` : ''}. Overall = skor relatif 0–100 (rata-rata peringkat 4 metrik inti dibanding emiten lain), bukan nilai absolut. Edukatif, bukan rekomendasi.
+        PER/PBV/ROA/NPM dari data publik (Yahoo), dapat berbeda dari laporan resmi; DER/Yield/Growth EPS dihitung dari laporan keuangan resmi emiten{f.updated_at ? ` · per ${fmtDate(f.updated_at)}` : ''}. Overall = skor relatif 0–100 (rata-rata peringkat 4 metrik inti dibanding emiten lain), bukan nilai absolut. Metrik yang kosong dihitung netral, bukan diabaikan, agar data bolong tidak menguntungkan. Emiten yang merugi tidak diberi skor karena PER tidak bermakna dan PBV terdistorsi. Edukatif, bukan rekomendasi.
       </p>
     </div>
   );
@@ -674,24 +705,51 @@ function PriceChart({ symbol }) {
   );
 }
 
+// Skala grafik: domain WAJIB memuat nol.
+// Dulu di-hardcode [0, 'dataMax'] -> untuk emiten RUGI (semua nilai negatif)
+// dataMax bernilai negatif, domainnya jadi terbalik (mis. [0, -1520]) sehingga
+// batang -6080 jatuh di luar skala dan terpotong. Dihitung dari data sekarang.
+function chartDomain(vals) {
+  const hi = Math.max(0, ...vals);
+  const lo = Math.min(0, ...vals);
+  const span = (hi - lo) || 1;
+  const pad = span * 0.08;
+  return [lo < 0 ? lo - pad : 0, hi > 0 ? hi + pad : 0];
+}
+
 function AnalysisChart({ chart }) {
   if (!chart || !Array.isArray(chart.data) || chart.data.length === 0) return null;
+  const vals = chart.data.map((d) => Number(d.value)).filter((v) => !isNaN(v));
+  if (!vals.length) return null;
+  const adaNegatif = Math.min(...vals) < 0;
+  const domain = chartDomain(vals);
+  const fmtNilai = (v) => Number(v).toLocaleString('id-ID', { maximumFractionDigits: 2 });
   return (
     <div style={{ background: C.cream2, borderRadius: 16, padding: 16, margin: '4px 0 18px' }}>
       {chart.title && <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>{chart.title}</div>}
       <ResponsiveContainer width="100%" height={200}>
         <BarChart data={chart.data} margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
           <XAxis dataKey="label" tick={{ fontSize: 11, fill: C.inkSoft }} axisLine={false} tickLine={false} />
-          <YAxis hide domain={[0, 'dataMax']} />
+          <YAxis hide domain={domain} />
           <Tooltip
             cursor={{ fill: 'rgba(26,42,32,0.05)' }}
             contentStyle={{ background: C.ink, border: 'none', borderRadius: 8, fontSize: 12 }}
             labelStyle={{ color: C.cream }}
             itemStyle={{ color: C.cuanBright }}
-            formatter={(v) => [v, 'Nilai']}
+            formatter={(v) => [fmtNilai(v), Number(v) < 0 ? 'Rugi' : 'Nilai']}
           />
-          <Bar dataKey="value" radius={[6, 6, 0, 0]}>
-            {chart.data.map((_, i) => <Cell key={i} fill={C.cuan} />)}
+          {/* Garis nol: tanpa ini batang negatif tak punya acuan baca. */}
+          {adaNegatif && (
+            <ReferenceLine y={0} stroke={C.inkSoft} strokeWidth={1}
+              label={{ value: '0', position: 'insideLeft', fontSize: 10, fill: C.inkSoft }} />
+          )}
+          <Bar dataKey="value">
+            {chart.data.map((d, i) => {
+              const neg = Number(d.value) < 0;
+              // Batang rugi: warna rust + sudut membulat di BAWAH (ujung bebasnya),
+              // karena batang menggantung turun dari garis nol.
+              return <Cell key={i} fill={neg ? C.rust : C.cuan} radius={neg ? [0, 0, 6, 6] : [6, 6, 0, 0]} />;
+            })}
           </Bar>
         </BarChart>
       </ResponsiveContainer>
