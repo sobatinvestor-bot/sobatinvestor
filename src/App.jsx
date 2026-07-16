@@ -1566,29 +1566,9 @@ function HomeTab({ stocks, setTab, goTo, visitStats }) {
   );
 }
 
-function PerfTooltip({ active, payload }) {
-  if (!active || !payload || !payload.length) return null;
-  const p = payload[0].payload;
-  return (
-    <div style={{ background: C.ink, borderRadius: 8, padding: '8px 11px', fontSize: 12 }}>
-      <div style={{ color: C.cream, marginBottom: 3 }}>{p.label}</div>
-      <div style={{ color: C.cuanBright, fontWeight: 600 }}>{fmtRp(p.value)}</div>
-      {p.pct != null && (
-        <div style={{ color: p.pct >= 0 ? '#6BCF8F' : '#F47766', fontWeight: 600, marginTop: 2 }}>
-          Porto {fmtPct(p.pct)}
-        </div>
-      )}
-      {p.ihsgPct != null && (
-        <div style={{ color: 'rgba(244,239,230,0.7)', marginTop: 2 }}>
-          IHSG {fmtPct(p.ihsgPct)}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function ZakatCard({ dividenDibayar = 0, zakatPaid = 0, onSaveZakat }) {
   const zakat = dividenDibayar * 0.025;
+  const [hideBalance] = useHideBalance();   // sinkron otomatis via HIDEBAL_EVENT
   const [input, setInput] = useState('');
   const [saving, setSaving] = useState(false);
   useEffect(() => { setInput(zakatPaid ? Number(zakatPaid).toLocaleString('id-ID') : ''); }, [zakatPaid]);
@@ -1603,26 +1583,28 @@ function ZakatCard({ dividenDibayar = 0, zakatPaid = 0, onSaveZakat }) {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
         <span style={{ fontSize: 13, color: C.inkSoft }}>Dividen dibayarkan</span>
-        <span className="mono" style={{ fontSize: 15, fontWeight: 600, color: C.ink }}>{fmtRp(dividenDibayar)}</span>
+        <span className="mono" style={{ fontSize: 15, fontWeight: 600, color: C.ink }}>{hideBalance ? 'Rp ••••••' : fmtRp(dividenDibayar)}</span>
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '12px 14px', background: 'rgba(107,142,90,0.12)', borderRadius: 12, marginBottom: 14 }}>
         <span style={{ fontSize: 13, fontWeight: 600, color: C.ink }}>Zakat wajib (2,5%)</span>
-        <span className="serif" style={{ fontSize: 22, fontWeight: 700, color: C.forest }}>{fmtRp(zakat)}</span>
+        <span className="serif" style={{ fontSize: 22, fontWeight: 700, color: C.forest }}>{hideBalance ? 'Rp ••••••' : fmtRp(zakat)}</span>
       </div>
 
       <label style={{ display: 'block', fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', color: C.inkSoft, textTransform: 'uppercase', marginBottom: 6 }}>Sudah Dibayar (Rp)</label>
       <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
         <input
           inputMode="numeric"
-          value={input}
+          value={hideBalance ? '••••••' : input}
+          disabled={hideBalance}
+          title={hideBalance ? 'Tampilkan nominal untuk mengubah' : undefined}
           onChange={(e) => {
             const digits = e.target.value.replace(/[^0-9]/g, '');
             setInput(digits ? Number(digits).toLocaleString('id-ID') : '');
           }}
           placeholder="0"
           className="mono"
-          style={{ flex: 1, boxSizing: 'border-box', padding: '10px 12px', fontSize: 15, border: `1px solid rgba(26,42,32,0.15)`, borderRadius: 10, background: C.cream, color: C.ink }}
+          style={{ flex: 1, boxSizing: 'border-box', padding: '10px 12px', fontSize: 15, border: `1px solid rgba(26,42,32,0.15)`, borderRadius: 10, background: C.cream, color: hideBalance ? C.inkSoft : C.ink }}
         />
         <button
           disabled={!dirty || saving || !onSaveZakat}
@@ -1634,7 +1616,7 @@ function ZakatCard({ dividenDibayar = 0, zakatPaid = 0, onSaveZakat }) {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '12px 14px', background: sisa > 0 ? 'rgba(184,92,56,0.12)' : 'rgba(107,142,90,0.12)', borderRadius: 12 }}>
         <span style={{ fontSize: 13, fontWeight: 600, color: C.ink }}>{sisa > 0 ? 'Sisa perlu dibayar' : 'Zakat lunas'}</span>
-        <span className="serif" style={{ fontSize: 22, fontWeight: 700, color: sisa > 0 ? C.rust : C.forest }}>{fmtRp(sisa)}</span>
+        <span className="serif" style={{ fontSize: 22, fontWeight: 700, color: sisa > 0 ? C.rust : C.forest }}>{hideBalance ? 'Rp ••••••' : fmtRp(sisa)}</span>
       </div>
     </div>
   );
@@ -2691,6 +2673,7 @@ function DividendAdmin({ userId }) {
 // Cash from Dividend — jumlah real dari Yahoo; tanggal bayar = resmi dari tabel
 // dividend_schedule (bila diumumkan) atau perkiraan (ex-date + offset).
 export function DividendCard({ stocks, onSymbol, onTotalHist }) {
+  const [hideBalance] = useHideBalance();   // sinkron otomatis via HIDEBAL_EVENT
   const symKey = stocks.map((s) => s.symbol).join(',');
   const [raw, setRaw] = useState([]);   // [{ symbol, amount, exDate }]
   const [loading, setLoading] = useState(true);
@@ -2888,7 +2871,7 @@ export function DividendCard({ stocks, onSymbol, onTotalHist }) {
         <h3 className="serif" style={{ fontSize: 18, fontWeight: 600 }}>Total Dividen</h3>
       </div>
 
-      <div className="serif" style={{ fontSize: 30, fontWeight: 600, color: C.green, marginBottom: 16 }}>{fmtRp(totalHist + total12)}</div>
+      <div className="serif" style={{ fontSize: 30, fontWeight: 600, color: C.green, marginBottom: 16 }}>{hideBalance ? 'Rp ••••••' : fmtRp(totalHist + total12)}</div>
 
       {hist.length > 0 && (
         <div style={{ marginBottom: 18 }}>
@@ -2897,7 +2880,7 @@ export function DividendCard({ stocks, onSymbol, onTotalHist }) {
             <span className="mono" style={{ fontSize: 10, color: C.inkSoft, letterSpacing: '0.08em' }}>12 BULAN TERAKHIR</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
-            <div className="serif" style={{ fontSize: 20, fontWeight: 600, color: C.green }}>{fmtRp(totalHist)}</div>
+            <div className="serif" style={{ fontSize: 20, fontWeight: 600, color: C.green }}>{hideBalance ? 'Rp ••••••' : fmtRp(totalHist)}</div>
             <button className="mono" onClick={() => setShowHist((v) => !v)} style={toggleBtnStyle}>
               {showHist ? 'SEMBUNYIKAN ▴' : 'DETAIL ▾'}
             </button>
@@ -2906,13 +2889,13 @@ export function DividendCard({ stocks, onSymbol, onTotalHist }) {
             <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 8, alignItems: 'center', padding: '10px 0', borderBottom: `1px solid rgba(26,42,32,0.06)` }}>
               <div>
                 <div onClick={onSymbol ? () => onSymbol(r.symbol) : undefined} title={onSymbol ? `Lihat analisis ${r.symbol}` : undefined} style={{ fontWeight: 700, fontSize: 13, cursor: onSymbol ? 'pointer' : 'default', textDecoration: onSymbol ? 'underline' : 'none', textDecorationStyle: 'dotted', textDecorationColor: 'rgba(26,42,32,0.35)', textUnderlineOffset: 3, display: 'inline-block' }}>{r.symbol}</div>
-                <div style={{ fontSize: 11, color: C.inkSoft }}>{fmtRp(r.amount)}/lembar × {r.qty.toLocaleString('id-ID')} berhak</div>
+                <div style={{ fontSize: 11, color: C.inkSoft }}>{fmtRp(r.amount)}/lembar{hideBalance ? '' : ` × ${r.qty.toLocaleString('id-ID')} berhak`}</div>
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div className="mono" style={{ fontSize: 11, color: C.inkSoft }}>ex {fmtDate(new Date(r.exTime))}</div>
                 <div className="mono" style={{ fontSize: 8, letterSpacing: '0.06em', color: r.exact ? C.green : C.inkSoft }}>{r.exact ? 'DIBAYAR ' : '±DIBAYAR '}{fmtDate(r.payEst).toUpperCase()}</div>
               </div>
-              <div className="mono" style={{ fontSize: 13, fontWeight: 600, color: C.green, textAlign: 'right', minWidth: 84 }}>{fmtRp(r.cash)}</div>
+              <div className="mono" style={{ fontSize: 13, fontWeight: 600, color: C.green, textAlign: 'right', minWidth: 84 }}>{hideBalance ? 'Rp ••••••' : fmtRp(r.cash)}</div>
             </div>
           ))}
         </div>
@@ -2924,7 +2907,7 @@ export function DividendCard({ stocks, onSymbol, onTotalHist }) {
       </div>
       {rows.length > 0 && (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
-          <div className="serif" style={{ fontSize: 20, fontWeight: 600, color: C.green }}>{fmtRp(total12)}</div>
+          <div className="serif" style={{ fontSize: 20, fontWeight: 600, color: C.green }}>{hideBalance ? 'Rp ••••••' : fmtRp(total12)}</div>
           <button className="mono" onClick={() => setShowProj((v) => !v)} style={toggleBtnStyle}>
             {showProj ? 'SEMBUNYIKAN ▴' : 'DETAIL ▾'}
           </button>
@@ -2946,13 +2929,13 @@ export function DividendCard({ stocks, onSymbol, onTotalHist }) {
             <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 8, alignItems: 'center', padding: '10px 0', borderBottom: `1px solid rgba(26,42,32,0.06)` }}>
               <div>
                 <div onClick={onSymbol ? () => onSymbol(r.symbol) : undefined} title={onSymbol ? `Lihat analisis ${r.symbol}` : undefined} style={{ fontWeight: 700, fontSize: 13, cursor: onSymbol ? 'pointer' : 'default', textDecoration: onSymbol ? 'underline' : 'none', textDecorationStyle: 'dotted', textDecorationColor: 'rgba(26,42,32,0.35)', textUnderlineOffset: 3, display: 'inline-block' }}>{r.symbol}</div>
-                <div style={{ fontSize: 11, color: C.inkSoft }}>{fmtRp(r.amount)}/lembar × {r.qty.toLocaleString('id-ID')}</div>
+                <div style={{ fontSize: 11, color: C.inkSoft }}>{fmtRp(r.amount)}/lembar{hideBalance ? '' : ` × ${r.qty.toLocaleString('id-ID')}`}</div>
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div className="mono" style={{ fontSize: 11, color: C.inkSoft }}>{fmtDate(r.payDate)}</div>
                 <div className="mono" style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.06em', color: r.fix ? C.green : C.inkSoft }}>{r.fix ? 'FIX' : 'PERKIRAAN'}</div>
               </div>
-              <div className="mono" style={{ fontSize: 13, fontWeight: 600, color: C.green, textAlign: 'right', minWidth: 84 }}>{fmtRp(r.cash)}</div>
+              <div className="mono" style={{ fontSize: 13, fontWeight: 600, color: C.green, textAlign: 'right', minWidth: 84 }}>{hideBalance ? 'Rp ••••••' : fmtRp(r.cash)}</div>
             </div>
           ))}
         </div>
