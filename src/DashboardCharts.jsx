@@ -59,10 +59,36 @@ export function PerfChart({ perfData, todayLabel, hasIhsg, hideBalance }) {
   );
 }
 
+// Tooltip pie: nama sektor SENGAJA tidak ditulis (sudah ada di legend bawah).
+// Yang ditampilkan = saham anggota sektor itu + bobotnya terhadap portofolio.
+// Catatan privasi: isinya persentase saja, tanpa nominal — jadi aman ditampilkan
+// baik saat saldo terlihat maupun disembunyikan.
+const MAX_ANGGOTA = 6;
+
+function SectorTooltip({ active, payload, total }) {
+  if (!active || !payload || !payload.length) return null;
+  const p = payload[0].payload || {};
+  const members = [...(p.members || [])].sort((a, b) => b.val - a.val);
+  if (!members.length || !(total > 0)) return null;
+  const tampil = members.slice(0, MAX_ANGGOTA);
+  const sisa = members.length - tampil.length;
+  return (
+    <div style={{ background: C.ink, borderRadius: 8, padding: '8px 11px', fontSize: 12, color: C.cream, minWidth: 128 }}>
+      {tampil.map((m) => (
+        <div key={m.sym} style={{ display: 'flex', justifyContent: 'space-between', gap: 14, marginBottom: 2 }}>
+          <span style={{ fontWeight: 600 }}>{m.sym}</span>
+          <span style={{ color: C.cuanBright }}>{((m.val / total) * 100).toFixed(1)}%</span>
+        </div>
+      ))}
+      {sisa > 0 && (
+        <div style={{ color: 'rgba(244,239,230,0.6)', marginTop: 3 }}>+{sisa} lainnya</div>
+      )}
+    </div>
+  );
+}
+
 // Pie alokasi sektor
-export function SectorPie({ sectorData, sectorColors, hideBalance }) {
-  // Saat privasi aktif: jangan tampilkan nominal. Tampilkan PORSI (%) saja —
-  // tetap berguna dan tidak membocorkan nilai portofolio.
+export function SectorPie({ sectorData, sectorColors }) {
   const total = (sectorData || []).reduce((s, d) => s + (Number(d.value) || 0), 0);
   return (
     <ResponsiveContainer width="100%" height={160}>
@@ -70,13 +96,7 @@ export function SectorPie({ sectorData, sectorColors, hideBalance }) {
         <Pie data={sectorData} dataKey="value" cx="50%" cy="50%" innerRadius={42} outerRadius={70} paddingAngle={2}>
           {sectorData.map((_, i) => <Cell key={i} fill={sectorColors[i % sectorColors.length]} />)}
         </Pie>
-        <Tooltip
-          contentStyle={{ background: C.ink, border: 'none', borderRadius: 8, fontSize: 12, color: C.cream }}
-          itemStyle={{ color: C.cream }}
-          formatter={(v) => (hideBalance
-            ? (total > 0 ? `${((Number(v) / total) * 100).toFixed(1)}% dari porto` : MASK)
-            : fmtRp(v))}
-        />
+        <Tooltip content={<SectorTooltip total={total} />} />
       </PieChart>
     </ResponsiveContainer>
   );

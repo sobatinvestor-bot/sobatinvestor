@@ -1802,13 +1802,23 @@ function DashboardTab({ stocks, ihsgQuote, onSymbol }) {
   const sectorMap = {};
   stocks.forEach((s) => {
     const val = s.price * s.qty;
-    sectorMap[s.sector] = (sectorMap[s.sector] || 0) + val;
+    // .trim(): data stock_directory sempat mengandung sisa "\r" dari impor CSV.
+    // Tanpa ini, "Infrastruktur\r" dan "Infrastruktur" terhitung DUA sektor.
+    const sec = (s.sector || 'Lainnya').trim() || 'Lainnya';
+    if (!sectorMap[sec]) sectorMap[sec] = { value: 0, members: [] };
+    sectorMap[sec].value += val;
+    sectorMap[sec].members.push({ sym: s.symbol, val });
   });
-  const sectorSorted = Object.entries(sectorMap).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+  const sectorSorted = Object.entries(sectorMap)
+    .map(([name, o]) => ({ name, value: o.value, members: o.members }))
+    .sort((a, b) => b.value - a.value);
   const sectorMinThreshold = totalValue * 0.02; // sektor < 2% digabung jadi "Lainnya"
   const sectorMajor = sectorSorted.filter((s) => s.value >= sectorMinThreshold);
-  const sectorMinorSum = sectorSorted.filter((s) => s.value < sectorMinThreshold).reduce((sum, s) => sum + s.value, 0);
-  const sectorData = sectorMinorSum > 0 ? [...sectorMajor, { name: 'Lainnya', value: sectorMinorSum }] : sectorMajor;
+  const sectorMinor = sectorSorted.filter((s) => s.value < sectorMinThreshold);
+  const sectorMinorSum = sectorMinor.reduce((sum, s) => sum + s.value, 0);
+  const sectorData = sectorMinorSum > 0
+    ? [...sectorMajor, { name: 'Lainnya', value: sectorMinorSum, members: sectorMinor.flatMap((s) => s.members) }]
+    : sectorMajor;
   const sectorColors = [C.forest, C.cuan, C.rust, C.sage, C.inkSoft, C.cuanBright, C.green, '#8C6D3F', '#4E6B5A', '#7A4B2B', '#A8B89A'];
 
   const gainers = [...stocks].filter((s) => s.change > 0).sort((a, b) => b.change - a.change).slice(0, 3);
@@ -1864,7 +1874,7 @@ function DashboardTab({ stocks, ihsgQuote, onSymbol }) {
         <div style={{ background: C.cream2, borderRadius: 20, padding: 20 }}>
           <h3 className="serif" style={{ fontSize: 18, fontWeight: 600, marginBottom: 12 }}>Alokasi Sektor</h3>
           <Suspense fallback={<div style={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.inkSoft, fontSize: 12 }}>memuat grafik…</div>}>
-            <SectorPie sectorData={sectorData} sectorColors={sectorColors} hideBalance={hideBalance} />
+            <SectorPie sectorData={sectorData} sectorColors={sectorColors} />
           </Suspense>
           <div style={{ marginTop: 8 }}>
             {sectorData.map((s, i) => (
