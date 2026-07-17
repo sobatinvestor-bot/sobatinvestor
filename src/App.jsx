@@ -1981,33 +1981,32 @@ export function ChatTab({ stocks, active = true }) {
       let ctx = '';
       try {
         const ownedSyms = (stocks || []).map((s) => s.symbol);
-        // Deteksi kode saham dari pertanyaan:
-        //  (a) kata 4 huruf DITULIS KAPITAL (mis. "PTBA"), selalu dianggap kode.
-        //  (b) bila kalimat memuat kata kunci emiten (saham/emiten/kode/ticker/stock),
-        //      SEMUA kata 4-huruf di kalimat jadi kandidat (kecuali kata umum),
-        //      sehingga "saham ptba dan msti" menangkap ptba DAN msti.
-        const upper = (text.match(/\b[A-Z]{4}\b/g) || []);
-        const STOP = new Set(['YANG','ATAU','SAJA','PADA','DARI','AKAN','BISA','SUDA','APAA','MASA','BUAT','LAGI','JUGA','PUNYA','MILIK','MASU','SEKT','APAK','DLLL','TADI','GMNA','GIMA','KALO','KLAU','UNTU','PALI','SAMA','LEBI','KARE','SETE','TENT','HARU','MAUP','BAIK']);
-        const hasKeyword = /\b(saham|emiten|kode|ticker|stock)\b/i.test(text);
-        const byKeyword = [];
-        if (hasKeyword) {
-          const all = text.match(/\b[a-zA-Z]{4}\b/g) || [];
-          for (const w of all) {
-            const c = w.toUpperCase();
-            if (!STOP.has(c) && !/^(SAHA|EMIT|KODE|TICK|STOC)$/.test(c)) byKeyword.push(c);
-          }
+        // Deteksi kode saham: ambil SEMUA kata 4 huruf (kapital maupun kecil)
+        // sebagai KANDIDAT, lalu biarkan stock_directory yang memutuskan mana
+        // kode saham asli. Direktori = sumber otoritatif.
+        //
+        // Cara lama menebak lewat regex + daftar STOP: kode hanya terdeteksi bila
+        // DITULIS KAPITAL, atau bila kalimat memuat kata kunci (saham/emiten/kode/
+        // ticker/stock). Akibatnya "Jelaskan tentang msti" gagal total -> konteks
+        // kosong -> AI menjawab "belum punya data" padahal analisisnya ADA.
+        // Daftar kata tebakan tidak akan pernah lengkap; direktori selalu benar.
+        const kandidat = [...new Set((text.match(/\b[a-zA-Z]{4}\b/g) || []).map((w) => w.toUpperCase()))];
+        const cek = [...new Set([...kandidat, ...ownedSyms])].slice(0, 40);
+        let dir = [];
+        if (cek.length) {
+          const r = await supabase
+            .from('stock_directory').select('symbol,name,sector,is_syariah').in('symbol', cek);
+          dir = r.data || [];
         }
-        const mentioned = [...upper, ...byKeyword];
+        const adaDiDirektori = new Set(dir.map((d) => d.symbol));
+        const mentioned = kandidat.filter((c) => adaDiDirektori.has(c));
         // Prioritas: emiten yang DISEBUT di pertanyaan dulu (itu yang user tanyakan),
         // baru emiten yang DIMILIKI. Mencegah holding banyak menggusur emiten yg ditanya
         // saat dipotong ke 12.
         const relevant = [...new Set([...mentioned, ...ownedSyms])].slice(0, 12);
         if (relevant.length) {
-          // Direktori: nama, sektor, syariah
-          const { data: dir } = await supabase
-            .from('stock_directory').select('symbol,name,sector,is_syariah').in('symbol', relevant);
           const dirMap = {};
-          (dir || []).forEach((d) => { dirMap[d.symbol] = d; });
+          dir.forEach((d) => { dirMap[d.symbol] = d; });
 
           // Analisis terkurasi: ringkasan + angka kunci + bull/bear (hanya yang published)
           const { data: ana } = await supabase
