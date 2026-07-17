@@ -390,18 +390,21 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
           <>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
             <span className="mono" style={{ fontSize: 10, color: C.inkSoft, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Imbal hasil</span>
-            {PERIODE.map((p) => (
-              <button key={p.key} onClick={() => setPeriode(p.key)} className="mono"
-                title={`Perubahan harga ${p.nama}`}
-                style={{
-                  background: periode === p.key ? C.inkSoft : 'transparent',
-                  color: periode === p.key ? C.cream : C.inkSoft,
-                  border: `1px solid ${periode === p.key ? C.inkSoft : 'rgba(26,42,32,0.15)'}`,
-                  borderRadius: 8, padding: '3px 9px', fontSize: 10, fontWeight: 600, cursor: 'pointer',
-                }}>
-                {p.label}
-              </button>
-            ))}
+            <select
+              value={periode}
+              onChange={(e) => setPeriode(e.target.value)}
+              className="mono"
+              aria-label="Periode imbal hasil"
+              title="Pilih periode perubahan harga"
+              style={{
+                background: C.cream2, color: C.ink,
+                border: `1px solid rgba(26,42,32,0.15)`, borderRadius: 8,
+                padding: '4px 8px', fontSize: 11, fontWeight: 600, cursor: 'pointer',
+              }}>
+              {PERIODE.map((p) => (
+                <option key={p.key} value={p.key}>{p.nama}</option>
+              ))}
+            </select>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
             {ordered.map((a) => {

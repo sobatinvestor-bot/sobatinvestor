@@ -30,6 +30,7 @@ const env = {
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
 const DELAY_MS = 400; // jeda antar simbol agar tak kena throttle
 const DAY = 86400000;
+const YAHOO_RANGE = '2y'; // WAJIB 2y — lihat catatan di fetchSeries()
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const round = (v, d = 2) => (v === null ? null : Math.round(v * 10 ** d) / 10 ** d);
@@ -48,10 +49,17 @@ async function getSymbols() {
   return [...new Set(rows.map((x) => (x.symbol || '').toUpperCase().replace('.JK', '')).filter(Boolean))];
 }
 
-// Deret harian bersih (buang titik null yang sering muncul di libur bursa)
+// Deret harian bersih (buang titik null yang sering muncul di libur bursa).
+//
+// range=2y, BUKAN 1y. Alasannya penting: dengan range=1y titik pertama deret
+// jatuh TEPAT sekitar H-365, dan karena akhir pekan/libur ia sering berada di
+// H-364 atau H-361 -> penjaga `series[0].t <= H-365` gagal -> pct_1y null untuk
+// hampir semua emiten (gejala: kolom 1Th kosong semua, 1B & YTD normal).
+// Dengan 2y, deret pasti melewati H-365, dan penjaga IPO tetap bermakna:
+// emiten yang riwayatnya < 1 tahun tetap menghasilkan null (benar).
 async function fetchSeries(sym) {
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}.JK`
-    + `?range=1y&interval=1d`;
+    + `?range=${YAHOO_RANGE}&interval=1d`;
   const res = await fetch(url, { headers: { 'User-Agent': UA } });
   if (!res.ok) throw new Error(`chart ${res.status}`);
   const j = await res.json();
@@ -65,6 +73,15 @@ async function fetchSeries(sym) {
   }
   out.sort((a, b) => a.t - b.t);
   return out;
+}
+
+// Ringkasan rentang deret — dicetak ke log agar bisa dipastikan versi skrip
+// yang BENAR-BENAR jalan (range=1y vs 2y) tanpa menebak.
+function rentang(series) {
+  if (!series.length) return 'kosong';
+  const d = (t) => new Date(t).toISOString().slice(0, 10);
+  const hari = Math.round((series[series.length - 1].t - series[0].t) / DAY);
+  return `${series.length} titik, ${d(series[0].t)} s/d ${d(series[series.length - 1].t)} (${hari} hari)`;
 }
 
 // Harga penutupan pada atau SEBELUM waktu target. null bila deret belum mencapai situ.
@@ -121,6 +138,8 @@ async function fetchOne(sym) {
   const series = await fetchSeries(sym);
   const h = hitung(series);
   return {
+    _rentang: rentang(series),
+    _cukup1y: series.length ? (series[0].t <= series[series.length - 1].t - 365 * DAY) : false,
     symbol: sym,
     pct_1m: h.pct_1m,
     pct_ytd: h.pct_ytd,
@@ -132,6 +151,8 @@ async function fetchOne(sym) {
 
 async function upsert(rows) {
   if (!rows.length) return 0;
+  // Buang field diagnosa (_rentang, _cukup1y) — bukan kolom tabel `performance`.
+  rows = rows.map(({ _rentang, _cukup1y, ...r }) => r);
   const r = await fetch(`${env.SUPABASE_URL}/rest/v1/performance`, {
     method: 'POST',
     headers: { ...svcHeaders(), 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' },
@@ -147,6 +168,7 @@ async function main() {
   }
   const symbols = await getSymbols();
   console.log(`Simbol: ${symbols.length}`);
+  console.log(`Rentang tarik Yahoo: ${YAHOO_RANGE}  <- harus '2y'. Kalau tertulis '1y', repo masih memakai skrip lama.`);
 
   const out = [];
   let ok = 0, fail = 0;
@@ -155,7 +177,10 @@ async function main() {
       const row = await fetchOne(sym);
       out.push(row);
       const f = (v) => (v === null ? '—' : (v >= 0 ? '+' : '') + v + '%');
-      console.log(`  ${sym}: 1B ${f(row.pct_1m)} | YTD ${f(row.pct_ytd)} | 1Th ${f(row.pct_1y)}`);
+      const catatan = row.pct_1y === null
+        ? `  <- 1Th kosong. Deret: ${row._rentang}. Cukup 1 th? ${row._cukup1y ? 'YA (cek sanity)' : 'TIDAK -> deret < 365 hari'}`
+        : '';
+      console.log(`  ${sym}: 1B ${f(row.pct_1m)} | YTD ${f(row.pct_ytd)} | 1Th ${f(row.pct_1y)}${catatan}`);
       ok++;
     } catch (e) {
       console.error(`  ${sym}: GAGAL — ${e.message}`);
