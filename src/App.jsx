@@ -602,6 +602,9 @@ export default function App() {
 
 // Area privat (hanya saat sudah login): Dashboard, Sobat AI, Portfolio
 function PrivateArea({ tab, userId, ihsgQuote, goAnalisis, onPortfolioTotal, onPortfolioStats }) {
+  // RdnCard ada di Account.jsx; App.jsx sudah mengimpor dari sana, jadi hook
+  // useHideBalance TIDAK boleh diimpor balik (impor melingkar). Diteruskan sbg prop.
+  const [hideBalance] = useHideBalance();
   const { stocks, addHolding, updateHolding, deleteHolding, deleteAll, sellHolding, settings, adjustRdn, saveFees, saveModalAwal, saveZakatPaid, exportCSV, importData } = usePortfolio(userId);
   const pfTotalValue = stocks.reduce((sum, s) => sum + (s.price || 0) * (s.qty || 0), 0);
   const costBasis = stocks.reduce((sum, s) => sum + (s.avg || 0) * (s.qty || 0), 0);
@@ -650,7 +653,7 @@ function PrivateArea({ tab, userId, ihsgQuote, goAnalisis, onPortfolioTotal, onP
             onSaveZakat={saveZakatPaid}
           />
         </div>
-        <div id="sec-rdn" style={{ scrollMarginTop: 70, maxWidth: 1100, margin: '0 auto', padding: '0 20px' }}><RdnCard settings={settings} onAdjust={adjustRdn} onSaveFees={saveFees} userId={userId} /></div>
+        <div id="sec-rdn" style={{ scrollMarginTop: 70, maxWidth: 1100, margin: '0 auto', padding: '0 20px' }}><RdnCard settings={settings} onAdjust={adjustRdn} onSaveFees={saveFees} userId={userId} hideBalance={hideBalance} /></div>
         <div style={{ maxWidth: 1100, margin: '16px auto 0', padding: '0 20px' }}>
           <div style={{ padding: 14, background: 'rgba(196,155,60,0.1)', borderRadius: 12, fontSize: 12, color: C.inkSoft, lineHeight: 1.5 }}>
             💡 <strong style={{ color: C.ink }}>Privat:</strong> Hanya kamu yang bisa melihat portofolio ini. Tersimpan di akunmu &amp; sinkron lintas perangkat. Harga live (delayed) dari pasar.
@@ -2278,6 +2281,7 @@ function DeleteAllPortfolio({ count, onDeleteAll }) {
 const KOLOM_TABEL = 'minmax(90px,1.5fr) minmax(56px,1fr) minmax(72px,1fr) minmax(72px,1fr) minmax(92px,1.3fr) minmax(96px,1.1fr)';
 
 function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImport, onSymbol, isAdmin, zakatPaid, onSaveZakat }) {
+  const [hideBalance] = useHideBalance();   // sinkron otomatis via HIDEBAL_EVENT
   const [confirmDel, setConfirmDel] = useState(null); // stock yang mau dihapus
   const [divTotalHist, setDivTotalHist] = useState(0); // total dividen dibayarkan 12 bln (dari DividendCard)
 
@@ -2333,7 +2337,7 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
                 <div style={{ position: 'sticky', left: 0, background: C.cream2, zIndex: 1 }}>
                   <div onClick={onSymbol ? () => onSymbol(s.symbol) : undefined} title={onSymbol ? `Lihat analisis ${s.symbol}` : undefined} style={{ fontWeight: 700, fontSize: 14, cursor: onSymbol ? 'pointer' : 'default', textDecoration: onSymbol ? 'underline' : 'none', textDecorationStyle: 'dotted', textDecorationColor: 'rgba(26,42,32,0.35)', textUnderlineOffset: 3, display: 'inline-block' }}>{s.symbol}</div>
                 </div>
-                <div className="mono" style={{ fontSize: 13, textAlign: 'right' }}>{s.qty.toLocaleString('id-ID')}</div>
+                <div className="mono" style={{ fontSize: 13, textAlign: 'right' }}>{hideBalance ? '••••' : s.qty.toLocaleString('id-ID')}</div>
                 <div className="mono" style={{ fontSize: 13, textAlign: 'right' }}>{Math.round(s.avg).toLocaleString('id-ID')}</div>
                 <div className="mono" style={{ fontSize: 13, textAlign: 'right', fontWeight: 600 }}>
                   {s.hasLive ? Math.round(s.price).toLocaleString('id-ID') : <span style={{ color: C.inkSoft }} title="harga live tak tersedia">—</span>}
@@ -2342,7 +2346,7 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
                   {plPct != null ? (
                     <>
                       <div className="mono" style={{ fontSize: 13, fontWeight: 600, color: plPct >= 0 ? C.green : C.red }}>{fmtPct(plPct)}</div>
-                      <div className="mono" style={{ fontSize: 9, color: plPct >= 0 ? C.green : C.red }}>{plRp >= 0 ? '+' : '-'}Rp{Math.abs(Math.round(plRp)).toLocaleString('id-ID')}</div>
+                      <div className="mono" style={{ fontSize: 9, color: plPct >= 0 ? C.green : C.red }}>{hideBalance ? 'Rp ••••••' : `${plRp >= 0 ? '+' : '-'}Rp${Math.abs(Math.round(plRp)).toLocaleString('id-ID')}`}</div>
                     </>
                   ) : <span className="mono" style={{ fontSize: 13, color: C.inkSoft }}>—</span>}
                 </div>
@@ -2373,7 +2377,7 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
           <div onClick={(e) => e.stopPropagation()} style={{ background: C.cream, borderRadius: 20, padding: 24, maxWidth: 360, width: '100%' }}>
             <h3 className="serif" style={{ fontSize: 20, fontWeight: 600, marginBottom: 8 }}>Hapus {confirmDel.symbol}?</h3>
             <p style={{ fontSize: 14, color: C.inkSoft, lineHeight: 1.55, marginBottom: 6 }}>
-              {confirmDel.name || confirmDel.symbol} — {Number(confirmDel.qty).toLocaleString('id-ID')} lembar akan dihapus dari portofoliomu.
+              {confirmDel.name || confirmDel.symbol} — {hideBalance ? '••••' : Number(confirmDel.qty).toLocaleString('id-ID')} lembar akan dihapus dari portofoliomu.
             </p>
             <p style={{ fontSize: 12, color: C.rust, marginBottom: 18 }}>Tindakan ini tidak bisa dibatalkan.</p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>

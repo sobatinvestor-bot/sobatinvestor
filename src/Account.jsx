@@ -804,7 +804,18 @@ export function SellEditor({ holding, onSell, onClose, fees = { fee_sell: 0.15, 
 // Kartu RDN — saldo kas virtual + setor/tarik + pengaturan fee.
 // Pasang di App.jsx: <RdnCard settings={settings} onAdjust={adjustRdn} onSaveFees={saveFees} />
 // ============================================================
-export function RdnCard({ settings, onAdjust, onSaveFees, userId }) {
+// Catatan mutasi RDN dibuat OTOMATIS dan memuat angka, mis.
+// "Beli ADRO 44.200 @ Rp2.260" -> qty & harga bocor tepat di sebelah nominal
+// yang sudah disamarkan, sehingga masking-nya percuma (qty x harga = nilai).
+// Saat privasi aktif, semua gugus angka di catatan ikut disamarkan; aksi dan
+// kode saham tetap terbaca supaya mutasi masih bisa dikenali.
+const samarkanAngka = (t) => String(t || '').replace(/\d[\d.,]*/g, '\u2022\u2022\u2022\u2022');
+const labelMutasi = (l, hide) => {
+  const n = l.note || (Number(l.delta) >= 0 ? 'Masuk' : 'Keluar');
+  return hide ? samarkanAngka(n) : n;
+};
+
+export function RdnCard({ settings, onAdjust, onSaveFees, userId, hideBalance }) {
   const [nominal, setNominal] = useState('');
   const [showFee, setShowFee] = useState(false);
   const [fee, setFee] = useState(null);
@@ -840,7 +851,7 @@ export function RdnCard({ settings, onAdjust, onSaveFees, userId }) {
         </button>
       </div>
       <div className="serif" style={{ fontSize: 24, fontWeight: 600, marginTop: 6, color: Number(settings.rdn) >= 0 ? C.green : C.red }}>
-        Rp{Math.round(Number(settings.rdn)).toLocaleString('id-ID')}
+        {hideBalance ? 'Rp ••••••' : `Rp${Math.round(Number(settings.rdn)).toLocaleString('id-ID')}`}
       </div>
       <div style={{ fontSize: 11, color: C.inkSoft, marginTop: 2 }}>
         hasil jual &amp; dividen (gros belum fee dan pajak)
@@ -880,15 +891,15 @@ export function RdnCard({ settings, onAdjust, onSaveFees, userId }) {
           {ledger !== null && ledger.map((l) => (
             <div key={l.id} style={{ display: 'grid', gridTemplateColumns: '1fr auto', padding: '9px 0', borderBottom: '1px solid rgba(26,42,32,0.06)', alignItems: 'center' }}>
               <div>
-                <span style={{ fontSize: 12, color: C.ink }}>{l.note || (Number(l.delta) >= 0 ? 'Masuk' : 'Keluar')}</span>
+                <span style={{ fontSize: 12, color: C.ink }}>{labelMutasi(l, hideBalance)}</span>
                 <span className="mono" style={{ fontSize: 10, color: C.inkSoft, marginLeft: 8 }}>{fmtTgl(l.event_date || l.created_at)}</span>
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div className="mono" style={{ fontSize: 13, fontWeight: 600, color: Number(l.delta) >= 0 ? C.green : C.red }}>
-                  {Number(l.delta) >= 0 ? '+' : '-'}Rp{Math.abs(Math.round(Number(l.delta))).toLocaleString('id-ID')}
+                  {hideBalance ? 'Rp ••••••' : `${Number(l.delta) >= 0 ? '+' : '-'}Rp${Math.abs(Math.round(Number(l.delta))).toLocaleString('id-ID')}`}
                 </div>
                 {l.balance != null && (
-                  <div className="mono" style={{ fontSize: 9, color: C.inkSoft }}>saldo Rp{Math.round(Number(l.balance)).toLocaleString('id-ID')}</div>
+                  <div className="mono" style={{ fontSize: 9, color: C.inkSoft }}>{hideBalance ? 'saldo Rp ••••••' : `saldo Rp${Math.round(Number(l.balance)).toLocaleString('id-ID')}`}</div>
                 )}
               </div>
             </div>
