@@ -1,0 +1,29 @@
+# GitHub Actions — sinkron performa harga (1 bulan / YTD / 1 tahun).
+# Taruh file ini di:  .github/workflows/perf-sync.yml
+# Skrip ada di:        scripts/perf-sync.mjs
+#
+# Rahasia: repo GitHub -> Settings -> Secrets and variables -> Actions
+#   -> SUPABASE_SERVICE_ROLE_KEY  (sudah ada, dipakai bersama sync lain)
+#
+# HARIAN — beda dengan Fundamentals Sync yang mingguan, karena harga bergerak
+# tiap hari bursa. Dijadwalkan setelah bursa IDX tutup + penyelesaian data Yahoo.
+name: Performance Sync
+
+on:
+  schedule:
+    - cron: '30 11 * * 1-5'   # 11:30 UTC = 18:30 WIB, Sen-Jum (IDX tutup 16:00 WIB)
+  workflow_dispatch:           # tombol "Run workflow" untuk jalankan manual / uji
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Jalankan sinkron performa
+        env:
+          SUPABASE_URL: https://hmkeqvxcifggxownzrhx.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/perf-sync.mjs

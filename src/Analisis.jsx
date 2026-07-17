@@ -35,6 +35,16 @@ const FUND_METRICS = [
 ];
 const OVERALL_METRIC = { key: 'overall', label: 'Overall', dir: 'desc', unit: '' };
 
+// Imbal hasil harga dari tabel `performance` (sinkron HARIAN, terpisah dari
+// `fundamentals` yang mingguan). SENGAJA TIDAK ikut computeOverall: Overall
+// adalah rata-rata peringkat 4 metrik inti (valuasi & profitabilitas), sedangkan
+// ini MOMENTUM HARGA. Menambahkannya diam-diam akan mengubah makna skor.
+const PERIODE = [
+  { key: 'pct_1m', label: '1B', nama: '1 bulan' },
+  { key: 'pct_ytd', label: 'YTD', nama: 'awal tahun' },
+  { key: 'pct_1y', label: '1Th', nama: '1 tahun' },
+];
+
 const toNum = (v) => (v == null || isNaN(Number(v)) ? null : Number(v));
 
 // Skor Overall 0-100: rata-rata PERSENTIL peringkat di 4 metrik inti, relatif ke
@@ -98,6 +108,10 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
   const [filter, setFilter] = useState('Semua'); // 'Semua' | 'Syariah'
   const [sortBy, setSortBy] = useState(null); // null = kode A-Z; atau salah satu key fundamental
   const [funds, setFunds] = useState({}); // peta simbol -> baris fundamentals
+  const [perf, setPerf] = useState({});   // peta simbol -> baris performance (imbal hasil harga)
+  const [periode, setPeriode] = useState('pct_ytd'); // periode yg ditampilkan di samping Overall
+  // Tanggal sinkron performa — dipakai label "per <tgl>". Beda dari updated_at
+  // fundamentals (mingguan), makanya tabelnya sengaja dipisah.
   const [query, setQuery] = useState(''); // pencarian emiten (kode/nama), hanya di Analisis Umum
   const listScrollY = useRef(0); // posisi scroll daftar, dipulihkan saat kembali dari detail
 
@@ -194,6 +208,19 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
     return () => { active = false; };
   }, []);
 
+  // Performa harga — tabel terpisah, kadensi harian. Gagal ambil = biarkan kosong
+  // (chip menampilkan "—"), jangan bikin daftar ikut gagal.
+  useEffect(() => {
+    let active = true;
+    supabase.from('performance').select('*').then(({ data, error }) => {
+      if (!active) return;
+      const m = {};
+      if (!error && Array.isArray(data)) data.forEach((r) => { m[(r.symbol || '').toUpperCase()] = r; });
+      setPerf(m);
+    });
+    return () => { active = false; };
+  }, []);
+
   // Skor Overall (persentil rata-rata metrik) — HARUS sebelum early return di bawah
   // agar urutan hooks konsisten (kalau di bawah, detail blank karena hooks mismatch).
   const overallScores = useMemo(() => computeOverall(funds), [funds]);
@@ -224,6 +251,12 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
   const noAnalysis = isPorto && Array.isArray(mySymbols)
     ? mySymbols.filter((s) => !items.some((a) => (a.symbol || '').toUpperCase() === s)).sort()
     : [];
+
+  // Tanggal sinkron performa terbaru (label "per <tgl>")
+  const perfDate = useMemo(() => {
+    const ds = Object.values(perf).map((r) => r && r.updated_at).filter(Boolean);
+    return ds.length ? ds.sort().slice(-1)[0] : null;
+  }, [perf]);
 
   // Urutan tampil: A-Z default; jika sortBy aktif → urut metrik (yang kosong di bawah)
   const metric = sortBy === 'overall' ? OVERALL_METRIC : (sortBy ? FUND_METRICS.find((m) => m.key === sortBy) : null);
@@ -354,10 +387,28 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
             <div style={{ fontSize: 14, color: C.inkSoft, marginBottom: 12 }}>Belum ada analisis untuk saham di portofoliomu — daftar emitennya ada di bawah, akan kami prioritaskan.</div>
           )}
           {metric && metric.key === 'overall' ? (
+          <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+            <span className="mono" style={{ fontSize: 10, color: C.inkSoft, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Imbal hasil</span>
+            {PERIODE.map((p) => (
+              <button key={p.key} onClick={() => setPeriode(p.key)} className="mono"
+                title={`Perubahan harga ${p.nama}`}
+                style={{
+                  background: periode === p.key ? C.inkSoft : 'transparent',
+                  color: periode === p.key ? C.cream : C.inkSoft,
+                  border: `1px solid ${periode === p.key ? C.inkSoft : 'rgba(26,42,32,0.15)'}`,
+                  borderRadius: 8, padding: '3px 9px', fontSize: 10, fontWeight: 600, cursor: 'pointer',
+                }}>
+                {p.label}
+              </button>
+            ))}
+          </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
             {ordered.map((a) => {
               const v = fval(a);
               const pct = v == null ? 0 : Math.max(2, Math.min(100, v));
+              const praw = perf[a.symbol] ? perf[a.symbol][periode] : null;
+              const rp = (praw == null || isNaN(Number(praw))) ? null : Number(praw);
               return (
               <button
                 key={a.symbol}
@@ -370,10 +421,17 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
                   <span style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%`, background: `linear-gradient(90deg, ${C.sage}, ${C.forest})`, borderRadius: 8 }} />
                 </span>
                 <span className="mono" style={{ width: 30, flexShrink: 0, textAlign: 'right', fontSize: 13, fontWeight: 700, color: v == null ? C.inkSoft : C.ink }}>{v == null ? '—' : v}</span>
+                <span className="mono" style={{ width: 54, flexShrink: 0, textAlign: 'right', fontSize: 11, fontWeight: 600, color: rp == null ? C.inkSoft : (rp >= 0 ? C.green : C.red) }}>
+                  {rp == null ? '—' : `${rp >= 0 ? '+' : ''}${rp.toFixed(1)}%`}
+                </span>
               </button>
               );
             })}
           </div>
+          <div style={{ fontSize: 10, color: C.inkSoft, marginTop: 8 }}>
+            Imbal hasil = perubahan harga {PERIODE.find((p) => p.key === periode).nama}, dari harga penutupan publik (Yahoo, delayed){perfDate ? ` · per ${fmtDate(perfDate)}` : ''}. Dihitung terpisah dan TIDAK ikut menentukan skor Overall. Belum termasuk dividen. Edukatif, bukan rekomendasi.
+          </div>
+          </>
           ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(78px, 1fr))', gap: 8 }}>
             {ordered.map((a) => {
