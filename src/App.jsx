@@ -1306,6 +1306,18 @@ export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0
               <span style={{ fontWeight: 600, color: C.ink }}>{ihsg.toFixed(2)}</span>
               <span style={{ color: ihsgChange >= 0 ? C.green : C.red, fontWeight: 600 }}>{fmtPct(ihsgChange)}</span>
             </div>
+            {session && (
+              // Mata di bar sticky (position:sticky, top:0) -> tetap terlihat saat
+              // halaman digulung. Yang di judul "Ringkasan" ikut tergulung, dan yang
+              // di menu dropdown baru muncul setelah menu dibuka.
+              <button onClick={toggleHideBalance}
+                title={hideBalance ? 'Tampilkan nominal' : 'Sembunyikan nominal'}
+                aria-label={hideBalance ? 'Tampilkan nominal' : 'Sembunyikan nominal'}
+                aria-pressed={hideBalance}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: hideBalance ? C.cuan : C.inkSoft, padding: 4, display: 'inline-flex', alignItems: 'center' }}>
+                {hideBalance ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            )}
             {session ? (
               <div style={{ position: 'relative' }}>
                 <button ref={avatarRef} onClick={() => setMenuOpen((o) => !o)} title="Profil" aria-label="Profil"
@@ -1626,7 +1638,7 @@ function ZakatCard({ dividenDibayar = 0, zakatPaid = 0, onSaveZakat }) {
 }
 
 function DashboardTab({ stocks, ihsgQuote, onSymbol }) {
-  const [hideBalance, toggleHideBalance] = useHideBalance();
+  const [hideBalance] = useHideBalance();   // tombolnya ada di bar Nav (sticky)
   const ihsgChange = ihsgQuote && typeof ihsgQuote.change === 'number' ? ihsgQuote.change : null;
   const ihsgLive = ihsgQuote && typeof ihsgQuote.value === 'number' ? ihsgQuote.value : null;
   const totalValue = stocks.reduce((sum, s) => sum + s.price * s.qty, 0);
@@ -1830,12 +1842,9 @@ function DashboardTab({ stocks, ihsgQuote, onSymbol }) {
   return (
     <div className="fade-up" style={{ padding: '24px 20px', maxWidth: 1100, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+        {/* Tombol mata DIPINDAH ke bar Nav (position: sticky, top: 0) supaya tetap
+            terlihat saat halaman digulung ke Daftar Saham / RDN / Dividen. */}
         <h2 className="serif" style={{ fontSize: 32, fontWeight: 500, letterSpacing: '-0.02em', margin: 0 }}>Ringkasan</h2>
-        <button onClick={toggleHideBalance} title={hideBalance ? 'Tampilkan nominal' : 'Sembunyikan nominal'}
-          aria-label={hideBalance ? 'Tampilkan nominal' : 'Sembunyikan nominal'}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.inkSoft, display: 'flex', alignItems: 'center', padding: 4 }}>
-          {hideBalance ? <EyeOff size={20} /> : <Eye size={20} />}
-        </button>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 20 }}>
