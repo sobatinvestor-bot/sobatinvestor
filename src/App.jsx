@@ -2269,6 +2269,14 @@ function DeleteAllPortfolio({ count, onDeleteAll }) {
   );
 }
 
+// Kolom tabel Daftar Saham. Dulu dipaku dalam piksel ('90px 56px ...' = 478px),
+// jadi di desktop lebar tabelnya berhenti di 478px dan sisanya kosong melompong.
+// Sekarang minmax(min, fr): angka min menjaga tabel tetap terbaca & bisa digeser
+// di HP (bersama minWidth 560 di bawah), sedangkan satuan fr membuat kolom
+// memuai mengisi lebar layar desktop. Header & baris WAJIB memakai konstanta
+// yang sama supaya tidak pernah melenceng.
+const KOLOM_TABEL = 'minmax(90px,1.5fr) minmax(56px,1fr) minmax(72px,1fr) minmax(72px,1fr) minmax(92px,1.3fr) minmax(96px,1.1fr)';
+
 function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImport, onSymbol, isAdmin, zakatPaid, onSaveZakat }) {
   const [confirmDel, setConfirmDel] = useState(null); // stock yang mau dihapus
   const [divTotalHist, setDivTotalHist] = useState(0); // total dividen dibayarkan 12 bln (dari DividendCard)
@@ -2308,7 +2316,7 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
         <div style={{ background: C.cream2, borderRadius: 20, overflow: 'hidden' }}>
           <div style={{ overflow: 'auto', maxHeight: 460 }}>
           <div style={{ minWidth: 560 }}>
-          <div className="mono" style={{ display: 'grid', gridTemplateColumns: '90px 56px 72px 72px 92px 96px', padding: '14px 16px', fontSize: 12, fontWeight: 800, letterSpacing: '0.06em', color: C.forest, textTransform: 'uppercase', borderBottom: `1px solid rgba(26,42,32,0.08)`, position: 'sticky', top: 0, background: C.cream2, zIndex: 3 }}>
+          <div className="mono" style={{ display: 'grid', gridTemplateColumns: KOLOM_TABEL, padding: '14px 16px', fontSize: 12, fontWeight: 800, letterSpacing: '0.06em', color: C.forest, textTransform: 'uppercase', borderBottom: `1px solid rgba(26,42,32,0.08)`, position: 'sticky', top: 0, background: C.cream2, zIndex: 3 }}>
             <span style={{ position: 'sticky', left: 0, background: C.cream2, zIndex: 4 }}>SAHAM</span>
             <span style={{ textAlign: 'right' }}>QTY</span>
             <span style={{ textAlign: 'right' }}>BELI</span>
@@ -2321,7 +2329,7 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
             const plPct = (s.hasLive && s.avg) ? (s.price - s.avg) / s.avg * 100 : null;
             const plRp = s.hasLive ? (s.price - s.avg) * s.qty : null;
             return (
-              <div key={s.id || s.symbol} style={{ display: 'grid', gridTemplateColumns: '90px 56px 72px 72px 92px 96px', padding: '14px 16px', borderBottom: `1px solid rgba(26,42,32,0.06)`, alignItems: 'center' }}>
+              <div key={s.id || s.symbol} style={{ display: 'grid', gridTemplateColumns: KOLOM_TABEL, padding: '14px 16px', borderBottom: `1px solid rgba(26,42,32,0.06)`, alignItems: 'center' }}>
                 <div style={{ position: 'sticky', left: 0, background: C.cream2, zIndex: 1 }}>
                   <div onClick={onSymbol ? () => onSymbol(s.symbol) : undefined} title={onSymbol ? `Lihat analisis ${s.symbol}` : undefined} style={{ fontWeight: 700, fontSize: 14, cursor: onSymbol ? 'pointer' : 'default', textDecoration: onSymbol ? 'underline' : 'none', textDecorationStyle: 'dotted', textDecorationColor: 'rgba(26,42,32,0.35)', textUnderlineOffset: 3, display: 'inline-block' }}>{s.symbol}</div>
                 </div>
