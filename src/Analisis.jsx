@@ -229,6 +229,12 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
     const ds = Object.values(funds).map((r) => r && r.updated_at).filter(Boolean);
     return ds.length ? ds.sort().slice(-1)[0] : null;
   }, [funds]);
+  // Tanggal sinkron performa terbaru (label "per <tgl>").
+  // WAJIB di sini juga — di atas early return. Lihat peringatan di atas.
+  const perfDate = useMemo(() => {
+    const ds = Object.values(perf).map((r) => r && r.updated_at).filter(Boolean);
+    return ds.length ? ds.sort().slice(-1)[0] : null;
+  }, [perf]);
 
   if (open) {
     const a = items.find((x) => x.symbol === open);
@@ -251,12 +257,6 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
   const noAnalysis = isPorto && Array.isArray(mySymbols)
     ? mySymbols.filter((s) => !items.some((a) => (a.symbol || '').toUpperCase() === s)).sort()
     : [];
-
-  // Tanggal sinkron performa terbaru (label "per <tgl>")
-  const perfDate = useMemo(() => {
-    const ds = Object.values(perf).map((r) => r && r.updated_at).filter(Boolean);
-    return ds.length ? ds.sort().slice(-1)[0] : null;
-  }, [perf]);
 
   // Urutan tampil: A-Z default; jika sortBy aktif → urut metrik (yang kosong di bawah)
   const metric = sortBy === 'overall' ? OVERALL_METRIC : (sortBy ? FUND_METRICS.find((m) => m.key === sortBy) : null);
@@ -388,7 +388,7 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
           )}
           {metric && metric.key === 'overall' ? (
           <>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
             <span className="mono" style={{ fontSize: 10, color: C.inkSoft, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Imbal hasil</span>
             {PERIODE.map((p) => (
               <button key={p.key} onClick={() => setPeriode(p.key)} className="mono"
