@@ -35,6 +35,16 @@ const FUND_METRICS = [
 ];
 const OVERALL_METRIC = { key: 'overall', label: 'Overall', dir: 'desc', unit: '' };
 
+// Saringan ambang batas. `dir` mengikuti FUND_METRICS:
+//   asc  = makin kecil makin baik -> syaratnya "<=" (maksimum)
+//   desc = makin besar makin baik -> syaratnya ">=" (minimum)
+const SARINGAN = [
+  { key: 'per', label: 'PER', op: '\u2264', unit: '\u00d7', ph: 'mis. 10' },
+  { key: 'pbv', label: 'PBV', op: '\u2264', unit: '\u00d7', ph: 'mis. 1.5' },
+  { key: 'roa', label: 'ROA', op: '\u2265', unit: '%', ph: 'mis. 5' },
+  { key: 'npm', label: 'NPM', op: '\u2265', unit: '%', ph: 'mis. 10' },
+];
+
 // Imbal hasil harga dari tabel `performance` (sinkron HARIAN, terpisah dari
 // `fundamentals` yang mingguan). SENGAJA TIDAK ikut computeOverall: Overall
 // adalah rata-rata peringkat 4 metrik inti (valuasi & profitabilitas), sedangkan
@@ -106,6 +116,7 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
   const [page, setPage] = useState(initialPage || 'umum'); // 'umum' | 'porto' | 'backtest'
   const [mySymbols, setMySymbols] = useState(null); // null = belum dimuat
   const [filter, setFilter] = useState('Semua'); // 'Semua' | 'Syariah'
+  const [ambang, setAmbang] = useState({ per: '', pbv: '', roa: '', npm: '' }); // saringan angka (kosong = tak dipakai)
   const [sortBy, setSortBy] = useState(null); // null = kode A-Z; atau salah satu key fundamental
   const [funds, setFunds] = useState({}); // peta simbol -> baris fundamentals
   const [perf, setPerf] = useState({});   // peta simbol -> baris performance (imbal hasil harga)
@@ -246,8 +257,26 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
     ? items.filter((a) => mySymbols.includes((a.symbol || '').toUpperCase()))
     : items;
   const q = query.trim().toUpperCase();
+  // Berapa saringan yang benar-benar aktif (bukan hook — aman di bawah early return)
+  const nAmbang = SARINGAN.filter((f) => {
+    const raw = ambang[f.key];
+    return raw !== '' && raw != null && isFinite(Number(String(raw).replace(',', '.')));
+  }).length;
+
   const shown = base.filter((a) => {
     if (filter === 'Syariah' && a.is_syariah !== true) return false;
+    // Saringan ambang batas.
+    // KEPUTUSAN: emiten yang metriknya KOSONG tidak lolos saringan metrik itu.
+    // Meloloskannya berarti mengklaim ia memenuhi syarat padahal kita tidak tahu.
+    for (const f of SARINGAN) {
+      const raw = ambang[f.key];
+      if (raw === '' || raw == null) continue;              // tak disaring
+      const batas = Number(String(raw).replace(',', '.'));
+      if (!isFinite(batas)) continue;                        // ketikan belum valid -> abaikan
+      const v = toNum(funds[a.symbol] ? funds[a.symbol][f.key] : null);
+      if (v === null) return false;                          // kosong -> tak lolos
+      if (f.op === '\u2264' ? v > batas : v < batas) return false;
+    }
     if (!isPorto && q) {
       const hay = `${(a.symbol || '').toUpperCase()} ${(a.name || '').toUpperCase()}`;
       if (!hay.includes(q)) return false;
@@ -339,8 +368,46 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
               ))}
             </div>
           </div>
+
+          <div style={{ marginTop: 12 }}>
+            <div className="mono" style={{ fontSize: 9, color: C.inkSoft, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 7, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <span>Saring · ambang batas</span>
+              {nAmbang > 0 && (
+                <button onClick={() => setAmbang({ per: '', pbv: '', roa: '', npm: '' })}
+                  className="mono"
+                  style={{ cursor: 'pointer', border: 'none', background: C.cream2, color: C.inkSoft, borderRadius: 100, padding: '2px 8px', fontSize: 9, letterSpacing: '0.06em' }}>
+                  Reset ({nAmbang})
+                </button>
+              )}
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {SARINGAN.map((f) => (
+                <label key={f.key}
+                  title={`Tampilkan hanya emiten dengan ${f.label} ${f.op} nilai ini. Emiten yang ${f.label}-nya kosong tidak ditampilkan.`}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                    border: `1px solid ${ambang[f.key] !== '' ? C.cuan : 'rgba(58,74,64,0.25)'}`,
+                    background: ambang[f.key] !== '' ? 'rgba(196,155,60,0.10)' : 'transparent',
+                    borderRadius: 100, padding: '5px 10px',
+                  }}>
+                  <span className="mono" style={{ fontSize: 11, fontWeight: 700, color: C.inkSoft }}>{f.label} {f.op}</span>
+                  <input
+                    value={ambang[f.key]}
+                    onChange={(e) => setAmbang((p) => ({ ...p, [f.key]: e.target.value.replace(/[^0-9.,-]/g, '') }))}
+                    inputMode="decimal"
+                    placeholder={f.ph}
+                    aria-label={`${f.label} ${f.op}`}
+                    className="mono"
+                    style={{ width: 52, border: 'none', background: 'transparent', color: C.ink, fontSize: 11, fontWeight: 600, padding: 0, outline: 'none' }}
+                  />
+                  <span className="mono" style={{ fontSize: 10, color: C.inkSoft }}>{f.unit}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
           <p style={{ fontSize: 11, color: C.inkSoft, marginTop: 8 }}>
-            {shown.length} analisis{filter === 'Syariah' ? ' · emiten dalam indeks ISSI' : ''}{q && !isPorto ? ` · hasil "${query.trim()}"` : ''}{metric ? ` · urut ${metric.label} (${metric.key === 'overall' ? 'tertinggi dulu' : (metric.dir === 'asc' ? 'terkecil dulu' : 'terbesar dulu')})` : ''}
+            {shown.length} analisis{filter === 'Syariah' ? ' · emiten dalam indeks ISSI' : ''}{q && !isPorto ? ` · hasil "${query.trim()}"` : ''}{metric ? ` · urut ${metric.label} (${metric.key === 'overall' ? 'tertinggi dulu' : (metric.dir === 'asc' ? 'terkecil dulu' : 'terbesar dulu')})` : ''}{nAmbang > 0 ? ` · ${nAmbang} saringan aktif · emiten tanpa data metrik yang disaring tidak ditampilkan` : ''}
           </p>
         </div>
       )}
