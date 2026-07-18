@@ -2287,12 +2287,85 @@ function DeleteAllPortfolio({ count, onDeleteAll }) {
 // di HP (bersama minWidth 560 di bawah), sedangkan satuan fr membuat kolom
 // memuai mengisi lebar layar desktop. Header & baris WAJIB memakai konstanta
 // yang sama supaya tidak pernah melenceng.
-const KOLOM_TABEL = 'minmax(90px,1.5fr) minmax(56px,1fr) minmax(72px,1fr) minmax(72px,1fr) minmax(92px,1.3fr) minmax(96px,1.1fr)';
+const KOLOM_TABEL = 'minmax(90px,1.5fr) minmax(56px,1fr) minmax(72px,1fr) minmax(72px,1fr) minmax(92px,1.3fr) minmax(96px,1.1fr)'
+  + ' minmax(52px,0.7fr) minmax(52px,0.7fr) minmax(56px,0.75fr) minmax(56px,0.75fr)'; // + PER PBV ROA NPM
+
+// Satu sel metrik fundamental di Daftar Saham. Sumbernya tabel `fundamentals` —
+// SAMA dengan tab Analisis, jadi angkanya pasti konsisten dengan kartu analisis.
+// null -> "—" (blank lebih baik daripada salah). ROA/NPM negatif diwarnai merah:
+// itu fakta yang perlu terlihat, bukan disembunyikan.
+function Fund({ v, unit, warnaMinus }) {
+  const n = (v == null || isNaN(Number(v))) ? null : Number(v);
+  const warna = n == null ? C.inkSoft : (warnaMinus && n < 0 ? C.red : C.ink);
+  return (
+    <div className="mono" style={{ fontSize: 12, textAlign: 'right', color: warna }}>
+      {n == null ? '—' : `${n.toLocaleString('id-ID', { maximumFractionDigits: 2 })}${unit}`}
+    </div>
+  );
+}
+
+// Header kolom yang bisa diklik untuk mengurutkan.
+// Klik pertama -> MENURUN (terbesar dulu, yang biasanya dicari); klik lagi -> menaik.
+function Th({ label, k, sortKey, sortDir, onSort, align = 'right', title }) {
+  const aktif = sortKey === k;
+  return (
+    <span onClick={() => onSort(k)} title={title || `Urutkan menurut ${label}`}
+      style={{ textAlign: align, cursor: 'pointer', userSelect: 'none', display: 'block', color: aktif ? C.forest : 'inherit' }}>
+      {label}{aktif ? (sortDir === 'asc' ? ' \u2191' : ' \u2193') : ''}
+    </span>
+  );
+}
 
 function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImport, onSymbol, isAdmin, zakatPaid, onSaveZakat }) {
   const [hideBalance] = useHideBalance();   // sinkron otomatis via HIDEBAL_EVENT
+  // Fundamental dari tabel yang SAMA dengan tab Analisis. Gagal ambil = biarkan
+  // kosong; jangan bikin Daftar Saham ikut gagal.
+  const [funds, setFunds] = useState({});
+  useEffect(() => {
+    let active = true;
+    supabase.from('fundamentals').select('symbol,per,pbv,roa,npm').then(({ data, error }) => {
+      if (!active) return;
+      const m = {};
+      if (!error && Array.isArray(data)) data.forEach((r) => { m[(r.symbol || '').toUpperCase()] = r; });
+      setFunds(m);
+    });
+    return () => { active = false; };
+  }, []);
   const [confirmDel, setConfirmDel] = useState(null); // stock yang mau dihapus
   const [divTotalHist, setDivTotalHist] = useState(0); // total dividen dibayarkan 12 bln (dari DividendCard)
+  const [sortKey, setSortKey] = useState(null);   // null = urutan bawaan (nilai pasar)
+  const [sortDir, setSortDir] = useState('desc');
+
+  const onSort = (k) => {
+    if (sortKey === k) setSortDir((d) => (d === 'desc' ? 'asc' : 'desc'));
+    else { setSortKey(k); setSortDir(k === 'symbol' ? 'asc' : 'desc'); }
+  };
+
+  const baris = useMemo(() => {
+    const nilai = (s, k) => {
+      const f = funds[s.symbol] || {};
+      if (k === 'symbol') return s.symbol;
+      if (k === 'qty') return s.qty;
+      if (k === 'avg') return s.avg;
+      if (k === 'price') return s.hasLive ? s.price : null;
+      if (k === 'pl') return (s.hasLive && s.avg) ? (s.price - s.avg) / s.avg * 100 : null;
+      const v = f[k];
+      return (v == null || isNaN(Number(v))) ? null : Number(v);
+    };
+    const arr = [...stocks];
+    // Bawaan: nilai pasar terbesar dulu (perilaku lama, dipertahankan).
+    if (!sortKey) return arr.sort((a, b) => (b.price * b.qty) - (a.price * a.qty));
+    return arr.sort((a, b) => {
+      const va = nilai(a, sortKey), vb = nilai(b, sortKey);
+      // Nilai kosong SELALU di bawah, apa pun arah urutannya — supaya data yang
+      // tidak ada tidak pernah tampak sebagai "peringkat teratas".
+      if (va == null && vb == null) return 0;
+      if (va == null) return 1;
+      if (vb == null) return -1;
+      if (typeof va === 'string') return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+      return sortDir === 'asc' ? va - vb : vb - va;
+    });
+  }, [stocks, sortKey, sortDir, funds]);
 
   return (
     <div className="fade-up" style={{ padding: '24px 20px', maxWidth: 1100, margin: '0 auto' }}>
@@ -2328,19 +2401,28 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
       ) : (
         <div style={{ background: C.cream2, borderRadius: 20, overflow: 'hidden' }}>
           <div style={{ overflow: 'auto', maxHeight: 460 }}>
-          <div style={{ minWidth: 560 }}>
+          {/* minWidth = total lebar minimum 10 kolom (694) + padding (32). Di HP tabel
+              digeser horizontal; di desktop satuan fr memuai mengisi layar. */}
+          <div style={{ minWidth: 730 }}>
           <div className="mono" style={{ display: 'grid', gridTemplateColumns: KOLOM_TABEL, padding: '14px 16px', fontSize: 12, fontWeight: 800, letterSpacing: '0.06em', color: C.forest, textTransform: 'uppercase', borderBottom: `1px solid rgba(26,42,32,0.08)`, position: 'sticky', top: 0, background: C.cream2, zIndex: 3 }}>
-            <span style={{ position: 'sticky', left: 0, background: C.cream2, zIndex: 4 }}>SAHAM</span>
-            <span style={{ textAlign: 'right' }}>QTY</span>
-            <span style={{ textAlign: 'right' }}>BELI</span>
-            <span style={{ textAlign: 'right' }}>SAAT INI</span>
-            <span style={{ textAlign: 'right' }}>P/L</span>
+            <span style={{ position: 'sticky', left: 0, background: C.cream2, zIndex: 4 }}>
+              <Th label="SAHAM" k="symbol" align="left" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+            </span>
+            <Th label="QTY" k="qty" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+            <Th label="BELI" k="avg" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+            <Th label="SAAT INI" k="price" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+            <Th label="P/L" k="pl" sortKey={sortKey} sortDir={sortDir} onSort={onSort} title="Urutkan menurut untung/rugi (persen)" />
             <span></span>
+            <Th label="PER" k="per" sortKey={sortKey} sortDir={sortDir} onSort={onSort} title="Price to Earning Ratio" />
+            <Th label="PBV" k="pbv" sortKey={sortKey} sortDir={sortDir} onSort={onSort} title="Price to Book Value" />
+            <Th label="ROA" k="roa" sortKey={sortKey} sortDir={sortDir} onSort={onSort} title="Return on Assets" />
+            <Th label="NPM" k="npm" sortKey={sortKey} sortDir={sortDir} onSort={onSort} title="Net Profit Margin" />
           </div>
           <div>
-          {[...stocks].sort((a, b) => (b.price * b.qty) - (a.price * a.qty)).map((s) => {
+          {baris.map((s) => {
             const plPct = (s.hasLive && s.avg) ? (s.price - s.avg) / s.avg * 100 : null;
             const plRp = s.hasLive ? (s.price - s.avg) * s.qty : null;
+            const f = funds[s.symbol] || {};
             return (
               <div key={s.id || s.symbol} style={{ display: 'grid', gridTemplateColumns: KOLOM_TABEL, padding: '14px 16px', borderBottom: `1px solid rgba(26,42,32,0.06)`, alignItems: 'center' }}>
                 <div style={{ position: 'sticky', left: 0, background: C.cream2, zIndex: 1 }}>
@@ -2364,6 +2446,10 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
                   <button onClick={() => onEdit(s)} title="Edit" style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 3 }}><Pencil size={14} color={C.inkSoft} /></button>
                   <button onClick={() => setConfirmDel(s)} title="Hapus" style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 3 }}><Trash2 size={14} color={C.rust} /></button>
                 </div>
+                <Fund v={f.per} unit="x" />
+                <Fund v={f.pbv} unit="x" />
+                <Fund v={f.roa} unit="%" warnaMinus />
+                <Fund v={f.npm} unit="%" warnaMinus />
               </div>
             );
           })}
