@@ -2310,7 +2310,7 @@ function Th({ label, k, sortKey, sortDir, onSort, align = 'right', title }) {
   const aktif = sortKey === k;
   return (
     <span onClick={() => onSort(k)} title={title || `Urutkan menurut ${label}`}
-      style={{ textAlign: align, cursor: 'pointer', userSelect: 'none', display: 'block', color: aktif ? C.forest : 'inherit' }}>
+      style={{ textAlign: align, cursor: 'pointer', userSelect: 'none', display: 'block', color: aktif ? C.cuanBright : 'inherit' }}>
       {label}{aktif ? (sortDir === 'asc' ? ' \u2191' : ' \u2193') : ''}
     </span>
   );
@@ -2404,8 +2404,13 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
           {/* minWidth = total lebar minimum 10 kolom (694) + padding (32). Di HP tabel
               digeser horizontal; di desktop satuan fr memuai mengisi layar. */}
           <div style={{ minWidth: 730 }}>
-          <div className="mono" style={{ display: 'grid', gridTemplateColumns: KOLOM_TABEL, padding: '14px 16px', fontSize: 12, fontWeight: 800, letterSpacing: '0.06em', color: C.forest, textTransform: 'uppercase', borderBottom: `1px solid rgba(26,42,32,0.08)`, position: 'sticky', top: 0, background: C.cream2, zIndex: 3 }}>
-            <span style={{ position: 'sticky', left: 0, background: C.cream2, zIndex: 4 }}>
+          {/* Header dulu berlatar C.cream2 — SAMA PERSIS dgn latar kartu, jadi tak ada
+              pemisahan dan judul kolom terlihat mengambang. Sekarang pita forest
+              (warna yang sama dengan tombol "Tambah Saham"), teks krem, kolom yang
+              sedang diurutkan disorot emas — kosakata warna yang sudah ada, bukan gaya
+              baru. Ukuran 12->11 tapi tracking dilebarkan: tegas tanpa berteriak. */}
+          <div className="mono" style={{ display: 'grid', gridTemplateColumns: KOLOM_TABEL, padding: '13px 16px', fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', color: 'rgba(244,239,230,0.72)', textTransform: 'uppercase', position: 'sticky', top: 0, background: C.forest, zIndex: 3 }}>
+            <span style={{ position: 'sticky', left: 0, background: C.forest, zIndex: 4 }}>
               <Th label="SAHAM" k="symbol" align="left" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
             </span>
             <Th label="QTY" k="qty" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
