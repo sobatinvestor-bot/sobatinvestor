@@ -2351,6 +2351,37 @@ function Th({ label, k, sortKey, sortDir, onSort, align = 'right', title }) {
   );
 }
 
+// Pengingat cek BI Rate — khusus admin, di dasar tab Portofolio.
+// BI Rate satu-satunya indikator makro yang MANUAL (Fed Funds & Japan 10Y
+// otomatis via indicators-sync). RDG bulanan biasanya minggu ke-3, jadi
+// kartu ini menonjolkan pengingat menjelang & sesudah tanggal itu.
+function BiRateReminder() {
+  const now = new Date();
+  const tgl = now.getDate();
+  // "Musim RDG": tanggal 15-25 -> kemungkinan besar ada/baru saja ada keputusan.
+  const musimRdg = tgl >= 15 && tgl <= 25;
+  const bulan = now.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+  return (
+    <div style={{ marginTop: 28, background: C.cream2, border: `1px solid ${musimRdg ? C.cuan : 'rgba(26,42,32,0.08)'}`, borderRadius: 16, padding: '18px 18px 16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+        <span className="mono" style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: C.inkSoft }}>Admin · pengingat</span>
+        {musimRdg && <span className="mono" style={{ fontSize: 10, fontWeight: 700, color: C.cuan }}>● musim RDG</span>}
+      </div>
+      <div className="serif" style={{ fontSize: 18, color: C.ink, marginBottom: 6 }}>Cek BI Rate — {bulan}</div>
+      <p style={{ fontSize: 13, color: C.inkSoft, lineHeight: 1.55, margin: '0 0 12px' }}>
+        BI Rate adalah satu-satunya indikator makro yang diperbarui manual (Fed Funds &amp; Japan 10Y sudah otomatis). RDG bulanan biasanya minggu ke-3. Cek hasil resminya, dan bila berubah, perbarui lewat SQL Editor.
+      </p>
+      <div className="mono" style={{ fontSize: 11, background: C.cream, border: `1px solid rgba(26,42,32,0.08)`, borderRadius: 10, padding: '10px 12px', color: C.inkSoft, overflowX: 'auto', whiteSpace: 'pre', marginBottom: 12 }}>
+        {`update public.economic_indicators\nset value = 5.75, display = '5,75%',\n    as_of = '${now.toLocaleDateString('id-ID', { month: 'short' })} ${now.getFullYear()}', updated_at = now()\nwhere key = 'bi_rate';`}
+      </div>
+      <a href="https://www.bi.go.id/id/publikasi/ruang-media/news-release/default.aspx" target="_blank" rel="noopener noreferrer"
+        style={{ display: 'inline-block', background: C.forest, color: C.cream, textDecoration: 'none', fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 12 }}>
+        Buka Siaran Pers BI →
+      </a>
+    </div>
+  );
+}
+
 function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImport, onSymbol, isAdmin, zakatPaid, onSaveZakat }) {
   const [hideBalance] = useHideBalance();   // sinkron otomatis via HIDEBAL_EVENT
   // Fundamental dari tabel yang SAMA dengan tab Analisis. Gagal ambil = biarkan
@@ -2502,6 +2533,8 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
       {stocks.length > 0 && <div id="sec-dividen" style={{ scrollMarginTop: 70 }}><DividendCard stocks={stocks} onSymbol={onSymbol} onTotalHist={setDivTotalHist} /></div>}
 
       {stocks.length > 0 && isAdmin && <div id="sec-zakat" style={{ scrollMarginTop: 70 }}><ZakatCard dividenDibayar={divTotalHist} zakatPaid={zakatPaid} onSaveZakat={onSaveZakat} /></div>}
+
+      {isAdmin && <BiRateReminder />}
 
       {/* Konfirmasi hapus */}
       {confirmDel && (
