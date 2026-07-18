@@ -585,7 +585,7 @@ export default function App() {
         )}
         <Footer onOpenLegal={setLegalDoc} />
       </div>
-      <BottomNav tab={tab} setTab={setTab} />
+      <BottomNav tab={tab} setTab={setTab} isAdmin={!!session && session.user.id === ADMIN_UID} />
       <LegalModal doc={legalDoc} onClose={() => setLegalDoc(null)} />
       {session && (
         <ChangePassword
@@ -609,6 +609,9 @@ function PrivateArea({ tab, userId, ihsgQuote, goAnalisis, onPortfolioTotal, onP
   const pfTotalValue = stocks.reduce((sum, s) => sum + (s.price || 0) * (s.qty || 0), 0);
   const costBasis = stocks.reduce((sum, s) => sum + (s.avg || 0) * (s.qty || 0), 0);
   const rdn = Number(settings.rdn || 0);
+  // divTotalHist diangkat ke sini: ZakatCard (kini di AdminTab) memerlukannya,
+  // sedangkan yang menghitung (DividendCard) tetap di PortfolioTab.
+  const [divTotalHist, setDivTotalHist] = useState(0);
   const modalAwal = Number(settings.modal_awal || 0);
   const totalEquity = pfTotalValue + rdn; // nilai holdings + kas RDN (gain & dividen terealisasi)
   const plPortfolioPct = costBasis > 0 ? (pfTotalValue - costBasis) / costBasis * 100 : null;
@@ -648,9 +651,7 @@ function PrivateArea({ tab, userId, ihsgQuote, goAnalisis, onPortfolioTotal, onP
             onExport={exportCSV}
             onImport={importData}
             onSymbol={goAnalisis}
-            isAdmin={userId === ADMIN_UID}
-            zakatPaid={Number(settings.zakat_paid || 0)}
-            onSaveZakat={saveZakatPaid}
+            onDivTotalHist={setDivTotalHist}
           />
         </div>
         <div id="sec-rdn" style={{ scrollMarginTop: 70, maxWidth: 1100, margin: '0 auto', padding: '0 20px' }}><RdnCard settings={settings} onAdjust={adjustRdn} onSaveFees={saveFees} userId={userId} hideBalance={hideBalance} /></div>
@@ -661,8 +662,12 @@ function PrivateArea({ tab, userId, ihsgQuote, goAnalisis, onPortfolioTotal, onP
         </div>
         {(stocks.length > 0 || Number(settings.rdn) !== 0) && <DeleteAllPortfolio count={stocks.length} onDeleteAll={deleteAll} />}
         <div id="sec-berita" style={{ scrollMarginTop: 70, maxWidth: 1100, margin: '0 auto', padding: '0 20px' }}><StockNews stocks={stocks} /></div>
-        {userId === ADMIN_UID && <div id="sec-admin" style={{ scrollMarginTop: 70, maxWidth: 1100, margin: '0 auto', padding: '0 20px' }}><DividendAdmin userId={userId} /><AdminMFASetup userId={userId} /></div>}
       </div>
+      {userId === ADMIN_UID && (
+        <div style={{ display: tab === 'admin' ? 'block' : 'none' }}>
+          <AdminTab userId={userId} divTotalHist={divTotalHist} zakatPaid={Number(settings.zakat_paid || 0)} onSaveZakat={saveZakatPaid} />
+        </div>
+      )}
       <ChatTab stocks={stocks} active={tab === 'chat'} />
       {editing && <Editor holding={editing} onSave={handleSave} onClose={() => setEditing(null)} />}
       {selling && <SellEditor holding={selling} onSell={sellHolding} onClose={() => setSelling(null)} fees={settings} />}
@@ -1279,7 +1284,7 @@ export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0
     setPwdReminderOff(true);
   };
   const links = (session && tab === 'portfolio')
-    ? [['sec-saham', 'Saham'], ['sec-dividen', 'Dividen'], ['sec-rdn', 'RDN'], ['sec-berita', 'Berita'], ...((session.user && session.user.id === ADMIN_UID) ? [['sec-admin', 'Admin']] : [])]
+    ? [['sec-saham', 'Saham'], ['sec-dividen', 'Dividen'], ['sec-rdn', 'RDN'], ['sec-berita', 'Berita'], ]
     : [];
   const goSec = (id) => { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
   const linkBtn = ([id, lbl], chip) => (
@@ -1413,13 +1418,14 @@ export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0
   );
 }
 
-function BottomNav({ tab, setTab }) {
+function BottomNav({ tab, setTab, isAdmin }) {
   const items = [
     { id: 'home', label: 'Beranda', icon: Home },
     { id: 'analisis', label: 'Analisis', icon: FileText },
     { id: 'portfolio', label: 'Portofolio', icon: Briefcase },
     { id: 'chat', label: 'Diskusi', icon: Sparkles },
     { id: 'global', label: 'Global', icon: Globe },
+    ...(isAdmin ? [{ id: 'admin', label: 'Admin', icon: Lock }] : []),
   ];
   return (
     <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'rgba(244,239,230,0.95)', backdropFilter: 'blur(12px)', borderTop: `1px solid rgba(26,42,32,0.1)`, zIndex: 50 }}>
@@ -2351,6 +2357,24 @@ function Th({ label, k, sortKey, sortDir, onSort, align = 'right', title }) {
   );
 }
 
+// Tab Admin — halaman penuh khusus admin. Mengumpulkan semua alat admin yang
+// dulu tersebar: Antrean Dividen, pengingat BI Rate, status 2FA, dan Zakat.
+// divTotalHist (basis Zakat) diangkat dari PortfolioTab ke PrivateArea lalu
+// diteruskan ke sini, karena ZakatCard kini hidup di luar PortfolioTab.
+function AdminTab({ userId, divTotalHist = 0, zakatPaid = 0, onSaveZakat }) {
+  return (
+    <div className="fade-up" style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 20px' }}>
+      <h2 className="serif" style={{ fontSize: 32, fontWeight: 500, letterSpacing: '-0.02em', margin: '0 0 20px' }}>Admin</h2>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <ZakatCard dividenDibayar={divTotalHist} zakatPaid={zakatPaid} onSaveZakat={onSaveZakat} />
+        <DividendAdmin userId={userId} />
+        <BiRateReminder />
+        <AdminMFASetup userId={userId} />
+      </div>
+    </div>
+  );
+}
+
 // Pengingat cek BI Rate — khusus admin, di dasar tab Portofolio.
 // BI Rate satu-satunya indikator makro yang MANUAL (Fed Funds & Japan 10Y
 // otomatis via indicators-sync). RDG bulanan biasanya minggu ke-3, jadi
@@ -2382,7 +2406,7 @@ function BiRateReminder() {
   );
 }
 
-function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImport, onSymbol, isAdmin, zakatPaid, onSaveZakat }) {
+function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImport, onSymbol, onDivTotalHist }) {
   const [hideBalance] = useHideBalance();   // sinkron otomatis via HIDEBAL_EVENT
   // Fundamental dari tabel yang SAMA dengan tab Analisis. Gagal ambil = biarkan
   // kosong; jangan bikin Daftar Saham ikut gagal.
@@ -2398,7 +2422,6 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
     return () => { active = false; };
   }, []);
   const [confirmDel, setConfirmDel] = useState(null); // stock yang mau dihapus
-  const [divTotalHist, setDivTotalHist] = useState(0); // total dividen dibayarkan 12 bln (dari DividendCard)
   const [sortKey, setSortKey] = useState(null);   // null = urutan bawaan (nilai pasar)
   const [sortDir, setSortDir] = useState('desc');
 
@@ -2530,11 +2553,9 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
         </div>
       )}
 
-      {stocks.length > 0 && <div id="sec-dividen" style={{ scrollMarginTop: 70 }}><DividendCard stocks={stocks} onSymbol={onSymbol} onTotalHist={setDivTotalHist} /></div>}
+      {stocks.length > 0 && <div id="sec-dividen" style={{ scrollMarginTop: 70 }}><DividendCard stocks={stocks} onSymbol={onSymbol} onTotalHist={onDivTotalHist} /></div>}
 
-      {stocks.length > 0 && isAdmin && <div id="sec-zakat" style={{ scrollMarginTop: 70 }}><ZakatCard dividenDibayar={divTotalHist} zakatPaid={zakatPaid} onSaveZakat={onSaveZakat} /></div>}
 
-      {isAdmin && <BiRateReminder />}
 
       {/* Konfirmasi hapus */}
       {confirmDel && (
