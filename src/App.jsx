@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from 'react';
 import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Upload, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus, Users, Globe, ArrowDown, Linkedin, Instagram, Eye, EyeOff } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import useBackGuard from './useBackGuard.js';
