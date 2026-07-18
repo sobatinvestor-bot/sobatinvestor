@@ -2376,7 +2376,7 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
             onClick={onAdd}
             style={{ background: C.forest, color: C.cream, border: 'none', padding: '10px 16px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
           >
-            <Plus size={14} /> Tambah Saham
+            <Plus size={14} /> Beli Saham
           </button>
           {stocks.length > 0 && (
             <button
@@ -2395,7 +2395,7 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
           <div className="serif" style={{ fontSize: 20, color: C.ink, marginBottom: 8 }}>Portofolio masih kosong</div>
           <p style={{ fontSize: 14, marginBottom: 18 }}>Mulai bangun portofoliomu — tambahkan saham pertamamu.</p>
           <button onClick={onAdd} style={{ background: C.forest, color: C.cream, border: 'none', padding: '12px 20px', borderRadius: 100, fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <Plus size={15} /> Tambah Saham
+            <Plus size={15} /> Beli Saham
           </button>
         </div>
       ) : (
@@ -2406,7 +2406,7 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
           <div style={{ minWidth: 730 }}>
           {/* Header dulu berlatar C.cream2 — SAMA PERSIS dgn latar kartu, jadi tak ada
               pemisahan dan judul kolom terlihat mengambang. Sekarang pita forest
-              (warna yang sama dengan tombol "Tambah Saham"), teks krem, kolom yang
+              (warna yang sama dengan tombol "Beli Saham"), teks krem, kolom yang
               sedang diurutkan disorot emas — kosakata warna yang sudah ada, bukan gaya
               baru. Ukuran 12->11 tapi tracking dilebarkan: tegas tanpa berteriak. */}
           <div className="mono" style={{ display: 'grid', gridTemplateColumns: KOLOM_TABEL, padding: '13px 16px', fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', color: 'rgba(244,239,230,0.72)', textTransform: 'uppercase', position: 'sticky', top: 0, background: C.forest, zIndex: 3 }}>
