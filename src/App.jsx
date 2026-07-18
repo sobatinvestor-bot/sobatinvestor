@@ -147,9 +147,9 @@ function Footer({ onOpenLegal }) {
     <footer style={{ borderTop: `1px solid rgba(26,42,32,0.1)`, padding: '24px 20px 28px', textAlign: 'center', color: C.inkSoft, fontSize: 12, lineHeight: 1.7 }}>
       <div style={{ maxWidth: 680, margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginBottom: 14 }}>
-          <a href="https://www.linkedin.com/in/sobatinvestor-indonesia-665a01419" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" style={socialBadge}><Linkedin size={18} /></a>
-          <a href="https://www.instagram.com/sobatinvestor.indonesia" target="_blank" rel="noopener noreferrer" aria-label="Instagram" style={socialBadge}><Instagram size={18} /></a>
-          <a href="https://www.tiktok.com/@sobatinvestor.indonesia" target="_blank" rel="noopener noreferrer" aria-label="TikTok" style={socialBadge}><TikTokIcon size={18} /></a>
+          <a href="https://www.linkedin.com/in/sobat-investor-665a01419" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" style={socialBadge}><Linkedin size={18} /></a>
+          <a href="https://www.instagram.com/sobatinvestor.app" target="_blank" rel="noopener noreferrer" aria-label="Instagram" style={socialBadge}><Instagram size={18} /></a>
+          <a href="https://www.tiktok.com/@sobatinvestor" target="_blank" rel="noopener noreferrer" aria-label="TikTok" style={socialBadge}><TikTokIcon size={18} /></a>
         </div>
         <div style={{ marginBottom: 8 }}>
           <button type="button" style={linkStyle} onClick={() => onOpenLegal('tos')}>Ketentuan Layanan</button>
@@ -1951,6 +1951,7 @@ export function ChatTab({ stocks, active = true }) {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
   const [quota, setQuota] = useState(null); // { login, admin, limit_harian, dipakai, sisa_harian }
+  const [histLoaded, setHistLoaded] = useState(false); // riwayat dari DB sudah dimuat?
   const scrollRef = useRef(null);
   const taRef = useRef(null);
 
@@ -1976,6 +1977,38 @@ export function ChatTab({ stocks, active = true }) {
     ta.style.height = Math.min(ta.scrollHeight, 140) + 'px';
   }, [input]);
 
+  // Simpan satu pesan ke ai_chats. Diam-diam: persistensi bonus, bukan syarat
+  // agar chat jalan. Trigger DB memangkas ke 33 terbaru; frontend tak perlu tahu.
+  async function simpanPesan(role, content) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return; // tamu tidak disimpan
+      await supabase.from('ai_chats').insert({ user_id: user.id, role, content });
+    } catch { /* abaikan — chat tetap jalan tanpa persistensi */ }
+  }
+
+  // Muat riwayat saat tab dibuka DAN user login. Sekali saja (histLoaded).
+  useEffect(() => {
+    if (!active || histLoaded) return;
+    let batal = false;
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { if (!batal) setHistLoaded(true); return; } // tamu: tak ada riwayat
+        const { data, error } = await supabase
+          .from('ai_chats')
+          .select('role, content')
+          .order('created_at', { ascending: true });
+        if (batal) return;
+        if (!error && Array.isArray(data) && data.length) {
+          setMessages(data.map((r) => ({ role: r.role, content: r.content })));
+        }
+      } catch { /* abaikan */ }
+      finally { if (!batal) setHistLoaded(true); }
+    })();
+    return () => { batal = true; };
+  }, [active, histLoaded]);
+
   async function send() {
     const text = input.trim();
     if (!text || loading) return;
@@ -1984,6 +2017,7 @@ export function ChatTab({ stocks, active = true }) {
     setMessages(next);
     setInput('');
     setLoading(true);
+    simpanPesan('user', text); // persist (hanya user login; tamu di-skip di dalam)
     try {
       // Token user opsional: tamu dapat 1 pertanyaan/hari (dibatasi server per-IP).
       const { data: { session } } = await supabase.auth.getSession();
@@ -2082,6 +2116,7 @@ export function ChatTab({ stocks, active = true }) {
 
       const reply = (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim();
       setMessages([...next, { role: 'assistant', content: reply || '(kosong)' }]);
+      simpanPesan('assistant', reply || '(kosong)'); // persist balasan (hanya user login)
       refreshQuota();
     } catch (e) {
       setErr(e.message || 'Terjadi kesalahan.');
