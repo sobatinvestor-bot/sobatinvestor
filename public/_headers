@@ -1,25 +1,21 @@
-/*
-  X-Frame-Options: DENY
-  X-Content-Type-Options: nosniff
-  Referrer-Policy: strict-origin-when-cross-origin
-  Strict-Transport-Security: max-age=31536000; includeSubDomains
-  Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=()
-  Content-Security-Policy: default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://challenges.cloudflare.com 'wasm-unsafe-eval'; script-src-attr 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://cdn.jsdelivr.net https://challenges.cloudflare.com; frame-src 'self' https://challenges.cloudflare.com; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'
+# Cloudflare Pages — kebijakan cache
+# Letakkan file ini di  public/_headers  agar Vite menyalinnya ke root dist/ saat build.
+#
+# Prinsip:
+#   - Shell HTML & sw.js: SELALU revalidasi (no-cache) → shell tak pernah basi,
+#     jadi tak pernah menunjuk chunk lama yang sudah 404 setelah deploy
+#     (akar masalah error "Failed to fetch dynamically imported module").
+#   - Aset ber-hash (/assets/*): boleh di-cache selamanya (immutable) karena
+#     setiap perubahan isi menghasilkan nama file baru.
 
-# index.html JANGAN di-cache permanen — selalu revalidasi supaya selalu menunjuk
-# file JS/CSS terbaru. Ini mencegah layar blank setiap kali ada deploy baru.
-/
-  Cache-Control: no-cache
 /index.html
   Cache-Control: no-cache
 
-# Aset ber-hash (nama berubah tiap build) boleh di-cache selamanya.
-/assets/*
-  Cache-Control: public, max-age=31536000, immutable
-
-# Service worker & manifest: JANGAN di-cache → browser selalu cek versi terbaru
-# tiap deploy, sehingga SW langsung ter-update (mencegah shell basi → blank).
 /sw.js
   Cache-Control: no-cache
+
 /manifest.json
   Cache-Control: no-cache
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
