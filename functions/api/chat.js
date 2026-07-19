@@ -90,7 +90,9 @@ export async function onRequestPost(context) {
     return jsonResponse(data, response.status);
   } catch (err) {
     console.error('chat error:', err);
-    return jsonResponse({ error: 'Kesalahan server', detail: err.message }, 500);
+    // JANGAN kirim err.message ke klien — bisa membocorkan detail internal
+    // (nama tabel, struktur query, jejak) ke penyerang. Detail tetap di log server.
+    return jsonResponse({ error: 'Kesalahan server' }, 500);
   }
 }
 
