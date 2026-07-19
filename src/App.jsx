@@ -415,7 +415,14 @@ function IdleWarningModal({ onStay }) {
 
 export default function App() {
   const [session, setSession] = useState(undefined); // undefined = masih cek
-  const [tab, setTab] = useState('home');
+  const [tab, setTab] = useState(() => {
+    // Deep-link: /?tab=baca dari halaman artikel statis → buka tab terkait saat load.
+    try {
+      const t = new URLSearchParams(window.location.search).get('tab');
+      if (t && ['home', 'baca', 'analisis', 'global', 'portfolio', 'chat', 'admin'].includes(t)) return t;
+    } catch { /* abaikan */ }
+    return 'home';
+  });
   const [analisisPage, setAnalisisPage] = useState(null); // permintaan buka page tertentu di tab Analisis
   const [analisisSymbol, setAnalisisSymbol] = useState(null); // permintaan buka analisis emiten tertentu
   const [legalDoc, setLegalDoc] = useState(null); // null | 'tos' | 'privacy' — modal dokumen legal
@@ -434,6 +441,17 @@ export default function App() {
   const goAnalisis = (sym) => { if (!sym) return; setAnalisisSymbol(sym.toUpperCase()); setTab('analisis'); };
   const [market, setMarket] = useState({ quotes: [], ihsg: null });
   const [visitStats, setVisitStats] = useState(null); // { total, today }
+
+  // Bersihkan ?tab=... dari URL setelah dipakai menentukan tab awal, agar refresh/
+  // bookmark tak terkunci di tab itu. Aman thd back-guard (guard baca stack internal,
+  // bukan history.state).
+  useEffect(() => {
+    try {
+      if (new URLSearchParams(window.location.search).has('tab')) {
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    } catch { /* abaikan */ }
+  }, []);
 
   // Catat satu kunjungan (unik per perangkat per hari) lalu ambil statistik.
   // Penulisan via RPC security-definer; tabel site_visits tetap terkunci utk anon.

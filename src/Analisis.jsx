@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, lazy, Suspense } from 'react';
-import { ChevronLeft, Send, Trash2, Loader2, TrendingUp, TrendingDown, MessageCircle, Search, X, Briefcase } from 'lucide-react';
+import { ChevronLeft, Send, Trash2, Loader2, TrendingUp, TrendingDown, MessageCircle, Search, X } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell, LineChart, Line, CartesianGrid, ReferenceLine } from 'recharts';
 import { supabase } from './lib/supabase';
 import useBackGuard from './useBackGuard.js';
@@ -620,15 +620,10 @@ function AnalisisDetail({ a, funds, onBack, onPortfolio, userId, userName, onReq
 
       <Comments symbol={a.symbol} userId={userId} userName={userName} onRequireLogin={onRequireLogin} />
 
-      <div style={{ marginTop: 28, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+      <div style={{ marginTop: 28, display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <button onClick={onBack} style={{ background: C.cream2, border: 'none', cursor: 'pointer', color: C.ink, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, padding: '10px 18px', borderRadius: 100 }}>
           <ChevronLeft size={16} /> Kembali ke semua analisis
         </button>
-        {onPortfolio && (
-          <button onClick={onPortfolio} style={{ background: C.cream2, border: 'none', cursor: 'pointer', color: C.ink, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, padding: '10px 18px', borderRadius: 100 }}>
-            <Briefcase size={15} /> Kembali ke portofolio
-          </button>
-        )}
       </div>
     </div>
   );
