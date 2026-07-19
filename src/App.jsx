@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from 'react';
-import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Upload, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus, Users, Globe, ArrowDown, Linkedin, Instagram, Eye, EyeOff } from 'lucide-react';
+import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Upload, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus, Users, Globe, ArrowDown, Linkedin, Instagram, Eye, EyeOff, BookOpen } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import useBackGuard from './useBackGuard.js';
 import { Auth, usePortfolio, Editor, logout, SellEditor, RdnCard, StockNews, parseSobatCSV, ChangePassword, SetNewPassword } from './Account.jsx';
@@ -554,7 +554,7 @@ export default function App() {
 
   const ihsg = market.ihsg ? market.ihsg.value : 7800;
   const ihsgChange = market.ihsg ? market.ihsg.change : 0;
-  const publicTabs = ['home', 'analisis', 'global'];
+  const publicTabs = ['home', 'analisis', 'baca', 'global'];
   const isPrivateTab = !publicTabs.includes(tab);
 
   return (
@@ -578,6 +578,9 @@ export default function App() {
               onGoPortfolio={() => setTab('portfolio')}
             />
           </Suspense>
+        </div>
+        <div style={{ display: tab === 'baca' ? 'block' : 'none' }}>
+          <BacaTab />
         </div>
         <div style={{ display: tab === 'global' ? 'block' : 'none' }}>
           <MarketsTab active={tab === 'global'} userId={session ? session.user.id : null} onRequireLogin={() => setTab('portfolio')} />
@@ -1430,6 +1433,7 @@ function BottomNav({ tab, setTab, isAdmin }) {
   const items = [
     { id: 'home', label: 'Beranda', icon: Home },
     { id: 'analisis', label: 'Analisis', icon: FileText },
+    { id: 'baca', label: 'Baca', icon: BookOpen },
     { id: 'portfolio', label: 'Portofolio', icon: Briefcase },
     { id: 'chat', label: 'Diskusi', icon: Sparkles },
     { id: 'global', label: 'Global', icon: Globe },
@@ -1550,47 +1554,61 @@ function HomeTab({ stocks, setTab, goTo, visitStats }) {
         </div>
       </div>
 
-      {/* ====== Highlight Edukasi / Artikel ====== */}
-      <div style={{ background: C.forest, color: C.cream, padding: '48px 20px' }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-          <div className="mono" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.15em', color: C.cuan, marginBottom: 12, fontWeight: 600 }}>
-            // Edukasi · bacalah !
-          </div>
-          <h2 className="serif" style={{ fontSize: 'clamp(26px, 5vw, 40px)', fontWeight: 500, letterSpacing: '-0.02em', lineHeight: 1.08, marginBottom: 10 }}>
-            Paham itu proses, bukan jalan pintas.
-          </h2>
-          <p style={{ fontSize: 15, color: 'rgba(244,239,230,0.72)', maxWidth: 580, marginBottom: 28, lineHeight: 1.6 }}>
-            Metodologi terbuka, ketidakpastian dinyatakan apa adanya, tanpa pseudosains — bisa dibaca biasa atau mode buku.
-          </p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
-            {[
-              { tag: 'Filosofi · Proses', title: 'Proses: Keberhasilan dari Tindakan Kecil yang Berulang', desc: 'Ketekunan dari semangat Cina, Yunani, Arab, Persia, Jepang, dan sains modern.', href: '/articles/article_proses_keberhasilan.html' },
-              { tag: 'Teknikal · Bukti', title: 'Analisis Teknikal: Apa Kata Bukti', desc: 'Mana yang lolos uji ketat (momentum, tren), mana yang runtuh (pola visual), dan kenapa.', href: '/articles/article_analisis_teknikal.html' },
-              { tag: 'Dividen · Compounding', title: 'Dividend Reinvesting: Bunga Berbunga, Plus-Minus', desc: 'Mekanika compounding, plus-minusnya, konteks pajak IDX, dan pelajaran para tokoh.', href: '/articles/article_dividend_reinvesting.html' },
-              { tag: 'Strategi · Metodologi', title: 'Backtest: Menguji Strategi Tanpa Menipu Diri', desc: 'Tujuh jebakan yang membuat backtest berbohong, dan cara membacanya dengan jujur.', href: '/articles/article_backtest.html' },
-            ].map((a) => (
-              <a key={a.href} href={a.href} style={{ display: 'flex', flexDirection: 'column', textDecoration: 'none', background: C.cream, color: C.ink, padding: '20px 22px', borderRadius: 16, border: '1px solid rgba(0,0,0,0.04)' }}>
-                <div className="mono" style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.1em', color: C.cuan, fontWeight: 700, marginBottom: 10 }}>{a.tag}</div>
-                <h3 className="serif" style={{ fontSize: 19, fontWeight: 600, lineHeight: 1.22, color: C.forest, marginBottom: 8, letterSpacing: '-0.01em' }}>{a.title}</h3>
-                <p style={{ fontSize: 13.5, color: C.inkSoft, lineHeight: 1.55, marginBottom: 14, flex: 1 }}>{a.desc}</p>
-                <div style={{ fontSize: 13, fontWeight: 700, color: C.rust }}>Baca →</div>
-              </a>
-            ))}
-          </div>
-          <div style={{ marginTop: 26 }}>
-            <a href="/articles/index.html" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: C.cuan, color: C.ink, padding: '13px 22px', borderRadius: 100, textDecoration: 'none', fontSize: 14, fontWeight: 700 }}>
-              Lihat semua artikel →
-            </a>
-          </div>
-        </div>
-      </div>
-
       {visitStats && (
         <div className="mono" style={{ textAlign: 'center', padding: '8px 20px 36px', fontSize: 12, color: C.inkSoft }}>
           total pengunjung : <span style={{ fontWeight: 600, color: C.ink }}>{visitStats.total.toLocaleString('id-ID')}</span>{' '}
           (<span style={{ color: C.green, fontWeight: 600 }}>+{visitStats.today.toLocaleString('id-ID')} hari ini</span>)
         </div>
       )}
+    </div>
+  );
+}
+
+// ====== Tab Baca — daftar artikel edukasi ======
+// Header (Nav) & footer (Footer) diwariskan dari App, sama seperti tab lain.
+function BacaTab() {
+  const articles = [
+    { num: '04', tag: 'Filosofi · Proses', title: 'Proses: Mengapa Setiap Keberhasilan Dibangun dari Tindakan Kecil yang Berulang', desc: 'Mengapa proses lebih menentukan daripada hasil — pelajaran ketekunan dan penguasaan dari semangat Cina, Yunani, Arab, Persia, Jepang, dan sains modern, disusun menurut perkiraan waktu.', href: '/articles/article_proses_keberhasilan.html' },
+    { num: '03', tag: 'Teknikal · Bukti', title: 'Analisis Teknikal: Apa Kata Bukti', desc: 'Apa yang benar-benar dikatakan riset: bagian mana dari analisis teknikal yang lolos uji ketat (momentum, tren), mana yang runtuh (pola visual), dan kenapa — plus konteks IDX.', href: '/articles/article_analisis_teknikal.html' },
+    { num: '02', tag: 'Dividen · Compounding', title: 'Dividend Reinvesting: Bunga Berbunga, Plus-Minus, dan Pelajaran Para Tokoh', desc: 'Cara kerja reinvestasi dividen: mekanika bunga berbunga, plus-minusnya, konteks pajak IDX, dan pelajaran dari Rockefeller, Siegel, hingga Buffett.', href: '/articles/article_dividend_reinvesting.html' },
+    { num: '01', tag: 'Strategi · Metodologi', title: 'Backtest: Cara Menguji Strategi Saham Tanpa Menipu Diri Sendiri', desc: 'Apa itu backtest, tujuh jebakan yang membuatnya berbohong, dan cara membacanya untuk investor ritel IDX — termasuk biaya nyata, likuiditas, dan ARA/ARB.', href: '/articles/article_backtest.html' },
+  ];
+  return (
+    <div className="fade-up">
+      {/* Hero */}
+      <div style={{ background: C.forest, color: C.cream, padding: '48px 20px 52px' }}>
+        <div style={{ maxWidth: 760, margin: '0 auto' }}>
+          <div className="mono" style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: C.cuan, marginBottom: 16 }}>
+            Edukasi · Sobat Investor
+          </div>
+          <h1 className="serif" style={{ fontWeight: 600, fontSize: 'clamp(34px, 6vw, 52px)', lineHeight: 1.05, letterSpacing: '-0.01em', margin: 0 }}>
+            Edukasi<span style={{ color: C.cuan }}>.</span>
+          </h1>
+          <p style={{ margin: '18px 0 0', color: 'rgba(244,239,230,0.78)', fontSize: 16.5, lineHeight: 1.6, maxWidth: '48ch' }}>
+            Artikel &amp; panduan soal investasi saham — metodologi terbuka, ketidakpastian dinyatakan apa adanya, tanpa pseudosains.
+          </p>
+        </div>
+      </div>
+
+      {/* Daftar artikel */}
+      <div style={{ maxWidth: 760, margin: '0 auto', padding: '32px 20px 56px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {articles.map((a) => (
+            <a
+              key={a.href}
+              href={a.href}
+              style={{ display: 'block', textDecoration: 'none', color: 'inherit', background: C.cream2, border: '1px solid rgba(26,42,32,0.06)', borderRadius: 18, padding: '24px 26px' }}
+            >
+              <div className="mono" style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: C.cuan }}>
+                <span style={{ color: C.inkSoft, opacity: 0.6, marginRight: 10 }}>{a.num}</span>{a.tag}
+              </div>
+              <h2 className="serif" style={{ fontWeight: 600, color: C.forest, fontSize: 'clamp(22px, 3.6vw, 27px)', lineHeight: 1.18, margin: '8px 0', letterSpacing: '-0.01em' }}>{a.title}</h2>
+              <p style={{ margin: '0 0 14px', fontSize: 15.5, lineHeight: 1.6, color: C.inkSoft }}>{a.desc}</p>
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: C.rust }}>Baca artikel →</div>
+            </a>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
