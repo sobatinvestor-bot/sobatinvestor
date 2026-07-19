@@ -40,6 +40,14 @@ const C = {
   green: '#2E7D4F',
 };
 
+// ── Gaya kartu admin (seragam, TANPA border/line) ──────────────────────────
+// Dipakai keempat kartu di tab Admin agar font & wadah konsisten. Pemisahan
+// antar-kartu memakai JARAK (gap 20) dan latar cream2, bukan garis.
+const adminCard = { background: C.cream2, borderRadius: 20, padding: 20 };
+const adminTitle = { fontSize: 18, fontWeight: 600, color: C.ink, margin: '0 0 6px' }; // pakai className="serif"
+const adminDesc = { fontSize: 13, color: C.inkSoft, lineHeight: 1.55, margin: '0 0 12px' };
+const adminEyebrow = { fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: C.inkSoft }; // className="mono" 
+
 const initialStocks = [
   { symbol: 'BBCA', name: 'Bank Central Asia', price: 10275, change: 1.24, qty: 100, avg: 9800, sector: 'Banking' },
   { symbol: 'BBRI', name: 'Bank Rakyat Indonesia', price: 4820, change: -0.41, qty: 500, avg: 4950, sector: 'Banking' },
@@ -1598,8 +1606,8 @@ function ZakatCard({ dividenDibayar = 0, zakatPaid = 0, onSaveZakat }) {
   const dirty = paid !== Number(zakatPaid || 0);
 
   return (
-    <div style={{ marginTop: 16, background: C.cream2, borderRadius: 20, padding: 20 }}>
-      <h3 className="serif" style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>Zakat Dividen</h3>
+    <div style={adminCard}>
+      <h3 className="serif" style={adminTitle}>Zakat Dividen</h3>
       <div style={{ fontSize: 12, color: C.inkSoft, marginBottom: 14 }}>2,5% dari dividen dibayarkan (12 bulan terakhir).</div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
@@ -2386,13 +2394,13 @@ function BiRateReminder() {
   const musimRdg = tgl >= 15 && tgl <= 25;
   const bulan = now.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
   return (
-    <div style={{ marginTop: 28, background: C.cream2, border: `1px solid ${musimRdg ? C.cuan : 'rgba(26,42,32,0.08)'}`, borderRadius: 16, padding: '18px 18px 16px' }}>
+    <div style={adminCard}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-        <span className="mono" style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: C.inkSoft }}>Admin · pengingat</span>
+        <span className="mono" style={adminEyebrow}>Admin · pengingat</span>
         {musimRdg && <span className="mono" style={{ fontSize: 10, fontWeight: 700, color: C.cuan }}>● musim RDG</span>}
       </div>
-      <div className="serif" style={{ fontSize: 18, color: C.ink, marginBottom: 6 }}>Cek BI Rate — {bulan}</div>
-      <p style={{ fontSize: 13, color: C.inkSoft, lineHeight: 1.55, margin: '0 0 12px' }}>
+      <div className="serif" style={adminTitle}>Cek BI Rate — {bulan}</div>
+      <p style={adminDesc}>
         BI Rate adalah satu-satunya indikator makro yang diperbarui manual (Fed Funds &amp; Japan 10Y sudah otomatis). RDG bulanan biasanya minggu ke-3. Cek hasil resminya, dan bila berubah, perbarui lewat SQL Editor.
       </p>
       <div className="mono" style={{ fontSize: 11, background: C.cream, border: `1px solid rgba(26,42,32,0.08)`, borderRadius: 10, padding: '10px 12px', color: C.inkSoft, overflowX: 'auto', whiteSpace: 'pre', marginBottom: 12 }}>
@@ -2765,7 +2773,7 @@ function AdminMFASetup({ userId }) {
 
   if (userId !== ADMIN_UID) return null;
 
-  const wrap = { background: C.cream2, borderRadius: 12, padding: 16, marginBottom: 12, border: '1px solid ' + C.cream };
+  const wrap = adminCard; // seragam dgn kartu admin lain (tanpa border)
   const btn = (bg) => ({ background: bg, color: '#fff', border: 'none', borderRadius: 8, padding: '9px 16px', fontSize: 13, fontWeight: 600, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1 });
   const outlineBtn = { background: 'transparent', color: C.forest, border: '1px solid ' + C.forest, borderRadius: 8, padding: '9px 16px', fontSize: 13, fontWeight: 600, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1 };
   const inp = { width: 140, padding: '9px 12px', fontSize: 16, letterSpacing: 3, textAlign: 'center', border: '1px solid ' + C.sage, borderRadius: 8, background: '#fff', color: C.ink };
@@ -2774,7 +2782,7 @@ function AdminMFASetup({ userId }) {
     <div style={wrap}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         <Lock size={16} color={C.forest} />
-        <h3 className="serif" style={{ fontSize: 16, fontWeight: 600 }}>Keamanan Admin · 2FA (Authenticator)</h3>
+        <h3 className="serif" style={adminTitle}>Keamanan Admin · 2FA (Authenticator)</h3>
       </div>
 
       {phase === 'loading' && <div style={{ fontSize: 13, color: C.inkSoft }}>Memuat status…</div>}
@@ -2860,9 +2868,9 @@ function DividendAdmin({ userId }) {
   if (userId !== ADMIN_UID) return null;
 
   return (
-    <div style={{ background: C.cream2, borderRadius: 20, padding: 20, marginTop: 16 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
-        <h3 className="serif" style={{ fontSize: 18, fontWeight: 600 }}>Admin · Antrean Dividen{rows && rows.length > 0 ? ` (${rows.length})` : ''}</h3>
+    <div style={adminCard}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+        <h3 className="serif" style={adminTitle}>Antrean Dividen{rows && rows.length > 0 ? ` (${rows.length})` : ''}</h3>
         <button onClick={load} className="mono" style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: C.inkSoft, fontSize: 11, fontWeight: 600 }}>MUAT ULANG</button>
       </div>
       <div style={{ fontSize: 12, color: C.inkSoft, marginBottom: 12 }}>Dividen terdeteksi worker (semua saham yang dipegang user) yang belum punya tanggal bayar resmi. Kirim daftar ini ke Boba untuk diisikan tanggal resminya.</div>
