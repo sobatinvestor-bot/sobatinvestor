@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from 'react';
-// SOBAT BUILD MARKER: 2026-07-19-c  — ubah string ini (mis. -b, -c) tiap kali ingin
+// SOBAT BUILD MARKER: 2026-07-19-d  — ubah string ini (mis. -b, -c) tiap kali ingin
 // MEMAKSA build baru saat GitHub/Cloudflare mengira tidak ada perubahan.
 import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Upload, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus, Users, Globe, ArrowDown, Linkedin, Instagram, Eye, EyeOff, BookOpen } from 'lucide-react';
 import { supabase } from './lib/supabase';
@@ -1601,10 +1601,10 @@ function BacaTab() {
       <div style={{ background: C.forest, color: C.cream, padding: '48px 20px 52px' }}>
         <div style={{ maxWidth: 760, margin: '0 auto' }}>
           <div className="mono" style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: C.cuan, marginBottom: 16 }}>
-            Edukasi · Sobat Investor
+            Bacaan · Sobat Investor
           </div>
           <h1 className="serif" style={{ fontWeight: 600, fontSize: 'clamp(34px, 6vw, 52px)', lineHeight: 1.05, letterSpacing: '-0.01em', margin: 0 }}>
-            Edukasi<span style={{ color: C.cuan }}>.</span>
+            Bacaan Sobat<span style={{ color: C.cuan }}>.</span>
           </h1>
           <p style={{ margin: '18px 0 0', color: 'rgba(244,239,230,0.78)', fontSize: 16.5, lineHeight: 1.6, maxWidth: '48ch' }}>
             Artikel &amp; panduan soal investasi saham — metodologi terbuka, ketidakpastian dinyatakan apa adanya, tanpa pseudosains.
