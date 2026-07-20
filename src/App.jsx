@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from 'react';
-// SOBAT BUILD MARKER: 2026-07-19-a  — ubah string ini (mis. -b, -c) tiap kali ingin
+// SOBAT BUILD MARKER: 2026-07-19-c  — ubah string ini (mis. -b, -c) tiap kali ingin
 // MEMAKSA build baru saat GitHub/Cloudflare mengira tidak ada perubahan.
 import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Upload, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus, Users, Globe, ArrowDown, Linkedin, Instagram, Eye, EyeOff, BookOpen } from 'lucide-react';
 import { supabase } from './lib/supabase';
@@ -1557,9 +1557,10 @@ function HomeTab({ stocks, setTab, goTo, visitStats }) {
           {[
             { num: '01', title: 'Baca', desc: 'Kumpulan artikel & panduan investasi saham IDX — metodologi terbuka, ketidakpastian dinyatakan apa adanya, tanpa pseudosains.', bg: C.forest, fg: C.cream, tab: 'baca', cta: 'Baca sekarang →' },
             { num: '02', title: 'Backtest', desc: 'Backtest strategi SMA dengan Python asli yang jalan di browser-mu. Data harga & dividen IDX real.', bg: C.cream2, fg: C.ink, tab: 'analisis', page: 'backtest' },
-            { num: '03', title: 'Analisis', desc: 'Analisis emiten oleh AI: model bisnis, katalis, dan risiko. Plus halaman khusus saham di portofoliomu.', bg: C.forest, fg: C.cream, tab: 'analisis' },
+            { num: '03', title: 'Analisis', desc: 'Analisis emiten oleh AI: model bisnis, katalis, dan risiko. Plus halaman khusus saham di portofoliomu.', bg: C.forest, fg: C.cream, tab: 'analisis', page: 'umum' },
             { num: '04', title: 'Dashboard Portofolio', desc: 'P/L portofolio, alokasi sektor, dan proyeksi dividen 12 bulan di satu layar — termasuk export/import portofolio & RDN ke CSV kapan saja.', bg: C.cream2, fg: C.ink, tab: 'portfolio' },
-            { num: '05', title: 'Global', desc: 'Kondisi makro & pasar global — indeks dunia, komoditas, suku bunga, dan kurs — plus analisis AI dampaknya ke portofoliomu.', bg: C.forest, fg: C.cream, tab: 'global' },
+            { num: '05', title: 'Diskusi', desc: 'Ngobrol dengan Sobat AI soal saham, emiten, dan portofoliomu — tanya jawab langsung, ditenagai AI.', bg: C.forest, fg: C.cream, tab: 'chat', cta: 'Mulai ngobrol →' },
+            { num: '06', title: 'Global', desc: 'Kondisi makro & pasar global — indeks dunia, komoditas, suku bunga, dan kurs — plus analisis AI dampaknya ke portofoliomu.', bg: C.cream2, fg: C.ink, tab: 'global' },
           ].map((f) => (
             <button
               key={f.num}
