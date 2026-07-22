@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from 'react';
-// SOBAT BUILD MARKER: 2026-07-19-d  — ubah string ini (mis. -b, -c) tiap kali ingin
+// SOBAT BUILD MARKER: 2026-07-19-g  — ubah string ini (mis. -b, -c) tiap kali ingin
 // MEMAKSA build baru saat GitHub/Cloudflare mengira tidak ada perubahan.
 import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Upload, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus, Users, Globe, ArrowDown, Linkedin, Instagram, Eye, EyeOff, BookOpen } from 'lucide-react';
 import { supabase } from './lib/supabase';
@@ -825,9 +825,6 @@ function MarketsTab({ active, userId, onRequireLogin }) {
       <div style={{ padding: '40px 20px 24px', maxWidth: 1100, margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap', marginBottom: 24 }}>
           <div style={{ flex: '1 1 280px', minWidth: 0 }}>
-            <div className="mono" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.15em', color: C.rust, marginBottom: 12, fontWeight: 500 }}>
-              // Pasar global
-            </div>
             <h1 className="serif" style={{ fontSize: 'clamp(28px, 6vw, 44px)', fontWeight: 500, letterSpacing: '-0.02em', lineHeight: 1.05, marginBottom: 8 }}>
               Pasar dunia hari ini
             </h1>
@@ -1073,6 +1070,7 @@ function PortfolioMacroAnalysis({ userId, onRequireLogin, marketSummary, marketR
       // Performa portofolio 30 hari terakhir vs IHSG — METODE IDENTIK dengan chart tab Portofolio:
       // titik awal = hari pertama (mulai today-30d) di mana nilai porto > 0; price-return murni.
       let perfBlock = '';
+      let stockPerfBlock = '';
       try {
         const DAY = 86400000;
         const syms = [...new Set(holdings.map((h) => h.symbol))];
@@ -1115,11 +1113,35 @@ function PortfolioMacroAnalysis({ userId, onRequireLogin, marketSummary, marketR
 Portofolio: ${portPct >= 0 ? '+' : ''}${portPct.toFixed(2)}% | IHSG: ${ihsgPct >= 0 ? '+' : ''}${ihsgPct.toFixed(2)}% | Selisih: ${selisih >= 0 ? '+' : ''}${selisih.toFixed(2)}% (${status} vs IHSG).
 Kaitkan performa ini dengan kondisi makro & emiten kunci dalam analisis — jelaskan APA yang menggerakkan, bukan sekadar mengulang angkanya.`;
           }
+
+          // P/L 30 hari PER SAHAM — perubahan HARGA masing-masing emiten (bukan P/L posisi
+          // thd harga beli), pakai closeAt/priceLast yang SAMA dgn hitungan agregat di atas
+          // (satu fetch, dipakai ulang) — konsisten dgn kolom "P/L 30H" di Daftar Saham.
+          // Kalau histori suatu simbol belum mencapai 30 hari (baru ditambah/IPO baru),
+          // tandai eksplisit sbg data belum cukup — JANGAN dikira-kira (blank > salah).
+          const pl30Map = {};
+          syms.forEach((sym) => {
+            const s = history[sym];
+            const cukup = s && s.length && s[0].t <= startTime;
+            const startClose = cukup ? closeAt(sym, startTime) : null;
+            const endClose = priceLast(sym);
+            pl30Map[sym] = (cukup && startClose && endClose) ? ((endClose / startClose) - 1) * 100 : null;
+          });
+          const pl30Lines = port.slice().sort((a, b) => b.val - a.val).map((p) => {
+            const pct = pl30Map[p.sym];
+            const angka = pct != null ? `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%` : 'data historis belum cukup (< 30 hari)';
+            return `${p.sym} (${p.name}, bobot ~${Math.round((p.val / total) * 100)}%): ${angka}`;
+          }).join('\n');
+          if (pl30Lines) {
+            stockPerfBlock = `\n\nP/L 30 HARI PER SAHAM (perubahan HARGA masing-masing emiten, price-return murni — BUKAN P/L posisi thd harga beli):
+${pl30Lines}
+Pakai angka per-saham ini untuk menopang bagian "Per Sektor" dan "Emiten Kunci" — sebutkan saham mana yang benar-benar naik/turun paling tajam 30 hari terakhir dan kaitkan dgn kondisi makro, jangan menebak arah pergerakan tanpa data ini.`;
+          }
         }
       } catch { /* abaikan; analisis tetap jalan tanpa blok performa */ }
 
       const dataBlock = `KONDISI MAKRO/GLOBAL TERKINI (dari halaman Global, data delayed):
-${marketSummary}${perfBlock}
+${marketSummary}${perfBlock}${stockPerfBlock}
 
 PORTOFOLIO SAYA (bobot = perkiraan dari modal: qty × harga rata-rata):
 Komposisi sektor: ${sectorLines}
@@ -1132,13 +1154,13 @@ ${portLines}${curatedBlock}`;
         ? `Buat analisis MENDALAM dan menyeluruh dalam Bahasa Indonesia memakai format markdown:
 - "## Gambaran" — kondisi makro terpenting untuk portofolio ini (boleh beberapa kalimat).
 - "## Per Sektor" — bahas tiap sektor utama portofolio secara rinci; kaitkan dengan suku bunga BI/Fed, harga komoditas, USD/IDR, dan imbal hasil obligasi; sebut emiten paling terdampak beserta mekanisme sebab-akibatnya.
-- "## Emiten Kunci" — soroti 3–5 emiten paling sensitif terhadap kondisi makro saat ini dan jelaskan jalur dampaknya.
+- "## Emiten Kunci" — soroti 3–5 emiten paling sensitif terhadap kondisi makro saat ini dan jelaskan jalur dampaknya. Sertakan angka P/L 30 hari (perubahan harga) masing-masing dari blok "P/L 30 HARI PER SAHAM" saat menyebut emiten tsb.
 - "## Skenario" — 2–3 skenario (mis. BI/Fed menahan vs memangkas suku bunga, USD menguat/melemah) beserta implikasinya ke portofolio.
 - "## Yang Perlu Dipantau" — daftar hal konkret yang perlu diawasi.
 Gunakan **tebal**, *miring*, <u>garis bawah</u> (secukupnya), dan poin (-) agar enak dibaca. Boleh panjang dan detail — tidak ada batasan kata. Blok "ANALISIS TERKURASI APLIKASI" di atas ADALAH sumber angka fundamental resmi — pakai angka dari sana (laba, pendapatan, dll) saat membahas emiten terkait, dan JANGAN katakan "belum punya angka terkurasi" untuk emiten yang datanya sudah ada di blok itu. Hanya untuk emiten yang eksplisit ditandai "belum ada analisis terkurasi" kamu boleh arahkan ke tab Analisis/IDX. JANGAN mengarang angka yang tidak ada di data yang diberikan. Akhiri dengan satu kalimat bahwa ini bukan rekomendasi investasi.`
         : `Tolong buat analisis SINGKAT, rapi, dan mudah dibaca dalam Bahasa Indonesia memakai format markdown:
 - Awali dengan "## Gambaran" — 1–2 kalimat kondisi makro yang paling relevan untuk portofolio ini.
-- Lalu "## Per Sektor" — bahas HANYA 2–3 sektor dengan bobot TERBESAR di portofolio, jangan lebih. Untuk tiap sektor sebut 1–2 emiten paling terdampak beserta alasan keterkaitannya (suku bunga BI/Fed, harga komoditas, USD/IDR, atau imbal hasil obligasi). Ringkas, jangan bertele-tele.
+- Lalu "## Per Sektor" — bahas HANYA 2–3 sektor dengan bobot TERBESAR di portofolio, jangan lebih. Untuk tiap sektor sebut 1–2 emiten paling terdampak beserta alasan keterkaitannya (suku bunga BI/Fed, harga komoditas, USD/IDR, atau imbal hasil obligasi), dan sertakan angka P/L 30 hari (perubahan harga) emiten tsb dari blok "P/L 30 HARI PER SAHAM". Ringkas, jangan bertele-tele.
 - Tutup dengan "## Yang Perlu Dipantau" — 2–3 poin singkat.
 Gunakan format agar enak dibaca: **tebal** untuk penekanan, *miring* untuk istilah/nuansa, <u>garis bawah</u> untuk menandai hal paling penting (secukupnya), serta poin (-) untuk daftar. Jangan berlebihan. Blok "ANALISIS TERKURASI APLIKASI" di atas ADALAH sumber angka fundamental resmi — pakai angka dari sana saat membahas emiten terkait, dan JANGAN katakan "belum punya angka terkurasi" untuk emiten yang datanya sudah ada di blok itu. Hanya untuk emiten yang eksplisit ditandai "belum ada analisis terkurasi" kamu boleh arahkan ke tab Analisis/IDX. Jangan mengarang angka yang tidak ada di data yang diberikan. PENTING: buat SANGAT RINGKAS, target maksimal 350 kata. Lebih baik pendek tapi tuntas daripada panjang lalu terputus. WAJIB menyelesaikan seluruh struktur (Gambaran, Per Sektor, Yang Perlu Dipantau) sampai bagian penutup, dan JANGAN PERNAH berhenti di tengah kalimat atau di tengah daftar — selalu akhiri dengan kalimat yang utuh. Akhiri dengan satu kalimat singkat bahwa ini bukan rekomendasi investasi.`;
 
@@ -1545,9 +1567,6 @@ function HomeTab({ stocks, setTab, goTo, visitStats }) {
       </div>
 
       <div style={{ padding: '40px 20px', maxWidth: 1100, margin: '0 auto' }}>
-        <div className="mono" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.15em', color: C.rust, marginBottom: 12, fontWeight: 500 }}>
-          // Alat & edukasi, satu sobat
-        </div>
         <h2 className="serif" style={{ fontSize: 'clamp(28px, 5vw, 44px)', fontWeight: 500, letterSpacing: '-0.02em', lineHeight: 1.05, marginBottom: 32 }}>
           Cara baru ngerti{' '}
           <em style={{ color: C.forest }}>pasar saham.</em>
@@ -1600,9 +1619,6 @@ function BacaTab() {
       {/* Hero */}
       <div style={{ background: C.forest, color: C.cream, padding: '48px 20px 52px' }}>
         <div style={{ maxWidth: 760, margin: '0 auto' }}>
-          <div className="mono" style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: C.cuan, marginBottom: 16 }}>
-            Bacaan · Sobat Investor
-          </div>
           <h1 className="serif" style={{ fontWeight: 600, fontSize: 'clamp(34px, 6vw, 52px)', lineHeight: 1.05, letterSpacing: '-0.01em', margin: 0 }}>
             Bacaan Sobat<span style={{ color: C.cuan }}>.</span>
           </h1>
@@ -2373,11 +2389,11 @@ function DeleteAllPortfolio({ count, onDeleteAll }) {
 // Kolom tabel Daftar Saham. Dulu dipaku dalam piksel ('90px 56px ...' = 478px),
 // jadi di desktop lebar tabelnya berhenti di 478px dan sisanya kosong melompong.
 // Sekarang minmax(min, fr): angka min menjaga tabel tetap terbaca & bisa digeser
-// di HP (bersama minWidth 560 di bawah), sedangkan satuan fr membuat kolom
+// di HP (bersama minWidth 794 di bawah), sedangkan satuan fr membuat kolom
 // memuai mengisi lebar layar desktop. Header & baris WAJIB memakai konstanta
 // yang sama supaya tidak pernah melenceng.
 const KOLOM_TABEL = 'minmax(90px,1.5fr) minmax(56px,1fr) minmax(72px,1fr) minmax(72px,1fr) minmax(92px,1.3fr) minmax(96px,1.1fr)'
-  + ' minmax(52px,0.7fr) minmax(52px,0.7fr) minmax(56px,0.75fr) minmax(56px,0.75fr)'; // + PER PBV ROA NPM
+  + ' minmax(52px,0.7fr) minmax(52px,0.7fr) minmax(56px,0.75fr) minmax(56px,0.75fr) minmax(64px,0.85fr)'; // + PER PBV ROA NPM P/L30H
 
 // Satu sel metrik fundamental di Daftar Saham. Sumbernya tabel `fundamentals` —
 // SAMA dengan tab Analisis, jadi angkanya pasti konsisten dengan kartu analisis.
@@ -2473,6 +2489,42 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
   const [sortKey, setSortKey] = useState(null);   // null = urutan bawaan (nilai pasar)
   const [sortDir, setSortDir] = useState('desc');
 
+  // P/L 30 hari = perubahan HARGA saham itu sendiri selama 30 hari kalender
+  // terakhir (bukan P/L posisi terhadap harga beli — itu kolom "P/L" tersendiri).
+  // Sumber: /api/history (harga penutupan harian real dari Yahoo), pola closeAt
+  // yang sama dipakai di tempat lain (blok performa 30 hari AI, chart Analisis).
+  // Kalau data historis belum mencapai 30 hari ke belakang (mis. baru ditambah /
+  // baru IPO), kembalikan null -> tampil "—". Blank lebih baik daripada salah:
+  // jangan pernah mengira-ngira dari rentang yang lebih pendek lalu melabelinya "30 hari".
+  const symKey = useMemo(() => [...new Set(stocks.map((s) => s.symbol))].sort().join(','), [stocks]);
+  const [pl30, setPl30] = useState({});
+  useEffect(() => {
+    let active = true;
+    if (!symKey) { setPl30({}); return; }
+    fetch(`/api/history?symbols=${encodeURIComponent(symKey)}&range=2mo`)
+      .then((r) => (r.ok ? r.json() : { history: {} }))
+      .then(({ history = {} }) => {
+        if (!active) return;
+        const DAY = 86400000;
+        const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
+        const startTime = midnight.getTime() - 30 * DAY;
+        const m = {};
+        symKey.split(',').forEach((sym) => {
+          const series = history[sym];
+          if (!series || !series.length || series[0].t > startTime) { m[sym] = null; return; }
+          let startClose = series[0].close;
+          for (let k = 0; k < series.length; k++) {
+            if (series[k].t <= startTime) startClose = series[k].close; else break;
+          }
+          const lastClose = series[series.length - 1].close;
+          m[sym] = startClose ? ((lastClose - startClose) / startClose) * 100 : null;
+        });
+        setPl30(m);
+      })
+      .catch(() => { if (active) setPl30({}); });
+    return () => { active = false; };
+  }, [symKey]);
+
   const onSort = (k) => {
     if (sortKey === k) setSortDir((d) => (d === 'desc' ? 'asc' : 'desc'));
     else { setSortKey(k); setSortDir(k === 'symbol' ? 'asc' : 'desc'); }
@@ -2486,6 +2538,7 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
       if (k === 'avg') return s.avg;
       if (k === 'price') return s.hasLive ? s.price : null;
       if (k === 'pl') return (s.hasLive && s.avg) ? (s.price - s.avg) / s.avg * 100 : null;
+      if (k === 'pl30') { const v = pl30[s.symbol]; return (v == null || isNaN(Number(v))) ? null : Number(v); }
       const v = f[k];
       return (v == null || isNaN(Number(v))) ? null : Number(v);
     };
@@ -2502,7 +2555,7 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
       if (typeof va === 'string') return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
       return sortDir === 'asc' ? va - vb : vb - va;
     });
-  }, [stocks, sortKey, sortDir, funds]);
+  }, [stocks, sortKey, sortDir, funds, pl30]);
 
   return (
     <div className="fade-up" style={{ padding: '24px 20px', maxWidth: 1100, margin: '0 auto' }}>
@@ -2538,9 +2591,9 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
       ) : (
         <div style={{ background: C.cream2, borderRadius: 20, overflow: 'hidden' }}>
           <div style={{ overflow: 'auto', maxHeight: 460 }}>
-          {/* minWidth = total lebar minimum 10 kolom (694) + padding (32). Di HP tabel
+          {/* minWidth = total lebar minimum 11 kolom (758) + padding (36). Di HP tabel
               digeser horizontal; di desktop satuan fr memuai mengisi layar. */}
-          <div style={{ minWidth: 730 }}>
+          <div style={{ minWidth: 794 }}>
           {/* Header dulu berlatar C.cream2 — SAMA PERSIS dgn latar kartu, jadi tak ada
               pemisahan dan judul kolom terlihat mengambang. Sekarang pita forest
               (warna yang sama dengan tombol "Beli Saham"), teks krem, kolom yang
@@ -2559,6 +2612,7 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
             <Th label="PBV" k="pbv" sortKey={sortKey} sortDir={sortDir} onSort={onSort} title="Price to Book Value" />
             <Th label="ROA" k="roa" sortKey={sortKey} sortDir={sortDir} onSort={onSort} title="Return on Assets" />
             <Th label="NPM" k="npm" sortKey={sortKey} sortDir={sortDir} onSort={onSort} title="Net Profit Margin" />
+            <Th label="P/L 30H" k="pl30" sortKey={sortKey} sortDir={sortDir} onSort={onSort} title="Perubahan harga saham 30 hari terakhir (bukan P/L posisi)" />
           </div>
           <div>
           {baris.map((s) => {
@@ -2592,6 +2646,11 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
                 <Fund v={f.pbv} unit="x" />
                 <Fund v={f.roa} unit="%" warnaMinus />
                 <Fund v={f.npm} unit="%" warnaMinus />
+                <div style={{ textAlign: 'right' }}>
+                  {(pl30[s.symbol] != null && !isNaN(pl30[s.symbol])) ? (
+                    <div className="mono" style={{ fontSize: 12, fontWeight: 600, color: pl30[s.symbol] >= 0 ? C.green : C.red }}>{fmtPct(pl30[s.symbol])}</div>
+                  ) : <span className="mono" style={{ fontSize: 12, color: C.inkSoft }} title="Data harga belum mencapai 30 hari">—</span>}
+                </div>
               </div>
             );
           })}
