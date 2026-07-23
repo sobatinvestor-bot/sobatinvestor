@@ -233,6 +233,9 @@ export default function Backtest({ userId }) {
 
   return (
     <div>
+      <div style={{ background: 'rgba(184,92,56,0.10)', border: `1px solid ${C.rust}`, borderRadius: 14, padding: '12px 16px', marginBottom: 14, fontSize: 12.5, color: C.ink, lineHeight: 1.5 }}>
+        <strong>Backtest sedang tidak tersedia.</strong> Data harga historis dinonaktifkan sementara — menunggu sumber data berlisensi. Ini bukan soal kode saham yang salah; berlaku untuk semua emiten.
+      </div>
       <div style={{ background: C.cream2, borderRadius: 18, padding: 18, marginBottom: 14 }}>
         <div className="mono" style={{ fontSize: 10, color: C.rust, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>// Python Engine — jalan di browser kamu</div>
 

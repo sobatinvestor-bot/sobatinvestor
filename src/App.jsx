@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from 'react';
-// SOBAT BUILD MARKER: 2026-07-19-k  — ubah string ini (mis. -b, -c) tiap kali ingin
+// SOBAT BUILD MARKER: 2026-07-19-l  — ubah string ini (mis. -b, -c) tiap kali ingin
 // MEMAKSA build baru saat GitHub/Cloudflare mengira tidak ada perubahan.
 import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Upload, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus, Users, Globe, ArrowDown, Linkedin, Instagram, Eye, EyeOff, BookOpen } from 'lucide-react';
 import { supabase } from './lib/supabase';
@@ -575,8 +575,12 @@ export default function App() {
     return <MFAChallenge onVerified={() => setMfaGate('ok')} />;
   }
 
-  const ihsg = market.ihsg ? market.ihsg.value : 7800;
-  const ihsgChange = market.ihsg ? market.ihsg.change : 0;
+  // JANGAN pernah fallback ke angka hardcoded di sini — dulu ada ": 7800" yang bikin
+  // header tampak menampilkan IHSG live padahal itu angka mati/palsu. Sejak quotes.js
+  // dinonaktifkan (Yahoo, Jul 2026), market.ihsg akan SELALU null; null apa adanya
+  // diteruskan ke <Nav>, yang menampilkan "—" — blank lebih baik daripada salah.
+  const ihsg = market.ihsg ? market.ihsg.value : null;
+  const ihsgChange = market.ihsg ? market.ihsg.change : null;
   const publicTabs = ['home', 'baca', 'analisis', 'global'];
   const isPrivateTab = !publicTabs.includes(tab);
 
@@ -1363,9 +1367,9 @@ export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0
                 {links.map((l) => linkBtn(l, false))}
               </div>
             )}
-            <div className="mono" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: C.inkSoft }}>
-              <span style={{ fontWeight: 600, color: C.ink }}>{ihsg.toFixed(2)}</span>
-              <span style={{ color: ihsgChange >= 0 ? C.green : C.red, fontWeight: 600 }}>{fmtPct(ihsgChange)}</span>
+            <div className="mono" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: C.inkSoft }} title={ihsg == null ? 'Data IHSG sedang dinonaktifkan' : undefined}>
+              <span style={{ fontWeight: 600, color: C.ink }}>{ihsg == null ? '—' : ihsg.toFixed(2)}</span>
+              {ihsg != null && <span style={{ color: ihsgChange >= 0 ? C.green : C.red, fontWeight: 600 }}>{fmtPct(ihsgChange)}</span>}
             </div>
             {session && (
               // Mata di bar sticky (position:sticky, top:0) -> tetap terlihat saat
@@ -1556,6 +1560,11 @@ function HomeTab({ stocks, setTab, goTo, visitStats }) {
       <InstallPrompt />
 
       <div style={{ background: C.ink, color: C.cream, padding: '14px 0', overflow: 'hidden', margin: '20px', borderRadius: 14 }}>
+        {stocks.length === 0 ? (
+          <div className="mono" style={{ textAlign: 'center', fontSize: 12, color: 'rgba(244,239,230,0.6)', padding: '0 20px' }}>
+            Data harga sedang dinonaktifkan — menunggu sumber data berlisensi.
+          </div>
+        ) : (
         <div className="ticker-track mono" style={{ display: 'flex', gap: 36, whiteSpace: 'nowrap', fontSize: 13 }}>
           {[...stocks, ...stocks].map((s, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
@@ -1567,6 +1576,7 @@ function HomeTab({ stocks, setTab, goTo, visitStats }) {
             </div>
           ))}
         </div>
+        )}
       </div>
 
       <div style={{ padding: '40px 20px', maxWidth: 1100, margin: '0 auto' }}>

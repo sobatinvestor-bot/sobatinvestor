@@ -27,7 +27,7 @@ const fmtDate = (s) =>
 
 const fmtNum = (n) => (n == null ? '—' : Number(n).toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 }));
 
-// 4 metrik fundamental andal (Yahoo) untuk pengurutan. dir='asc' = makin kecil makin baik.
+// 4 metrik fundamental inti (dikurasi manual dari LK resmi sejak Jul 2026) utk pengurutan. dir='asc' = makin kecil makin baik.
 const FUND_METRICS = [
   { key: 'per', label: 'PER', dir: 'asc', unit: 'x' },
   { key: 'pbv', label: 'PBV', dir: 'asc', unit: 'x' },
@@ -580,7 +580,7 @@ export function FundamentalStrip({ symbol, funds }) {
         })}
       </div>
       <p className="mono" style={{ fontSize: 9.5, color: C.inkSoft, marginTop: 8, lineHeight: 1.5 }}>
-        PER/PBV/ROA/NPM dari data publik (Yahoo), dapat berbeda dari laporan resmi; DER/Yield/Growth EPS dihitung dari laporan keuangan resmi emiten{f.updated_at ? ` · per ${fmtDate(f.updated_at)}` : ''}. Overall = skor relatif 0–100 (rata-rata peringkat 4 metrik inti dibanding emiten lain), bukan nilai absolut. Metrik yang kosong dihitung netral, bukan diabaikan, agar data bolong tidak menguntungkan. Emiten yang merugi tidak diberi skor karena PER tidak bermakna dan PBV terdistorsi. Edukatif, bukan rekomendasi.
+        PER/PBV/ROA/NPM dikurasi manual dari laporan keuangan resmi emiten (sinkron otomatis dihentikan Juli 2026), dapat berbeda dari perhitungan lain; DER/Yield/Growth EPS juga dari laporan keuangan resmi emiten{f.updated_at ? ` · per ${fmtDate(f.updated_at)}` : ''}. Overall = skor relatif 0–100 (rata-rata peringkat 4 metrik inti dibanding emiten lain), bukan nilai absolut. Metrik yang kosong dihitung netral, bukan diabaikan, agar data bolong tidak menguntungkan. Emiten yang merugi tidak diberi skor karena PER tidak bermakna dan PBV terdistorsi. Edukatif, bukan rekomendasi.
       </p>
     </div>
   );
@@ -696,14 +696,16 @@ function PriceChart({ symbol }) {
   const [showSMA, setShowSMA] = useState(false);
   const [series, setSeries] = useState(null); // null=loading, []=kosong
   const [err, setErr] = useState(false);
+  const [offMsg, setOffMsg] = useState(''); // pesan spesifik bila API melaporkan unavailable (bukan sekadar "belum ada data")
 
   useEffect(() => {
     let active = true;
-    setSeries(null); setErr(false);
+    setSeries(null); setErr(false); setOffMsg('');
     fetch(`/api/history?symbols=${encodeURIComponent(symbol)}&range=${range}`)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((d) => {
         if (!active) return;
+        if (d.unavailable && d.message) setOffMsg(d.message);
         const s = (d.history && d.history[symbol]) || [];
         setSeries(s.map((p) => ({ t: p.t, close: p.close })));
       })
@@ -789,8 +791,8 @@ function PriceChart({ symbol }) {
           <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Memuat harga…
         </div>
       ) : series.length === 0 ? (
-        <div style={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.inkSoft, fontSize: 13 }}>
-          {err ? 'Data harga tidak tersedia.' : 'Belum ada data harga.'}
+        <div style={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.inkSoft, fontSize: 13, textAlign: 'center', padding: '0 20px' }}>
+          {offMsg || (err ? 'Data harga tidak tersedia.' : 'Belum ada data harga.')}
         </div>
       ) : (
         <ResponsiveContainer width="100%" height={180}>

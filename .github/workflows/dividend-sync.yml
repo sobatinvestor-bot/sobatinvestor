@@ -1,3 +1,8 @@
+# ============================================================
+# DINONAKTIFKAN (Juli 2026) — audit legal. Skrip dividend-sync.mjs sudah
+# dilumpuhkan jadi stub tanpa permintaan jaringan. Cron dikomentari
+# supaya tidak jalan otomatis. workflow_dispatch dibiarkan aktif.
+# ============================================================
 # GitHub Actions — sinkron jadwal dividen GRATIS (pengganti Cloudflare Workers Paid).
 # Taruh file ini di:  .github/workflows/dividend-sync.yml
 # Skrip ada di:        scripts/dividend-sync.mjs
@@ -7,8 +12,8 @@
 name: Dividend Schedule Sync
 
 on:
-  schedule:
-    - cron: '0 15 * * 6'    # Sabtu 15:00 UTC = Sabtu 22:00 WIB
+  # schedule:
+    # - cron: '0 15 * * 6'    # Sabtu 15:00 UTC = Sabtu 22:00 WIB
   workflow_dispatch:         # tombol "Run workflow" untuk jalankan manual / uji
 
 jobs:
