@@ -29,7 +29,7 @@ async function fetchDivs(symbol, range) {
 
   const res = await fetch(u, {
     headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      "User-Agent": "Mozilla/5.0 (compatible; sobatinvestor/1.0; +https://sobatinvestor.com)",
       Accept: "application/json",
     },
     cf: { cacheTtl: 3600, cacheEverything: true }, // dividen jarang berubah → cache 1 jam

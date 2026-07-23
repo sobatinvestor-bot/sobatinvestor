@@ -354,7 +354,7 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
           <div style={{ marginTop: 12 }}>
             <div className="mono" style={{ fontSize: 9, color: C.inkSoft, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 7, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
               <span>Urutkan · indikator fundamental</span>
-              <span style={{ padding: '2px 7px', borderRadius: 100, background: C.cream2, color: C.inkSoft, fontSize: 8.5, letterSpacing: '0.05em', fontWeight: 700 }}>DATA PUBLIK · YAHOO{fundsUpdated ? ` · PER ${fmtDate(fundsUpdated).toUpperCase()}` : ''}</span>
+              <span style={{ padding: '2px 7px', borderRadius: 100, background: C.cream2, color: C.inkSoft, fontSize: 8.5, letterSpacing: '0.05em', fontWeight: 700 }} title="Sinkron otomatis dihentikan Juli 2026. Angka diperbarui manual dari laporan keuangan resmi emiten di keterbukaan BEI.">KURASI MANUAL · LK RESMI BEI{fundsUpdated ? ` · PER ${fmtDate(fundsUpdated).toUpperCase()}` : ''}</span>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {[...FUND_METRICS, OVERALL_METRIC].map((m) => (

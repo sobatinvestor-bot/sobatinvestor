@@ -100,10 +100,10 @@ async function fetchOnce(symbol, host) {
   const res = await fetch(url, {
     headers: {
       "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Mozilla/5.0 (compatible; sobatinvestor/1.0; +https://sobatinvestor.com)",
       Accept: "application/json",
     },
-    cf: { cacheTtl: 60, cacheEverything: true },
+    cf: { cacheTtl: 120, cacheEverything: true }, // 60->120s: kurangi volume request ke Yahoo; data toh sudah delayed 15-20 menit dari sumbernya, jadi tak ada kehilangan kesegaran nyata
   });
 
   if (!res.ok) throw new Error(`HTTP ${res.status}`);

@@ -109,7 +109,7 @@ async function fetchOnce(symbol, host) {
     `${encodeURIComponent(symbol)}?interval=1d&range=1d`;
   const res = await fetch(u, {
     headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      "User-Agent": "Mozilla/5.0 (compatible; sobatinvestor/1.0; +https://sobatinvestor.com)",
       Accept: "application/json",
     },
     cf: { cacheTtl: 60, cacheEverything: true },

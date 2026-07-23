@@ -27,7 +27,23 @@ const WINDOW_PAST_DAYS = 100;
 const CHUNK = 20;
 const CHUNK_DELAY_MS = 300; // jeda sopan antar-chunk ke Yahoo (bukan batasan teknis, sekadar hati-hati)
 
+// MITIGASI RISIKO: jangan hantam SELURUH direktori (~958 simbol) ke Yahoo tiap
+// minggu — itu jejak besar utk endpoint tak resmi. Rotasi 4 batch (deterministik
+// dari nomor minggu ISO, tanpa perlu simpan state) -> tiap Sabtu cuma ~1/4 direktori
+// (~240 simbol) + SEMUA simbol yang dipegang user (prioritas tetap penuh, karena itu
+// yang memengaruhi kredit RDN). Konsekuensi: cakupan market-wide utk Kalender Dividen
+// terisi bertahap ±1 bulan, bukan seketika — trade-off yang sengaja diambil demi
+// jejak lebih kecil ke Yahoo.
+const DIRECTORY_BATCHES = 4;
+
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
+
+function currentBatchIndex(total) {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), 0, 1);
+  const week = Math.ceil((((now - start) / 86400000) + start.getDay() + 1) / 7);
+  return week % total;
+}
 
 function svcHeaders() {
   return {
@@ -93,9 +109,12 @@ async function main() {
     getDirectorySymbols().catch((e) => { console.error('stock_directory gagal, lanjut pakai held saja:', e.message); return []; }),
     getHeldSymbols(),
   ]);
-  // Gabungan: direktori resmi (cakupan market-wide) + held (jaring simbol lawas
-  // yang mungkin belum ada di direktori). Union, bukan salah satu saja.
-  const symbols = [...new Set([...directorySymbols, ...heldSymbols])];
+  // Gabungan: SATU BATCH direktori resmi (rotasi mingguan, lihat DIRECTORY_BATCHES)
+  // + held (selalu penuh, prioritas RDN). Union, bukan salah satu saja.
+  const batchIdx = currentBatchIndex(DIRECTORY_BATCHES);
+  const directoryBatch = directorySymbols.filter((_, i) => i % DIRECTORY_BATCHES === batchIdx);
+  const symbols = [...new Set([...directoryBatch, ...heldSymbols])];
+  console.log(`dividend-sync: batch direktori ${batchIdx + 1}/${DIRECTORY_BATCHES} (${directoryBatch.length}/${directorySymbols.length} simbol direktori) + ${heldSymbols.length} held`);
   if (!symbols.length) { console.log('dividend-sync: tidak ada simbol (direktori & held sama-sama kosong)'); return; }
 
   const [existing, divs] = await Promise.all([getExisting(), fetchDividends(symbols)]);

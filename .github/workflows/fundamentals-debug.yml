@@ -1,3 +1,12 @@
+# ============================================================
+# DINONAKTIFKAN (Juli 2026) — audit legal.
+# Skrip fundamentals-debug.mjs sudah dilumpuhkan menjadi stub yang tidak melakukan
+# permintaan jaringan sama sekali. Jadwal cron di bawah SENGAJA dikomentari
+# supaya workflow tidak lagi berjalan otomatis.
+# Alasan lengkap + jalur pengganti yang sah ada di komentar fundamentals-sync.mjs.
+# workflow_dispatch sengaja DIBIARKAN aktif supaya kamu masih bisa membuka
+# workflow-nya dan melihat pesan penjelasan bila suatu saat lupa kenapa mati.
+# ============================================================
 # Diagnostik dividend yield — cetak field mentah Yahoo ke log (TIDAK menulis DB).
 # Taruh di: .github/workflows/fundamentals-debug.yml
 # Skrip:    scripts/fundamentals-debug.mjs

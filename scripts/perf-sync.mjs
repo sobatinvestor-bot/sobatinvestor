@@ -27,7 +27,7 @@ const env = {
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
 };
 
-const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
+const UA = 'Mozilla/5.0 (compatible; sobatinvestor/1.0; +https://sobatinvestor.com)';
 const DELAY_MS = 400; // jeda antar simbol agar tak kena throttle
 const DAY = 86400000;
 const YAHOO_RANGE = '2y'; // WAJIB 2y — lihat catatan di fetchSeries()

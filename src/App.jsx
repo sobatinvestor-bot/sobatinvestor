@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from 'react';
-// SOBAT BUILD MARKER: 2026-07-19-i  — ubah string ini (mis. -b, -c) tiap kali ingin
+// SOBAT BUILD MARKER: 2026-07-19-k  — ubah string ini (mis. -b, -c) tiap kali ingin
 // MEMAKSA build baru saat GitHub/Cloudflare mengira tidak ada perubahan.
 import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Upload, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus, Users, Globe, ArrowDown, Linkedin, Instagram, Eye, EyeOff, BookOpen } from 'lucide-react';
 import { supabase } from './lib/supabase';
@@ -174,6 +174,9 @@ function Footer({ onOpenLegal }) {
         </div>
         <div style={{ marginBottom: 6, opacity: 0.85 }}>
           Konten bersifat edukatif, <strong>bukan nasihat investasi</strong>. Keputusan dan risiko investasi ada di tanganmu.
+        </div>
+        <div style={{ marginBottom: 6, opacity: 0.65, fontSize: 11 }}>
+          Sumber data: harga pasar dari Yahoo Finance (delayed ~15–20 menit) · fundamental, direktori emiten &amp; jadwal dividen dikurasi dari laporan keuangan dan pengumuman resmi BEI/KSEI · data makro dari World Bank &amp; Federal Reserve.
         </div>
         <div style={{ opacity: 0.7 }}>© {year} Sobat Investor — Hak cipta dilindungi.</div>
       </div>
@@ -2400,7 +2403,12 @@ const KOLOM_TABEL = 'minmax(90px,1.5fr) minmax(56px,1fr) minmax(72px,1fr) minmax
 // null -> "—" (blank lebih baik daripada salah). ROA/NPM negatif diwarnai merah:
 // itu fakta yang perlu terlihat, bukan disembunyikan.
 function Fund({ v, unit, warnaMinus }) {
-  const n = (v == null || isNaN(Number(v))) ? null : Number(v);
+  // String kosong / spasi HARUS dianggap "tidak ada", bukan 0: Number('') === 0 dan lolos
+  // isNaN, jadi tanpa penjagaan ini sel akan menampilkan "0x" seolah itu fakta. Sejak
+  // fundamental diisi manual lewat SQL (sync Yahoo dinonaktifkan Juli 2026), salah ketik
+  // yang menghasilkan string kosong jadi lebih mungkin — blank lebih baik daripada salah.
+  const kosong = v == null || (typeof v === 'string' && v.trim() === '');
+  const n = (kosong || isNaN(Number(v))) ? null : Number(v);
   const warna = n == null ? C.inkSoft : (warnaMinus && n < 0 ? C.red : C.ink);
   return (
     <div className="mono" style={{ fontSize: 12, textAlign: 'right', color: warna }}>

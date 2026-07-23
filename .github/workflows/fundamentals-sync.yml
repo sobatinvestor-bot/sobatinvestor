@@ -1,3 +1,12 @@
+# ============================================================
+# DINONAKTIFKAN (Juli 2026) — audit legal.
+# Skrip fundamentals-sync.mjs sudah dilumpuhkan menjadi stub yang tidak melakukan
+# permintaan jaringan sama sekali. Jadwal cron di bawah SENGAJA dikomentari
+# supaya workflow tidak lagi berjalan otomatis.
+# Alasan lengkap + jalur pengganti yang sah ada di komentar fundamentals-sync.mjs.
+# workflow_dispatch sengaja DIBIARKAN aktif supaya kamu masih bisa membuka
+# workflow-nya dan melihat pesan penjelasan bila suatu saat lupa kenapa mati.
+# ============================================================
 # GitHub Actions — sinkron data fundamental (PER/PBV/DER/ROA/NPM/div yield/growth laba).
 # Taruh file ini di:  .github/workflows/fundamentals-sync.yml
 # Skrip ada di:        scripts/fundamentals-sync.mjs
@@ -7,8 +16,8 @@
 name: Fundamentals Sync
 
 on:
-  schedule:
-    - cron: '0 16 * * 6'    # Sabtu 16:00 UTC = Sabtu 23:00 WIB (mingguan; fundamental jarang berubah)
+  # schedule:
+    # - cron: '0 16 * * 6'    # Sabtu 16:00 UTC = Sabtu 23:00 WIB (mingguan; fundamental jarang berubah)
   workflow_dispatch:         # tombol "Run workflow" untuk jalankan manual / uji
 
 jobs:

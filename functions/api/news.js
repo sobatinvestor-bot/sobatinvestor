@@ -58,7 +58,7 @@ async function fetchRss(u, symbol, src, diag) {
   try {
     const res = await fetch(u, {
       headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (compatible; sobatinvestor/1.0; +https://sobatinvestor.com)",
         "Accept": "application/rss+xml, application/xml, text/xml, */*",
         "Accept-Language": "id-ID,id;q=0.9",
       },
