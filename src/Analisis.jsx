@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell, LineCh
 import { supabase } from './lib/supabase';
 import useBackGuard from './useBackGuard.js';
 const Backtest = lazy(() => import('./Backtest.jsx'));
+const DividendCalendar = lazy(() => import('./DividendCalendar.jsx'));
 
 const C = {
   cream: '#F4EFE6',
@@ -113,7 +114,7 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(null);
-  const [page, setPage] = useState(initialPage || 'umum'); // 'umum' | 'porto' | 'backtest'
+  const [page, setPage] = useState(initialPage || 'umum'); // 'umum' | 'porto' | 'backtest' | 'dividen'
   const [mySymbols, setMySymbols] = useState(null); // null = belum dimuat
   const [filter, setFilter] = useState('Semua'); // 'Semua' | 'Syariah'
   const [ambang, setAmbang] = useState({ per: '', pbv: '', roa: '', npm: '' }); // saringan angka (kosong = tak dipakai)
@@ -312,9 +313,9 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
         Analisis emiten IDX oleh AI - model bisnis, katalis, dan risiko. Diskusikan di kolom komentar tiap analisis.
       </p>
 
-      {/* Sub-tab: Umum / Saham Kamu */}
-      <div style={{ display: 'inline-flex', gap: 4, background: C.cream2, borderRadius: 100, padding: 3, marginBottom: 18 }}>
-        {[['umum', 'Analisis Umum'], ['porto', 'Saham Kamu'], ['backtest', 'Backtest']].map(([k, lbl]) => (
+      {/* Sub-tab: Umum / Saham Kamu / Backtest / Kalender Dividen */}
+      <div style={{ display: 'inline-flex', flexWrap: 'wrap', gap: 4, background: C.cream2, borderRadius: 100, padding: 3, marginBottom: 18 }}>
+        {[['umum', 'Analisis Umum'], ['porto', 'Saham Kamu'], ['backtest', 'Backtest'], ['dividen', 'Kalender Dividen']].map(([k, lbl]) => (
           <button key={k} onClick={() => setPage(k)}
             style={{ border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, padding: '7px 16px', borderRadius: 100, background: page === k ? C.forest : 'transparent', color: page === k ? C.cream : C.inkSoft }}>
             {lbl}
@@ -412,7 +413,11 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
         </div>
       )}
 
-      {page === 'backtest' && !userId ? (
+      {page === 'dividen' ? (
+        <Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', gap: 8, color: C.inkSoft, fontSize: 14, padding: '12px 0' }}><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Memuat Kalender Dividen…</div>}>
+          <DividendCalendar />
+        </Suspense>
+      ) : page === 'backtest' && !userId ? (
         <div style={{ background: C.cream2, borderRadius: 18, padding: 24, textAlign: 'center' }}>
           <p style={{ fontSize: 14, color: C.inkSoft, marginBottom: 14, lineHeight: 1.55 }}>
             Masuk untuk menggunakan Backtest — uji strategi SMA dengan Python engine, gratis untuk member.

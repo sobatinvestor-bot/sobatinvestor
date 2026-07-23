@@ -1,8 +1,15 @@
 // ============================================================
 // SINKRON JADWAL DIVIDEN — versi GRATIS (GitHub Actions, bukan Cloudflare Worker).
-// Logika sama dgn worker: kumpulkan simbol dipegang user -> tarik dividen (Yahoo via
-// app) -> catat yang belum punya tanggal resmi sebagai pending (confirmed=false).
+// Cakupan: SELURUH emiten di stock_directory (~958, sumber Kalender Dividen publik)
+// DIGABUNG simbol yang dipegang user (lots) sbg jaring pengaman utk simbol lawas yang
+// belum tentu ada di direktori. Logika deteksi sama seperti sebelumnya: tarik dividen
+// (Yahoo via app) -> catat yang belum punya tanggal resmi sebagai pending (confirmed=false).
 // TIDAK pernah menimpa baris yang sudah ada (ignore-duplicates), jadi tanggal resmi aman.
+//
+// PERINGATAN SKALA: dulu hanya menyisir simbol yang dipegang user (puluhan). Sekarang
+// ~958 simbol -> ~48 chunk berurutan ke /api/dividends (masing2 20 simbol paralel di
+// dalamnya). Ada jeda antar-chunk (CHUNK_DELAY_MS) supaya tidak membombardir Yahoo
+// sekaligus dan berisiko IP datacenter diblokir.
 //
 // Dijalankan oleh .github/workflows/dividend-sync.yml (cron mingguan + tombol manual).
 // Butuh env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (rahasia), APP_BASE_URL.
@@ -18,6 +25,9 @@ const env = {
 const OFFSET_DAYS = 21;
 const WINDOW_PAST_DAYS = 100;
 const CHUNK = 20;
+const CHUNK_DELAY_MS = 300; // jeda sopan antar-chunk ke Yahoo (bukan batasan teknis, sekadar hati-hati)
+
+function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
 function svcHeaders() {
   return {
@@ -29,6 +39,15 @@ function svcHeaders() {
 async function getHeldSymbols() {
   const r = await fetch(`${env.SUPABASE_URL}/rest/v1/lots?select=symbol`, { headers: svcHeaders() });
   if (!r.ok) throw new Error(`lots ${r.status}: ${await r.text()}`);
+  const rows = await r.json();
+  return [...new Set(rows.map((x) => (x.symbol || '').toUpperCase()).filter(Boolean))];
+}
+
+// Sumber cakupan MARKET-WIDE untuk Kalender Dividen publik — direktori resmi BEI
+// (~958 emiten), sama yang dipakai fitur sektor IDX-IC di tempat lain.
+async function getDirectorySymbols() {
+  const r = await fetch(`${env.SUPABASE_URL}/rest/v1/stock_directory?select=symbol`, { headers: svcHeaders() });
+  if (!r.ok) throw new Error(`stock_directory ${r.status}: ${await r.text()}`);
   const rows = await r.json();
   return [...new Set(rows.map((x) => (x.symbol || '').toUpperCase()).filter(Boolean))];
 }
@@ -50,6 +69,7 @@ async function fetchDividends(symbols) {
       if (r.ok) { const d = await r.json(); for (const x of (d.dividends || [])) out.push(x); }
       else console.error(`dividends ${chunk.join(',')}: ${r.status}`);
     } catch (e) { console.error(`dividends ${chunk.join(',')}: ${e.message}`); }
+    if (i + CHUNK < symbols.length) await sleep(CHUNK_DELAY_MS);
   }
   return out;
 }
@@ -69,8 +89,14 @@ async function main() {
   for (const k of ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'APP_BASE_URL']) {
     if (!env[k]) { console.error(`ENV ${k} kosong`); process.exit(1); }
   }
-  const symbols = await getHeldSymbols();
-  if (!symbols.length) { console.log('dividend-sync: tidak ada simbol dipegang'); return; }
+  const [directorySymbols, heldSymbols] = await Promise.all([
+    getDirectorySymbols().catch((e) => { console.error('stock_directory gagal, lanjut pakai held saja:', e.message); return []; }),
+    getHeldSymbols(),
+  ]);
+  // Gabungan: direktori resmi (cakupan market-wide) + held (jaring simbol lawas
+  // yang mungkin belum ada di direktori). Union, bukan salah satu saja.
+  const symbols = [...new Set([...directorySymbols, ...heldSymbols])];
+  if (!symbols.length) { console.log('dividend-sync: tidak ada simbol (direktori & held sama-sama kosong)'); return; }
 
   const [existing, divs] = await Promise.all([getExisting(), fetchDividends(symbols)]);
 

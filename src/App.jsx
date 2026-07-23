@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from 'react';
-// SOBAT BUILD MARKER: 2026-07-19-g  — ubah string ini (mis. -b, -c) tiap kali ingin
+// SOBAT BUILD MARKER: 2026-07-19-i  — ubah string ini (mis. -b, -c) tiap kali ingin
 // MEMAKSA build baru saat GitHub/Cloudflare mengira tidak ada perubahan.
 import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Upload, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus, Users, Globe, ArrowDown, Linkedin, Instagram, Eye, EyeOff, BookOpen } from 'lucide-react';
 import { supabase } from './lib/supabase';
@@ -2560,7 +2560,7 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
   return (
     <div className="fade-up" style={{ padding: '24px 20px', maxWidth: 1100, margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-        <h2 className="serif" style={{ fontSize: 40, fontWeight: 800, letterSpacing: '-0.02em', color: C.ink }}>Daftar Saham</h2>
+        <h2 className="serif" style={{ fontSize: 32, fontWeight: 500, letterSpacing: '-0.02em', color: C.ink }}>Daftar Saham</h2>
         <div style={{ display: 'flex', gap: 8 }}>
           <button
             onClick={onAdd}
@@ -2661,8 +2661,6 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
       )}
 
       {stocks.length > 0 && <div id="sec-dividen" style={{ scrollMarginTop: 70 }}><DividendCard stocks={stocks} onSymbol={onSymbol} onTotalHist={onDivTotalHist} /></div>}
-
-
 
       {/* Konfirmasi hapus */}
       {confirmDel && (
@@ -2951,6 +2949,16 @@ function AdminMFASetup({ userId }) {
 
 // Panel admin: konfirmasi tanggal bayar dividen yang masih pending (confirmed=false).
 // Hanya untuk admin. RLS tetap melindungi penulisan di sisi server.
+// CATATAN PENTING (sejak Kalender Dividen publik ditambahkan): dividend-sync.mjs sekarang
+// menyisir SELURUH emiten di stock_directory, bukan cuma yang dipegang user. Akibatnya
+// antrean di bawah ini bisa memuat BANYAK simbol yang tak dipegang siapa pun di app ini —
+// dulu implisit ter-scope ke "held" karena worker cuma menyisir simbol yang dipegang.
+// SENGAJA TIDAK disaring ke holdings di sini: query holdings dari client (meski sbg admin)
+// kemungkinan besar kena RLS per-user (holdings di tempat lain SELALU di-query dgn
+// .eq('user_id', ...), tak ada preseden lintas-user), jadi filter semacam itu berisiko
+// DIAM-DIAM cuma menampilkan holding admin sendiri — salah tanpa terlihat salah. Kalau mau
+// antrean ini kembali seketat RUNBOOK (hanya simbol yang benar2 dipegang), cara yang benar
+// adalah RPC SECURITY DEFINER di server, bukan query client-side biasa.
 function DividendAdmin({ userId }) {
   const [rows, setRows] = useState(null);
 
@@ -2972,7 +2980,10 @@ function DividendAdmin({ userId }) {
         <h3 className="serif" style={adminTitle}>Antrean Dividen{rows && rows.length > 0 ? ` (${rows.length})` : ''}</h3>
         <button onClick={load} className="mono" style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: C.inkSoft, fontSize: 11, fontWeight: 600 }}>MUAT ULANG</button>
       </div>
-      <div style={{ fontSize: 12, color: C.inkSoft, marginBottom: 12 }}>Dividen terdeteksi worker (semua saham yang dipegang user) yang belum punya tanggal bayar resmi. Kirim daftar ini ke Boba untuk diisikan tanggal resminya.</div>
+      <div style={{ fontSize: 12, color: C.inkSoft, marginBottom: 12 }}>Dividen terdeteksi worker (kini seluruh emiten IDX di direktori, bukan cuma yang dipegang user) yang belum punya tanggal bayar resmi. Prioritaskan simbol yang dipegang user dulu — cek tabel <code>holdings</code> di SQL Editor bila perlu. Kirim daftar ini ke Boba untuk diisikan tanggal resminya.</div>
+      {rows && rows.length > 30 && (
+        <div style={{ fontSize: 11, color: C.rust, marginBottom: 12, lineHeight: 1.5 }}>⚠ Antrean cukup panjang ({rows.length}) sejak cakupan sync diperluas ke seluruh emiten. Tak perlu diverifikasi semua sekaligus — cukup simbol yang benar-benar dipegang user, sisanya bisa nunggu.</div>
+      )}
       {rows === null ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: C.inkSoft, fontSize: 13 }}><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Memuat…</div>
       ) : rows.length === 0 ? (
