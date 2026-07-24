@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from 'react';
-// SOBAT BUILD MARKER: 2026-07-19-q  — ubah string ini (mis. -b, -c) tiap kali ingin
+// SOBAT BUILD MARKER: 2026-07-19-s  — ubah string ini (mis. -b, -c) tiap kali ingin
 // MEMAKSA build baru saat GitHub/Cloudflare mengira tidak ada perubahan.
 import { Send, Home, Sparkles, Briefcase, Download, Upload, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus, Globe, ArrowDown, Linkedin, Instagram, Eye, EyeOff, BookOpen } from 'lucide-react';
 import { supabase } from './lib/supabase';
@@ -635,7 +635,7 @@ export default function App() {
       <Nav ihsg={ihsg} ihsgChange={ihsgChange} session={session} setTab={setTab} tab={tab} portfolioTotal={pfTotal} plPortfolioPct={pfStats.plPortfolioPct} plModalPct={pfStats.plModalPct} modalAwal={pfStats.modalAwal} rdn={pfStats.rdn} onChangePassword={() => setShowChangePw(true)} />
       <div style={{ paddingBottom: 100 }}>
         <div style={{ display: tab === 'home' ? 'block' : 'none' }}>
-          <HomeTab stocks={market.quotes} setTab={setTab} goTo={goTo} visitStats={visitStats} />
+          <HomeTab stocks={market.quotes} setTab={setTab} goTo={goTo} visitStats={visitStats} loggedIn={!!session} />
         </div>
         {session && (
           <div style={{ display: tab === 'analisis' ? 'block' : 'none' }}>
@@ -1508,12 +1508,7 @@ export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0
                     </div>
                 )}
               </div>
-            ) : (
-              <button onClick={() => setTab('portfolio')}
-                style={{ background: C.forest, color: C.cream, border: 'none', padding: '7px 16px', borderRadius: 100, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                Masuk
-              </button>
-            )}
+            ) : null}
           </div>
         </div>
         {isMobile && links.length > 0 && (
@@ -1573,7 +1568,7 @@ function BottomNav({ tab, setTab, isAdmin, loggedIn }) {
   );
 }
 
-function HomeTab({ stocks, setTab, goTo, visitStats }) {
+function HomeTab({ stocks, setTab, goTo, visitStats, loggedIn }) {
   return (
     <div className="fade-up">
       <div style={{ padding: '40px 20px 24px', maxWidth: 1100, margin: '0 auto' }}>
@@ -1635,24 +1630,35 @@ function HomeTab({ stocks, setTab, goTo, visitStats }) {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
           {[
-            { num: '01', title: 'Baca', desc: 'Kumpulan artikel & panduan investasi saham IDX — metodologi terbuka, ketidakpastian dinyatakan apa adanya, tanpa pseudosains.', bg: C.forest, fg: C.cream, tab: 'baca', cta: 'Baca sekarang →' },
-            { num: '02', title: 'Backtest', desc: 'Backtest strategi SMA dengan Python asli yang jalan di browser-mu. Data harga & dividen IDX real.', bg: C.cream2, fg: C.ink, tab: 'analisis', page: 'backtest' },
-            { num: '03', title: 'Analisis', desc: 'Analisis emiten oleh AI: model bisnis, katalis, dan risiko. Plus halaman khusus saham di portofoliomu.', bg: C.forest, fg: C.cream, tab: 'analisis', page: 'umum' },
-            { num: '04', title: 'Dashboard Portofolio', desc: 'P/L portofolio, alokasi sektor, dan proyeksi dividen 12 bulan di satu layar — termasuk export/import portofolio & RDN ke CSV kapan saja.', bg: C.cream2, fg: C.ink, tab: 'portfolio' },
-            { num: '05', title: 'Diskusi', desc: 'Ngobrol dengan Sobat AI soal saham, emiten, dan portofoliomu — tanya jawab langsung, ditenagai AI.', bg: C.forest, fg: C.cream, tab: 'chat', cta: 'Mulai ngobrol →' },
-            { num: '06', title: 'Global', desc: 'Kondisi makro & pasar global — indeks dunia, komoditas, suku bunga, dan kurs — plus analisis AI dampaknya ke portofoliomu.', bg: C.cream2, fg: C.ink, tab: 'global' },
-          ].map((f) => (
+            // `publik: true` = boleh dilihat pengunjung yang belum login. Sisanya
+            // disembunyikan karena tab tujuannya memang butuh login — menampilkannya
+            // hanya memancing klik yang berujung ke form login.
+            { title: 'Baca', desc: 'Kumpulan artikel & panduan investasi saham IDX — metodologi terbuka, ketidakpastian dinyatakan apa adanya, tanpa pseudosains.', tab: 'baca', cta: 'Baca sekarang →', publik: true },
+            { title: 'Backtest', desc: 'Backtest strategi SMA dengan Python asli yang jalan di browser-mu. Data harga & dividen IDX real.', tab: 'analisis', page: 'backtest' },
+            { title: 'Analisis', desc: 'Analisis emiten oleh AI: model bisnis, katalis, dan risiko. Plus halaman khusus saham di portofoliomu.', tab: 'analisis', page: 'umum' },
+            { title: 'Dashboard Portofolio', desc: 'P/L portofolio, alokasi sektor, dan proyeksi dividen 12 bulan di satu layar — termasuk export/import portofolio & RDN ke CSV kapan saja.', tab: 'portfolio' },
+            { title: 'Diskusi', desc: 'Ngobrol dengan Sobat AI soal saham, emiten, dan portofoliomu — tanya jawab langsung, ditenagai AI.', tab: 'chat', cta: 'Mulai ngobrol →', publik: true },
+            { title: 'Global', desc: 'Kondisi makro & pasar global — indeks dunia, komoditas, suku bunga, dan kurs — plus analisis AI dampaknya ke portofoliomu.', tab: 'global' },
+          ]
+            .filter((f) => loggedIn || f.publik)
+            // Nomor & warna dihitung SETELAH filter, bukan dipaku di data: kalau dipaku,
+            // pengunjung yang belum login akan melihat penomoran bolong (01 lalu 05) dan
+            // pola gelap-terang jadi rusak (Baca & Diskusi kebetulan sama-sama gelap).
+            .map((f, i) => {
+              const gelap = i % 2 === 0;
+              return (
             <button
-              key={f.num}
+              key={f.title}
               onClick={() => { if (f.href) { window.location.href = f.href; } else if (goTo) { goTo(f.tab, f.page); } else { setTab(f.tab); } }}
-              style={{ textAlign: 'left', background: f.bg, color: f.fg, padding: 24, borderRadius: 20, border: `1px solid rgba(26,42,32,0.05)`, cursor: 'pointer', fontFamily: 'inherit' }}
+              style={{ textAlign: 'left', background: gelap ? C.forest : C.cream2, color: gelap ? C.cream : C.ink, padding: 24, borderRadius: 20, border: `1px solid rgba(26,42,32,0.05)`, cursor: 'pointer', fontFamily: 'inherit' }}
             >
-              <div className="mono" style={{ fontSize: 11, opacity: 0.6, marginBottom: 16, letterSpacing: '0.1em' }}>{f.num} /</div>
+              <div className="mono" style={{ fontSize: 11, opacity: 0.6, marginBottom: 16, letterSpacing: '0.1em' }}>{String(i + 1).padStart(2, '0')} /</div>
               <h3 className="serif" style={{ fontSize: 24, fontWeight: 500, marginBottom: 8, letterSpacing: '-0.01em' }}>{f.title}</h3>
               <p style={{ fontSize: 14, opacity: 0.75, lineHeight: 1.55 }}>{f.desc}</p>
               <div style={{ fontSize: 13, fontWeight: 600, marginTop: 14, opacity: 0.85 }}>{f.cta || 'Coba sekarang →'}</div>
             </button>
-          ))}
+              );
+            })}
         </div>
       </div>
 
