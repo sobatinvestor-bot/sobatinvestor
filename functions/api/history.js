@@ -1,26 +1,67 @@
 // functions/api/history.js
-// ============================================================
-// DINONAKTIFKAN (Juli 2026) — audit legal. Alasan lengkap: lihat quotes.js.
-// Dulu memanggil endpoint chart Yahoo Finance tak resmi. Sekarang membalas
-// deret kosong per simbol yang diminta (bukan 404/500), supaya PriceChart,
-// Backtest, dan kalkulasi P/L 30 hari tetap menampilkan status "tidak ada
-// data" yang sudah mereka tangani, bukan crash.
-// ============================================================
+// Harga penutupan HARIAN historis (real) dari Yahoo untuk grafik portofolio.
+// Endpoint: GET /api/history?symbols=BBCA,TLKM&range=2mo
+
 export async function onRequestGet(context) {
   const url = new URL(context.request.url);
-  const symbols = (url.searchParams.get("symbols") || "")
-    .split(",").map((s) => s.trim()).filter(Boolean);
+  const param = url.searchParams.get("symbols");
+  const range = url.searchParams.get("range") || "2mo";
+  if (!param) return json({ history: {} });
+
+  const symbols = param
+    .split(",").map((s) => s.trim().toUpperCase()).filter(Boolean)
+    .map((s) => (s.startsWith("^") || s.endsWith(".JK") ? s : s + ".JK"));
+
+  const results = await Promise.allSettled(symbols.map((s) => fetchHist(s, range)));
   const history = {};
-  for (const s of symbols) history[s.replace(".JK", "")] = [];
-  const body = {
-    unavailable: true,
-    message: 'Data historis harga sedang dinonaktifkan — menunggu sumber data berlisensi.',
-    history,
-  };
-  return new Response(JSON.stringify(body), {
+  results.forEach((r) => {
+    if (r.status === "fulfilled" && r.value) history[r.value.symbol] = r.value.series;
+  });
+
+  return json({ history });
+}
+
+async function fetchHist(symbol, range) {
+  // Yahoo men-downsample range=max (sering jadi mingguan) walau interval=1d diminta.
+  // Untuk MAX, pakai period1/period2 agar granularitas benar-benar HARIAN penuh
+  // (inception -> sekarang), konsisten dengan timeframe lain & engine Backtest.
+  let query;
+  if (range === "max") {
+    const now = Math.floor(Date.now() / 1000);
+    query = `period1=0&period2=${now}&interval=1d`;
+  } else {
+    query = `interval=1d&range=${encodeURIComponent(range)}`;
+  }
+  const u =
+    `https://query1.finance.yahoo.com/v8/finance/chart/` +
+    `${encodeURIComponent(symbol)}?${query}`;
+
+  const res = await fetch(u, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (compatible; sobatinvestor/1.0; +https://sobatinvestor.com)",
+      Accept: "application/json",
+    },
+    cf: { cacheTtl: 1800, cacheEverything: true }, // cache 30 menit
+  });
+  if (!res.ok) throw new Error(`Yahoo ${symbol} HTTP ${res.status}`);
+
+  const data = await res.json();
+  const result = data?.chart?.result?.[0];
+  const ts = result?.timestamp || [];
+  const closes = result?.indicators?.quote?.[0]?.close || [];
+
+  const series = [];
+  for (let i = 0; i < ts.length; i++) {
+    if (closes[i] != null) series.push({ t: ts[i] * 1000, close: closes[i] });
+  }
+  return { symbol: symbol.replace(".JK", ""), series };
+}
+
+function json(obj) {
+  return new Response(JSON.stringify(obj), {
     headers: {
       "Content-Type": "application/json",
-      "Cache-Control": "public, max-age=3600",
+      "Cache-Control": "public, max-age=1800",
       "Access-Control-Allow-Origin": "*",
     },
   });

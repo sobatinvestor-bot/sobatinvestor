@@ -2,7 +2,7 @@
 // Login/daftar (Supabase Auth) + hook portofolio per-user (CRUD ke tabel holdings,
 // digabung harga live dari /api/quotes) + modal tambah/edit saham.
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Mail, Lock, X, LogOut, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, X, Eye, EyeOff } from 'lucide-react';
 import { supabase } from './lib/supabase';
 
 const C = {
@@ -443,7 +443,7 @@ export function Auth({ inline }) {
         else if (data && data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
           setMsg('Email ini sudah terdaftar. Silakan Masuk.');
         } else {
-          setMsg('Akun dibuat. Silakan buka email kamu dan konfirmasi.');
+          setMsg('Akun dibuat. Buka email kamu dan konfirmasi — setelah itu, admin akan meninjau sebelum akunmu bisa dipakai.');
         }
       }
     } finally {

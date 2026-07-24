@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from 'react';
-// SOBAT BUILD MARKER: 2026-07-19-l  — ubah string ini (mis. -b, -c) tiap kali ingin
+// SOBAT BUILD MARKER: 2026-07-19-q  — ubah string ini (mis. -b, -c) tiap kali ingin
 // MEMAKSA build baru saat GitHub/Cloudflare mengira tidak ada perubahan.
-import { Send, Home, BarChart3, Sparkles, Briefcase, Download, Upload, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus, Users, Globe, ArrowDown, Linkedin, Instagram, Eye, EyeOff, BookOpen } from 'lucide-react';
+import { Send, Home, Sparkles, Briefcase, Download, Upload, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus, Globe, ArrowDown, Linkedin, Instagram, Eye, EyeOff, BookOpen } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import useBackGuard from './useBackGuard.js';
 import { Auth, usePortfolio, Editor, logout, SellEditor, RdnCard, StockNews, parseSobatCSV, ChangePassword, SetNewPassword } from './Account.jsx';
@@ -176,7 +176,7 @@ function Footer({ onOpenLegal }) {
           Konten bersifat edukatif, <strong>bukan nasihat investasi</strong>. Keputusan dan risiko investasi ada di tanganmu.
         </div>
         <div style={{ marginBottom: 6, opacity: 0.65, fontSize: 11 }}>
-          Sumber data: harga pasar dari Yahoo Finance (delayed ~15–20 menit) · fundamental, direktori emiten &amp; jadwal dividen dikurasi dari laporan keuangan dan pengumuman resmi BEI/KSEI · data makro dari World Bank &amp; Federal Reserve.
+          Sumber data: harga pasar &amp; deteksi awal jadwal dividen dari Yahoo Finance (delayed ~15–20 menit) · fundamental serta tanggal dividen berlabel FIX dikurasi manual dari laporan keuangan dan pengumuman resmi BEI/KSEI · direktori emiten dari BEI · data makro dari World Bank &amp; Federal Reserve.
         </div>
         <div style={{ opacity: 0.7 }}>© {year} Sobat Investor — Hak cipta dilindungi.</div>
       </div>
@@ -436,6 +436,7 @@ export default function App() {
   const [showChangePw, setShowChangePw] = useState(false); // modal ganti kata sandi
   const [recoveryMode, setRecoveryMode] = useState(false); // halaman set-password dari link email (Jalur B)
   const [mfaGate, setMfaGate] = useState('checking'); // checking | need | ok — gate AAL2 utk akun ber-2FA (admin)
+  const [approvalGate, setApprovalGate] = useState('checking'); // checking | pending | ok — gate approval admin utk pendaftar baru
 
   const { warning: idleWarning, stayLoggedIn } = useIdleLogout(!!(session && session.user), () => { logout(); });
 
@@ -510,7 +511,39 @@ export default function App() {
     return () => { active = false; };
   }, [session]);
 
-  // Auto sign-out (keamanan). Aktif hanya saat sudah login.
+  // Gate approval: user baru (setelah konfirmasi email) belum boleh masuk sampai
+  // admin menyetujui (profiles.approved = true). Admin (ADMIN_UID) SELALU dilewati
+  // gate ini secara eksplisit — jangan sampai admin sendiri terkunci keluar hanya
+  // karena baris profiles-nya belum sempat di-backfill/ke-set benar.
+  // Gagal cek karena error jaringan → JANGAN kunci (hindari lockout massal kalau
+  // tabel profiles/koneksi bermasalah sesaat); penegakan sebenarnya tetap di sini
+  // tiap kali effect ini jalan ulang (mis. refresh halaman).
+  useEffect(() => {
+    let active = true;
+    if (!session) {
+      // Jangan timpa 'pending': signOut() yang kita panggil sendiri di bawah membuat
+      // session jadi null, dan efek ini jalan ulang karenanya — tanpa penjagaan ini,
+      // layar "menunggu persetujuan" akan langsung tertimpa balik jadi 'ok' seketika.
+      setApprovalGate((g) => (g === 'pending' ? g : 'ok'));
+      return;
+    }
+    if (session.user.id === ADMIN_UID) { setApprovalGate('ok'); return; }
+    setApprovalGate('checking');
+    (async () => {
+      try {
+        const { data, error } = await supabase.from('profiles').select('approved').eq('id', session.user.id).single();
+        if (!active) return;
+        if (error) { setApprovalGate('ok'); return; } // tabel blm ada/error jaringan -> jangan kunci semua orang
+        if (!data || !data.approved) {
+          setApprovalGate('pending');
+          supabase.auth.signOut(); // tahan sesi tidak aktif selagi menunggu; user harus login ulang setelah disetujui
+        } else {
+          setApprovalGate('ok');
+        }
+      } catch { if (active) setApprovalGate('ok'); }
+    })();
+    return () => { active = false; };
+  }, [session]);
   // Keluar bila: 3 menit TANPA aktivitas, ATAU tab tersembunyi/minimize ≥ 3 menit.
   // Selama aktif, tetap login. Tutup browser/tab juga = keluar (sesi di sessionStorage).
   useEffect(() => {
@@ -575,13 +608,25 @@ export default function App() {
     return <MFAChallenge onVerified={() => setMfaGate('ok')} />;
   }
 
+  // Gate approval: tahan render app sampai status persetujuan diketahui/disetujui.
+  if (session && mfaGate === 'ok' && approvalGate === 'checking') {
+    return (
+      <div style={{ background: C.cream, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.inkSoft }}>
+        <Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} />
+      </div>
+    );
+  }
+  if (approvalGate === 'pending') {
+    return <PendingApprovalScreen onBackToLogin={() => setApprovalGate('ok')} />;
+  }
+
   // JANGAN pernah fallback ke angka hardcoded di sini — dulu ada ": 7800" yang bikin
-  // header tampak menampilkan IHSG live padahal itu angka mati/palsu. Sejak quotes.js
-  // dinonaktifkan (Yahoo, Jul 2026), market.ihsg akan SELALU null; null apa adanya
-  // diteruskan ke <Nav>, yang menampilkan "—" — blank lebih baik daripada salah.
+  // header tampak menampilkan IHSG live padahal itu angka mati/palsu. Kalau /api/quotes
+  // gagal/kosong, market.ihsg = null dan diteruskan apa adanya ke <Nav>, yang menampilkan
+  // "—" — blank lebih baik daripada salah.
   const ihsg = market.ihsg ? market.ihsg.value : null;
   const ihsgChange = market.ihsg ? market.ihsg.change : null;
-  const publicTabs = ['home', 'baca', 'analisis', 'global'];
+  const publicTabs = ['home', 'baca'];
   const isPrivateTab = !publicTabs.includes(tab);
 
   return (
@@ -592,26 +637,29 @@ export default function App() {
         <div style={{ display: tab === 'home' ? 'block' : 'none' }}>
           <HomeTab stocks={market.quotes} setTab={setTab} goTo={goTo} visitStats={visitStats} />
         </div>
-        <div style={{ display: tab === 'analisis' ? 'block' : 'none' }}>
-          <Suspense fallback={<div style={{ padding: '40px 20px', textAlign: 'center', color: C.inkSoft, fontSize: 13 }}>Memuat analisis…</div>}>
-            <AnalisisTab
-              userId={session ? session.user.id : null}
-              userName={session ? (session.user.user_metadata && session.user.user_metadata.display_name ? session.user.user_metadata.display_name : 'Investor-' + session.user.id.slice(0, 4)) : null}
-              onRequireLogin={() => setTab('portfolio')}
-              initialPage={analisisPage}
-              onPageConsumed={() => setAnalisisPage(null)}
-              initialSymbol={analisisSymbol}
-              onSymbolConsumed={() => setAnalisisSymbol(null)}
-              onGoPortfolio={() => setTab('portfolio')}
-            />
-          </Suspense>
-        </div>
+        {session && (
+          <div style={{ display: tab === 'analisis' ? 'block' : 'none' }}>
+            <Suspense fallback={<div style={{ padding: '40px 20px', textAlign: 'center', color: C.inkSoft, fontSize: 13 }}>Memuat analisis…</div>}>
+              <AnalisisTab
+                userId={session.user.id}
+                userName={(session.user.user_metadata && session.user.user_metadata.display_name ? session.user.user_metadata.display_name : 'Investor-' + session.user.id.slice(0, 4))}
+                onRequireLogin={() => setTab('portfolio')}
+                initialPage={analisisPage}
+                onPageConsumed={() => setAnalisisPage(null)}
+                initialSymbol={analisisSymbol}
+                onSymbolConsumed={() => setAnalisisSymbol(null)}
+              />
+            </Suspense>
+          </div>
+        )}
         <div style={{ display: tab === 'baca' ? 'block' : 'none' }}>
           <BacaTab />
         </div>
-        <div style={{ display: tab === 'global' ? 'block' : 'none' }}>
-          <MarketsTab active={tab === 'global'} userId={session ? session.user.id : null} onRequireLogin={() => setTab('portfolio')} />
-        </div>
+        {session && (
+          <div style={{ display: tab === 'global' ? 'block' : 'none' }}>
+            <MarketsTab active={tab === 'global'} userId={session.user.id} onRequireLogin={() => setTab('portfolio')} />
+          </div>
+        )}
         {isPrivateTab && tab !== 'chat' && !session && <Auth inline />}
         {!session && tab === 'chat' && <ChatTab stocks={[]} active />}
         {session && (
@@ -623,7 +671,7 @@ export default function App() {
         )}
         <Footer onOpenLegal={setLegalDoc} />
       </div>
-      <BottomNav tab={tab} setTab={setTab} isAdmin={!!session && session.user.id === ADMIN_UID} />
+      <BottomNav tab={tab} setTab={setTab} isAdmin={!!session && session.user.id === ADMIN_UID} loggedIn={!!session} />
       <LegalModal doc={legalDoc} onClose={() => setLegalDoc(null)} />
       {session && (
         <ChangePassword
@@ -1367,7 +1415,7 @@ export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0
                 {links.map((l) => linkBtn(l, false))}
               </div>
             )}
-            <div className="mono" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: C.inkSoft }} title={ihsg == null ? 'Data IHSG sedang dinonaktifkan' : undefined}>
+            <div className="mono" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: C.inkSoft }} title={ihsg == null ? 'Data IHSG belum tersedia' : undefined}>
               <span style={{ fontWeight: 600, color: C.ink }}>{ihsg == null ? '—' : ihsg.toFixed(2)}</span>
               {ihsg != null && <span style={{ color: ihsgChange >= 0 ? C.green : C.red, fontWeight: 600 }}>{fmtPct(ihsgChange)}</span>}
             </div>
@@ -1478,7 +1526,7 @@ export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0
   );
 }
 
-function BottomNav({ tab, setTab, isAdmin }) {
+function BottomNav({ tab, setTab, isAdmin, loggedIn }) {
   const items = [
     { id: 'home', label: 'Beranda', icon: Home },
     { id: 'baca', label: 'Baca', icon: BookOpen },
@@ -1487,7 +1535,7 @@ function BottomNav({ tab, setTab, isAdmin }) {
     { id: 'chat', label: 'Diskusi', icon: Sparkles },
     { id: 'global', label: 'Global', icon: Globe },
     ...(isAdmin ? [{ id: 'admin', label: 'Admin', icon: Lock }] : []),
-  ];
+  ].filter((item) => loggedIn || ['home', 'baca', 'chat'].includes(item.id));
   return (
     <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'rgba(244,239,230,0.95)', backdropFilter: 'blur(12px)', borderTop: `1px solid rgba(26,42,32,0.1)`, zIndex: 50 }}>
       <div style={{ display: 'flex', justifyContent: 'space-around', padding: '10px 8px', maxWidth: 600, margin: '0 auto' }}>
@@ -1562,7 +1610,7 @@ function HomeTab({ stocks, setTab, goTo, visitStats }) {
       <div style={{ background: C.ink, color: C.cream, padding: '14px 0', overflow: 'hidden', margin: '20px', borderRadius: 14 }}>
         {stocks.length === 0 ? (
           <div className="mono" style={{ textAlign: 'center', fontSize: 12, color: 'rgba(244,239,230,0.6)', padding: '0 20px' }}>
-            Data harga sedang dinonaktifkan — menunggu sumber data berlisensi.
+            Data harga belum tersedia — coba muat ulang sebentar lagi.
           </div>
         ) : (
         <div className="ticker-track mono" style={{ display: 'flex', gap: 36, whiteSpace: 'nowrap', fontSize: 13 }}>
@@ -2448,6 +2496,7 @@ function AdminTab({ userId, divTotalHist = 0, zakatPaid = 0, onSaveZakat }) {
     <div className="fade-up" style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 20px' }}>
       <h2 className="serif" style={{ fontSize: 32, fontWeight: 500, letterSpacing: '-0.02em', margin: '0 0 20px' }}>Admin</h2>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <PendingUsersAdmin userId={userId} />
         <ZakatCard dividenDibayar={divTotalHist} zakatPaid={zakatPaid} onSaveZakat={onSaveZakat} />
         <DividendAdmin userId={userId} />
         <BiRateReminder />
@@ -2715,6 +2764,30 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
 
 // Gate login: minta 6-digit dari authenticator sebelum app terbuka (menaikkan sesi ke AAL2).
 // Hanya muncul untuk akun yang punya faktor terverifikasi (praktis: admin).
+// Layar penuh saat akun sudah konfirmasi email tapi BELUM disetujui admin.
+// Sengaja tenang & jelas — bukan pesan error. Sesi sudah di-signOut oleh gate
+// (App.jsx) sebelum layar ini tampil, jadi "Kembali ke login" cukup reset gate.
+function PendingApprovalScreen({ onBackToLogin }) {
+  const card = { background: '#fff', borderRadius: 16, padding: 24, maxWidth: 380, width: '100%', boxShadow: '0 8px 30px rgba(26,42,32,0.12)' };
+  return (
+    <div style={{ background: C.cream, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, color: C.ink }}>
+      <div style={card}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+          <Lock size={18} color={C.cuan} />
+          <h2 className="serif" style={{ fontSize: 19, fontWeight: 700 }}>Menunggu persetujuan</h2>
+        </div>
+        <p style={{ fontSize: 13.5, color: C.inkSoft, lineHeight: 1.6, marginBottom: 4 }}>
+          Email kamu sudah terkonfirmasi. Satu langkah lagi: admin perlu menyetujui akun barumu sebelum bisa dipakai.
+        </p>
+        <p style={{ fontSize: 13.5, color: C.inkSoft, lineHeight: 1.6, marginBottom: 16 }}>
+          Biasanya tidak lama. Coba masuk lagi nanti — kamu akan diberi tahu kalau ada kendala.
+        </p>
+        <button onClick={onBackToLogin} style={{ width: '100%', background: C.forest, color: '#fff', border: 'none', borderRadius: 8, padding: '12px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Kembali ke halaman masuk</button>
+      </div>
+    </div>
+  );
+}
+
 function MFAChallenge({ onVerified }) {
   const [factors, setFactors] = useState(null); // null=loading | array terverifikasi
   const [factorId, setFactorId] = useState('');
@@ -2977,6 +3050,64 @@ function AdminMFASetup({ userId }) {
 // DIAM-DIAM cuma menampilkan holding admin sendiri — salah tanpa terlihat salah. Kalau mau
 // antrean ini kembali seketat RUNBOOK (hanya simbol yang benar2 dipegang), cara yang benar
 // adalah RPC SECURITY DEFINER di server, bukan query client-side biasa.
+// Panel admin: setujui pendaftar baru (profiles.approved=false). User yang mendaftar
+// tidak bisa memakai app sampai disetujui di sini — lihat gate approvalGate di App().
+function PendingUsersAdmin({ userId }) {
+  const [rows, setRows] = useState(null);
+  const [busyId, setBusyId] = useState(null);
+  const [err, setErr] = useState('');
+
+  async function load() {
+    setRows(null); setErr('');
+    const { data, error } = await supabase.from('profiles')
+      .select('id,email,created_at')
+      .eq('approved', false)
+      .order('created_at', { ascending: true });
+    if (error) { setErr('Gagal memuat: ' + error.message + ' — pastikan tabel profiles sudah dibuat (lihat approval_setup.sql).'); setRows([]); }
+    else setRows(data || []);
+  }
+  useEffect(() => { load(); }, []);
+
+  async function approve(row) {
+    setBusyId(row.id);
+    const { error } = await supabase.from('profiles')
+      .update({ approved: true, approved_at: new Date().toISOString(), approved_by: userId })
+      .eq('id', row.id);
+    setBusyId(null);
+    if (error) { setErr('Gagal menyetujui ' + row.email + ': ' + error.message); return; }
+    setRows((r) => r.filter((x) => x.id !== row.id));
+  }
+
+  if (userId !== ADMIN_UID) return null;
+
+  return (
+    <div style={adminCard}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+        <h3 className="serif" style={adminTitle}>Pendaftar Menunggu{rows && rows.length > 0 ? ` (${rows.length})` : ''}</h3>
+        <button onClick={load} className="mono" style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: C.inkSoft, fontSize: 11, fontWeight: 600 }}>MUAT ULANG</button>
+      </div>
+      <div style={{ fontSize: 12, color: C.inkSoft, marginBottom: 12 }}>User yang sudah konfirmasi email tapi belum bisa masuk sampai disetujui di sini.</div>
+      {err && <div style={{ fontSize: 12, color: C.rust, marginBottom: 12 }}>{err}</div>}
+      {rows === null ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: C.inkSoft, fontSize: 13 }}><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Memuat…</div>
+      ) : rows.length === 0 ? (
+        <div style={{ fontSize: 13, color: C.inkSoft }}>Tidak ada pendaftar yang menunggu. ✓</div>
+      ) : rows.map((r) => (
+        <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid rgba(26,42,32,0.06)' }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: 700, fontSize: 13.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.email}</div>
+            <div className="mono" style={{ fontSize: 10.5, color: C.inkSoft }}>daftar {new Date(r.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+          </div>
+          <button onClick={() => approve(r)} disabled={busyId === r.id}
+            style={{ flexShrink: 0, background: C.forest, color: '#fff', border: 'none', borderRadius: 100, padding: '8px 16px', fontSize: 12, fontWeight: 700, cursor: busyId === r.id ? 'default' : 'pointer', opacity: busyId === r.id ? 0.6 : 1 }}>
+            {busyId === r.id ? '…' : 'Setujui'}
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function DividendAdmin({ userId }) {
   const [rows, setRows] = useState(null);
 
@@ -2998,7 +3129,7 @@ function DividendAdmin({ userId }) {
         <h3 className="serif" style={adminTitle}>Antrean Dividen{rows && rows.length > 0 ? ` (${rows.length})` : ''}</h3>
         <button onClick={load} className="mono" style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: C.inkSoft, fontSize: 11, fontWeight: 600 }}>MUAT ULANG</button>
       </div>
-      <div style={{ fontSize: 12, color: C.inkSoft, marginBottom: 12 }}>Dividen terdeteksi worker (kini seluruh emiten IDX di direktori, bukan cuma yang dipegang user) yang belum punya tanggal bayar resmi. Prioritaskan simbol yang dipegang user dulu — cek tabel <code>holdings</code> di SQL Editor bila perlu. Kirim daftar ini ke Boba untuk diisikan tanggal resminya.</div>
+      <div style={{ fontSize: 12, color: C.inkSoft, marginBottom: 12 }}>Dividen terdeteksi worker yang belum punya tanggal bayar resmi. Worker menyisir direktori emiten bergiliran (±¼ per minggu) plus semua simbol yang dipegang user, jadi antrean bisa memuat emiten yang tak dipegang siapa pun. Prioritaskan yang dipegang user dulu — cek tabel <code>holdings</code> di SQL Editor bila perlu. Kirim daftar ini ke Boba untuk diisikan tanggal resminya.</div>
       {rows && rows.length > 30 && (
         <div style={{ fontSize: 11, color: C.rust, marginBottom: 12, lineHeight: 1.5 }}>⚠ Antrean cukup panjang ({rows.length}) sejak cakupan sync diperluas ke seluruh emiten. Tak perlu diverifikasi semua sekaligus — cukup simbol yang benar-benar dipegang user, sisanya bisa nunggu.</div>
       )}

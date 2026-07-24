@@ -110,7 +110,7 @@ function computeOverall(fundsMap) {
   return out;
 }
 
-export default function AnalisisTab({ userId, userName, onRequireLogin, initialPage, onPageConsumed, initialSymbol, onSymbolConsumed, onGoPortfolio }) {
+export default function AnalisisTab({ userId, userName, onRequireLogin, initialPage, onPageConsumed, initialSymbol, onSymbolConsumed }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(null);
@@ -250,7 +250,7 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
 
   if (open) {
     const a = items.find((x) => x.symbol === open);
-    if (a) return <AnalisisDetail a={a} funds={funds} onBack={() => setOpen(null)} onPortfolio={onGoPortfolio ? () => { setOpen(null); onGoPortfolio(); } : null} userId={userId} userName={userName} onRequireLogin={onRequireLogin} />;
+    if (a) return <AnalisisDetail a={a} funds={funds} onBack={() => setOpen(null)} userId={userId} userName={userName} onRequireLogin={onRequireLogin} />;
   }
 
   const isPorto = page === 'porto';
@@ -586,7 +586,7 @@ export function FundamentalStrip({ symbol, funds }) {
   );
 }
 
-function AnalisisDetail({ a, funds, onBack, onPortfolio, userId, userName, onRequireLogin }) {
+function AnalisisDetail({ a, funds, onBack, userId, userName, onRequireLogin }) {
   const updated = a.updated_at && a.created_at && (new Date(a.updated_at).getTime() - new Date(a.created_at).getTime() > 60000);
   return (
     <div className="fade-up" style={{ padding: '20px 20px 40px', maxWidth: 1100, margin: '0 auto' }}>
@@ -696,7 +696,7 @@ function PriceChart({ symbol }) {
   const [showSMA, setShowSMA] = useState(false);
   const [series, setSeries] = useState(null); // null=loading, []=kosong
   const [err, setErr] = useState(false);
-  const [offMsg, setOffMsg] = useState(''); // pesan spesifik bila API melaporkan unavailable (bukan sekadar "belum ada data")
+  const [offMsg, setOffMsg] = useState(''); // DORMAN: terisi hanya bila /api/history balas {unavailable, message} — dipakai saat endpoint sengaja dimatikan. Normalnya kosong.
 
   useEffect(() => {
     let active = true;
