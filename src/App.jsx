@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from 'react';
-// SOBAT BUILD MARKER: 2026-07-19-s  — ubah string ini (mis. -b, -c) tiap kali ingin
+// SOBAT BUILD MARKER: 2026-07-19-v  — ubah string ini (mis. -b, -c) tiap kali ingin
 // MEMAKSA build baru saat GitHub/Cloudflare mengira tidak ada perubahan.
 import { Send, Home, Sparkles, Briefcase, Download, Upload, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus, Globe, ArrowDown, Linkedin, Instagram, Eye, EyeOff, BookOpen } from 'lucide-react';
 import { supabase } from './lib/supabase';
@@ -174,9 +174,6 @@ function Footer({ onOpenLegal }) {
         </div>
         <div style={{ marginBottom: 6, opacity: 0.85 }}>
           Konten bersifat edukatif, <strong>bukan nasihat investasi</strong>. Keputusan dan risiko investasi ada di tanganmu.
-        </div>
-        <div style={{ marginBottom: 6, opacity: 0.65, fontSize: 11 }}>
-          Sumber data: harga pasar &amp; deteksi awal jadwal dividen dari Yahoo Finance (delayed ~15–20 menit) · fundamental serta tanggal dividen berlabel FIX dikurasi manual dari laporan keuangan dan pengumuman resmi BEI/KSEI · direktori emiten dari BEI · data makro dari World Bank &amp; Federal Reserve.
         </div>
         <div style={{ opacity: 0.7 }}>© {year} Sobat Investor — Hak cipta dilindungi.</div>
       </div>
@@ -669,7 +666,10 @@ export default function App() {
             </ErrorBoundary>
           </div>
         )}
-        <Footer onOpenLegal={setLegalDoc} />
+        {/* Footer disembunyikan di tab Diskusi: antarmuka chat semestinya berakhir di
+            kolom input. Teks panjang footer di bawah input bikin gulir janggal. Sebagai
+            gantinya ada disclaimer ringkas menetap tepat di bawah input (lihat ChatTab). */}
+        {tab !== 'chat' && <Footer onOpenLegal={setLegalDoc} />}
       </div>
       <BottomNav tab={tab} setTab={setTab} isAdmin={!!session && session.user.id === ADMIN_UID} loggedIn={!!session} />
       <LegalModal doc={legalDoc} onClose={() => setLegalDoc(null)} />
@@ -1676,6 +1676,7 @@ function HomeTab({ stocks, setTab, goTo, visitStats, loggedIn }) {
 // Header (Nav) & footer (Footer) diwariskan dari App, sama seperti tab lain.
 function BacaTab() {
   const articles = [
+    { num: '05', tag: 'Portofolio · Risiko', title: 'Diversifikasi: Kenapa Jangan Taruh Semua Telur di Satu Keranjang', desc: 'Apa kata bukti: berapa banyak saham yang cukup, kenapa korelasi naik justru saat paling dibutuhkan, konteks sektor IDX, dan pelajaran dari Markowitz hingga Buffett.', href: '/articles/article_diversifikasi.html' },
     { num: '04', tag: 'Filosofi · Proses', title: 'Proses: Mengapa Setiap Keberhasilan Dibangun dari Tindakan Kecil yang Berulang', desc: 'Mengapa proses lebih menentukan daripada hasil — pelajaran ketekunan dan penguasaan dari semangat Cina, Yunani, Arab, Persia, Jepang, dan sains modern, disusun menurut perkiraan waktu.', href: '/articles/article_proses_keberhasilan.html' },
     { num: '03', tag: 'Teknikal · Bukti', title: 'Analisis Teknikal: Apa Kata Bukti', desc: 'Apa yang benar-benar dikatakan riset: bagian mana dari analisis teknikal yang lolos uji ketat (momentum, tren), mana yang runtuh (pola visual), dan kenapa — plus konteks IDX.', href: '/articles/article_analisis_teknikal.html' },
     { num: '02', tag: 'Dividen · Compounding', title: 'Dividend Reinvesting: Bunga Berbunga, Plus-Minus, dan Pelajaran Para Tokoh', desc: 'Cara kerja reinvestasi dividen: mekanika bunga berbunga, plus-minusnya, konteks pajak IDX, dan pelajaran dari Rockefeller, Siegel, hingga Buffett.', href: '/articles/article_dividend_reinvesting.html' },
@@ -2327,6 +2328,12 @@ export function ChatTab({ stocks, active = true }) {
           style={{ background: input.trim() && !loading ? C.forest : 'rgba(26,42,32,0.15)', color: '#fff', border: 'none', borderRadius: 14, width: 46, height: 46, cursor: input.trim() && !loading ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <Send size={18} />
         </button>
+      </div>
+      {/* Disclaimer MENETAP — sengaja di luar blok empty-state, karena yang di atas
+          hilang begitu ada pesan pertama. Footer tidak tampil di tab ini, jadi tanpa
+          baris ini peringatannya lenyap sama sekali saat user sedang bertanya. */}
+      <div style={{ fontSize: 10.5, color: C.inkSoft, opacity: 0.8, textAlign: 'center', paddingTop: 8, lineHeight: 1.45 }}>
+        Jawaban dapat keliru dan bersifat edukatif — <strong>bukan nasihat investasi</strong>. Selalu periksa ulang sebelum mengambil keputusan.
       </div>
     </div>
   );

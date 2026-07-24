@@ -1,33 +1,80 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>https://sobatinvestor.com/</loc>
-    <lastmod>2026-07-19</lastmod>
+    <lastmod>2026-07-24</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://sobatinvestor.com/articles/article_proses_keberhasilan.html</loc>
-    <lastmod>2026-06-29</lastmod>
+    <loc>https://sobatinvestor.com/articles/article_diversifikasi.html</loc>
+    <lastmod>2026-07-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://sobatinvestor.com/articles/article_proses_keberhasilan.html</loc>
+    <lastmod>2026-07-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="id" href="https://sobatinvestor.com/articles/article_proses_keberhasilan.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://sobatinvestor.com/articles/article_proses_keberhasilan_en.html"/>
+  </url>
+  <url>
+    <loc>https://sobatinvestor.com/articles/article_proses_keberhasilan_en.html</loc>
+    <lastmod>2026-07-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="id" href="https://sobatinvestor.com/articles/article_proses_keberhasilan.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://sobatinvestor.com/articles/article_proses_keberhasilan_en.html"/>
   </url>
   <url>
     <loc>https://sobatinvestor.com/articles/article_analisis_teknikal.html</loc>
-    <lastmod>2026-06-29</lastmod>
+    <lastmod>2026-07-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="id" href="https://sobatinvestor.com/articles/article_analisis_teknikal.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://sobatinvestor.com/articles/article_analisis_teknikal_en.html"/>
+  </url>
+  <url>
+    <loc>https://sobatinvestor.com/articles/article_analisis_teknikal_en.html</loc>
+    <lastmod>2026-07-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="id" href="https://sobatinvestor.com/articles/article_analisis_teknikal.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://sobatinvestor.com/articles/article_analisis_teknikal_en.html"/>
   </url>
   <url>
     <loc>https://sobatinvestor.com/articles/article_dividend_reinvesting.html</loc>
-    <lastmod>2026-06-29</lastmod>
+    <lastmod>2026-07-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="id" href="https://sobatinvestor.com/articles/article_dividend_reinvesting.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://sobatinvestor.com/articles/article_dividend_reinvesting_en.html"/>
+  </url>
+  <url>
+    <loc>https://sobatinvestor.com/articles/article_dividend_reinvesting_en.html</loc>
+    <lastmod>2026-07-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="id" href="https://sobatinvestor.com/articles/article_dividend_reinvesting.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://sobatinvestor.com/articles/article_dividend_reinvesting_en.html"/>
   </url>
   <url>
     <loc>https://sobatinvestor.com/articles/article_backtest.html</loc>
-    <lastmod>2026-06-29</lastmod>
+    <lastmod>2026-07-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="id" href="https://sobatinvestor.com/articles/article_backtest.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://sobatinvestor.com/articles/article_backtest_en.html"/>
+  </url>
+  <url>
+    <loc>https://sobatinvestor.com/articles/article_backtest_en.html</loc>
+    <lastmod>2026-07-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="id" href="https://sobatinvestor.com/articles/article_backtest.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://sobatinvestor.com/articles/article_backtest_en.html"/>
   </url>
 </urlset>
