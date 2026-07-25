@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from 'react';
-// SOBAT BUILD MARKER: 2026-07-19-v  — ubah string ini (mis. -b, -c) tiap kali ingin
+// SOBAT BUILD MARKER: 2026-07-19-w  — ubah string ini (mis. -b, -c) tiap kali ingin
 // MEMAKSA build baru saat GitHub/Cloudflare mengira tidak ada perubahan.
 import { Send, Home, Sparkles, Briefcase, Download, Upload, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus, Globe, ArrowDown, Linkedin, Instagram, Eye, EyeOff, BookOpen } from 'lucide-react';
 import { supabase } from './lib/supabase';
@@ -1675,23 +1675,51 @@ function HomeTab({ stocks, setTab, goTo, visitStats, loggedIn }) {
 // ====== Tab Baca — daftar artikel edukasi ======
 // Header (Nav) & footer (Footer) diwariskan dari App, sama seperti tab lain.
 function BacaTab() {
-  const articles = [
-    { num: '05', tag: 'Portofolio · Risiko', title: 'Diversifikasi: Kenapa Jangan Taruh Semua Telur di Satu Keranjang', desc: 'Apa kata bukti: berapa banyak saham yang cukup, kenapa korelasi naik justru saat paling dibutuhkan, konteks sektor IDX, dan pelajaran dari Markowitz hingga Buffett.', href: '/articles/article_diversifikasi.html' },
-    { num: '04', tag: 'Filosofi · Proses', title: 'Proses: Mengapa Setiap Keberhasilan Dibangun dari Tindakan Kecil yang Berulang', desc: 'Mengapa proses lebih menentukan daripada hasil — pelajaran ketekunan dan penguasaan dari semangat Cina, Yunani, Arab, Persia, Jepang, dan sains modern, disusun menurut perkiraan waktu.', href: '/articles/article_proses_keberhasilan.html' },
-    { num: '03', tag: 'Teknikal · Bukti', title: 'Analisis Teknikal: Apa Kata Bukti', desc: 'Apa yang benar-benar dikatakan riset: bagian mana dari analisis teknikal yang lolos uji ketat (momentum, tren), mana yang runtuh (pola visual), dan kenapa — plus konteks IDX.', href: '/articles/article_analisis_teknikal.html' },
-    { num: '02', tag: 'Dividen · Compounding', title: 'Dividend Reinvesting: Bunga Berbunga, Plus-Minus, dan Pelajaran Para Tokoh', desc: 'Cara kerja reinvestasi dividen: mekanika bunga berbunga, plus-minusnya, konteks pajak IDX, dan pelajaran dari Rockefeller, Siegel, hingga Buffett.', href: '/articles/article_dividend_reinvesting.html' },
-    { num: '01', tag: 'Strategi · Metodologi', title: 'Backtest: Cara Menguji Strategi Saham Tanpa Menipu Diri Sendiri', desc: 'Apa itu backtest, tujuh jebakan yang membuatnya berbohong, dan cara membacanya untuk investor ritel IDX — termasuk biaya nyata, likuiditas, dan ARA/ARB.', href: '/articles/article_backtest.html' },
-  ];
+  const [lang, setLang] = useState('id'); // 'id' | 'en' — kontrol bahasa terpusat di sini, bukan per-halaman artikel
+
+  const ARTICLES = {
+    id: [
+      { num: '05', tag: 'Portofolio · Risiko', title: 'Diversifikasi: Kenapa Jangan Taruh Semua Telur di Satu Keranjang', desc: 'Apa kata bukti: berapa banyak saham yang cukup, kenapa korelasi naik justru saat paling dibutuhkan, konteks sektor IDX, dan pelajaran dari Markowitz hingga Buffett.', href: '/articles/article_diversifikasi.html' },
+      { num: '04', tag: 'Filosofi · Proses', title: 'Proses: Mengapa Setiap Keberhasilan Dibangun dari Tindakan Kecil yang Berulang', desc: 'Mengapa proses lebih menentukan daripada hasil — pelajaran ketekunan dan penguasaan dari semangat Cina, Yunani, Arab, Persia, Jepang, dan sains modern, disusun menurut perkiraan waktu.', href: '/articles/article_proses_keberhasilan.html' },
+      { num: '03', tag: 'Teknikal · Bukti', title: 'Analisis Teknikal: Apa Kata Bukti', desc: 'Apa yang benar-benar dikatakan riset: bagian mana dari analisis teknikal yang lolos uji ketat (momentum, tren), mana yang runtuh (pola visual), dan kenapa — plus konteks IDX.', href: '/articles/article_analisis_teknikal.html' },
+      { num: '02', tag: 'Dividen · Compounding', title: 'Dividend Reinvesting: Bunga Berbunga, Plus-Minus, dan Pelajaran Para Tokoh', desc: 'Cara kerja reinvestasi dividen: mekanika bunga berbunga, plus-minusnya, konteks pajak IDX, dan pelajaran dari Rockefeller, Siegel, hingga Buffett.', href: '/articles/article_dividend_reinvesting.html' },
+      { num: '01', tag: 'Strategi · Metodologi', title: 'Backtest: Cara Menguji Strategi Saham Tanpa Menipu Diri Sendiri', desc: 'Apa itu backtest, tujuh jebakan yang membuatnya berbohong, dan cara membacanya untuk investor ritel IDX — termasuk biaya nyata, likuiditas, dan ARA/ARB.', href: '/articles/article_backtest.html' },
+    ],
+    en: [
+      { num: '05', tag: 'Portfolio · Risk', title: "Diversification: Why You Shouldn't Put All Your Eggs in One Basket", desc: 'What the evidence says: how many stocks are enough, why correlation rises exactly when you need it most, IDX sector context, and lessons from Markowitz to Buffett.', href: '/articles/article_diversifikasi_en.html' },
+      { num: '04', tag: 'Philosophy · Process', title: 'Process: Why Every Lasting Success Is Built from Small, Repeated Actions', desc: 'Why process matters more than outcome — lessons in patience and mastery from Chinese, Greek, Arab, Persian, and Japanese traditions, and modern science, arranged by era.', href: '/articles/article_proses_keberhasilan_en.html' },
+      { num: '03', tag: 'Technical · Evidence', title: 'Technical Analysis: What the Evidence Says', desc: 'What the research actually shows: which parts of technical analysis survive rigorous testing, which collapse, and why — plus IDX context.', href: '/articles/article_analisis_teknikal_en.html' },
+      { num: '02', tag: 'Dividends · Compounding', title: 'Dividend Reinvesting: Compounding, Trade-offs, and Lessons from Great Investors', desc: 'How dividend reinvesting works: the mechanics of compounding, its pros and cons, Indonesian tax context, and lessons from Rockefeller, Siegel, and Buffett.', href: '/articles/article_dividend_reinvesting_en.html' },
+      { num: '01', tag: 'Strategy · Methodology', title: "Backtesting: How to Test a Stock Strategy Without Fooling Yourself", desc: 'What backtesting is, seven traps that make it lie, and how to read it as a retail IDX investor — including real costs, liquidity, and ARA/ARB.', href: '/articles/article_backtest_en.html' },
+    ],
+  };
+  const articles = ARTICLES[lang];
+  const t = lang === 'id'
+    ? { title: 'Bacaan Sobat', sub: 'Artikel & panduan soal investasi saham — metodologi terbuka, ketidakpastian dinyatakan apa adanya, tanpa pseudosains.', cta: 'Baca artikel →' }
+    : { title: 'Sobat Reads', sub: 'Articles & guides on stock investing — open methodology, uncertainty stated as it is, no pseudoscience.', cta: 'Read article →' };
+
   return (
     <div className="fade-up">
       {/* Hero */}
       <div style={{ background: C.forest, color: C.cream, padding: '48px 20px 52px' }}>
         <div style={{ maxWidth: 760, margin: '0 auto' }}>
-          <h1 className="serif" style={{ fontWeight: 600, fontSize: 'clamp(34px, 6vw, 52px)', lineHeight: 1.05, letterSpacing: '-0.01em', margin: 0 }}>
-            Bacaan Sobat<span style={{ color: C.cuan }}>.</span>
-          </h1>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+            <h1 className="serif" style={{ fontWeight: 600, fontSize: 'clamp(34px, 6vw, 52px)', lineHeight: 1.05, letterSpacing: '-0.01em', margin: 0 }}>
+              {t.title}<span style={{ color: C.cuan }}>.</span>
+            </h1>
+            {/* Toggle bahasa — SATU-SATUNYA kontrol ID/EN di seluruh alur baca; halaman
+                artikel individual sengaja tidak lagi punya tombol ID/EN sendiri. */}
+            <div style={{ display: 'inline-flex', gap: 4, background: 'rgba(244,239,230,0.12)', borderRadius: 100, padding: 3, flexShrink: 0 }}>
+              {[['id', 'ID'], ['en', 'EN']].map(([k, lbl]) => (
+                <button key={k} onClick={() => setLang(k)}
+                  style={{ border: 'none', cursor: 'pointer', fontSize: 12.5, fontWeight: 700, padding: '7px 16px', borderRadius: 100, background: lang === k ? C.cuan : 'transparent', color: lang === k ? C.ink : C.cream, fontFamily: 'inherit' }}>
+                  {lbl}
+                </button>
+              ))}
+            </div>
+          </div>
           <p style={{ margin: '18px 0 0', color: 'rgba(244,239,230,0.78)', fontSize: 16.5, lineHeight: 1.6, maxWidth: '48ch' }}>
-            Artikel &amp; panduan soal investasi saham — metodologi terbuka, ketidakpastian dinyatakan apa adanya, tanpa pseudosains.
+            {t.sub}
           </p>
         </div>
       </div>
@@ -1710,7 +1738,7 @@ function BacaTab() {
               </div>
               <h2 className="serif" style={{ fontWeight: 600, color: C.forest, fontSize: 'clamp(22px, 3.6vw, 27px)', lineHeight: 1.18, margin: '8px 0', letterSpacing: '-0.01em' }}>{a.title}</h2>
               <p style={{ margin: '0 0 14px', fontSize: 15.5, lineHeight: 1.6, color: C.inkSoft }}>{a.desc}</p>
-              <div style={{ fontSize: 13.5, fontWeight: 700, color: C.rust }}>Baca artikel →</div>
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: C.rust }}>{t.cta}</div>
             </a>
           ))}
         </div>
