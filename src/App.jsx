@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from 'react';
-// SOBAT BUILD MARKER: 2026-07-19-w  — ubah string ini (mis. -b, -c) tiap kali ingin
+// SOBAT BUILD MARKER: 2026-07-19-y  — ubah string ini (mis. -b, -c) tiap kali ingin
 // MEMAKSA build baru saat GitHub/Cloudflare mengira tidak ada perubahan.
 import { Send, Home, Sparkles, Briefcase, Download, Upload, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus, Globe, ArrowDown, Linkedin, Instagram, Eye, EyeOff, BookOpen } from 'lucide-react';
 import { supabase } from './lib/supabase';
@@ -1090,6 +1090,38 @@ function PortfolioMacroAnalysis({ userId, onRequireLogin, marketSummary, marketR
       const portLines = port.slice().sort((a, b) => b.val - a.val)
         .map((p) => `${p.sym} (${p.name}) — sektor ${p.sector}, bobot ~${Math.round((p.val / total) * 100)}%`).join('\n');
 
+      // ===== Diversifikasi sektoral =====
+      // Daftar sektor DIAMBIL DARI stock_directory (sumber resmi IDX-IC di DB), BUKAN
+      // ditulis manual di kode — nama sektor IDX-IC pernah salah tebak sebelumnya
+      // ("Tambang"/"Utilitas"/"Telekomunikasi" bukan sektor resmi). Kalau query gagal,
+      // bagian "sektor yang belum ada" dilewati saja daripada menyebut sektor karangan.
+      let diversifikasiBlock = '';
+      try {
+        const sectorPairs = Object.entries(bySector).sort((a, b) => b[1] - a[1]);
+        const bobot = sectorPairs.map(([s, v]) => ({ s, w: v / total }));
+        const topSektor = bobot[0];
+        // Jumlah sektor EFEKTIF = 1 / Σ(bobot²). Lebih mudah dibaca daripada indeks
+        // konsentrasi mentah: hasil 1,0 berarti praktis bertumpu pada satu sektor;
+        // 4,0 berarti setara tersebar merata di empat sektor.
+        const nEfektif = 1 / bobot.reduce((s, b) => s + b.w * b.w, 0);
+
+        let sektorBelumAda = null;
+        const { data: dirSec, error: dirErr } = await supabase.from('stock_directory').select('sector');
+        if (!dirErr && dirSec && dirSec.length) {
+          const semuaSektor = [...new Set(dirSec.map((r) => (r.sector || '').trim()).filter(Boolean))];
+          const dimiliki = new Set(Object.keys(bySector).map((s) => s.trim()));
+          sektorBelumAda = semuaSektor.filter((s) => !dimiliki.has(s));
+        }
+
+        diversifikasiBlock = `\n\nSTRUKTUR DIVERSIFIKASI SEKTORAL (dihitung dari bobot modal portofolio):
+Jumlah sektor dimiliki: ${sectorPairs.length}. Sektor terbesar: ${topSektor.s} (~${Math.round(topSektor.w * 100)}% portofolio).
+Jumlah sektor EFEKTIF: ${nEfektif.toFixed(1)} (1,0 = praktis bertumpu pada satu sektor; makin besar makin tersebar).${
+  sektorBelumAda && sektorBelumAda.length
+    ? `\nSektor IDX-IC yang BELUM ada di portofolio: ${sektorBelumAda.join(', ')}.`
+    : '\n(Daftar sektor IDX-IC tidak berhasil dibaca — jangan menyebut nama sektor yang tidak tercantum di atas.)'
+}`;
+      } catch { /* abaikan; analisis tetap jalan tanpa blok diversifikasi */ }
+
       // Analisis terkurasi (published) untuk emiten portofolio — sama sumbernya dengan tab Analisis.
       // Hanya pakai data terkurasi manual, BUKAN fundamentals mentah Yahoo (blank > salah).
       let curatedBlock = '';
@@ -1182,21 +1214,42 @@ Kaitkan performa ini dengan kondisi makro & emiten kunci dalam analisis — jela
             const endClose = priceLast(sym);
             pl30Map[sym] = (cukup && startClose && endClose) ? ((endClose / startClose) - 1) * 100 : null;
           });
+
+          // P/L HARI PERDAGANGAN TERAKHIR — dua titik penutupan terakhir di deret yang
+          // SAMA (tanpa fetch tambahan). Catatan jujur: ini hari perdagangan terakhir
+          // YANG ADA DI DATA, belum tentu hari ini — data delayed & bursa tutup di akhir
+          // pekan/libur. Butuh minimal 2 titik; kalau kurang -> null, bukan dikira-kira.
+          const plDayMap = {};
+          let tglTerakhir = null;
+          syms.forEach((sym) => {
+            const s = history[sym];
+            if (!s || s.length < 2) { plDayMap[sym] = null; return; }
+            const last = s[s.length - 1], prev = s[s.length - 2];
+            if (!last.close || !prev.close) { plDayMap[sym] = null; return; }
+            plDayMap[sym] = ((last.close / prev.close) - 1) * 100;
+            if (tglTerakhir == null || last.t > tglTerakhir) tglTerakhir = last.t;
+          });
+          const labelTgl = tglTerakhir
+            ? new Date(tglTerakhir).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+            : null;
+
+          const fmtPersen = (v, kosong) => (v != null ? `${v >= 0 ? '+' : ''}${v.toFixed(2)}%` : kosong);
           const pl30Lines = port.slice().sort((a, b) => b.val - a.val).map((p) => {
-            const pct = pl30Map[p.sym];
-            const angka = pct != null ? `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%` : 'data historis belum cukup (< 30 hari)';
-            return `${p.sym} (${p.name}, bobot ~${Math.round((p.val / total) * 100)}%): ${angka}`;
+            const p30 = fmtPersen(pl30Map[p.sym], 'data <30 hari');
+            const pHari = fmtPersen(plDayMap[p.sym], 'n/a');
+            return `${p.sym} (${p.name}, bobot ~${Math.round((p.val / total) * 100)}%): 30 hari ${p30} | hari terakhir ${pHari}`;
           }).join('\n');
           if (pl30Lines) {
-            stockPerfBlock = `\n\nP/L 30 HARI PER SAHAM (perubahan HARGA masing-masing emiten, price-return murni — BUKAN P/L posisi thd harga beli):
+            stockPerfBlock = `\n\nPERGERAKAN HARGA PER SAHAM (price-return murni — BUKAN P/L posisi thd harga beli).
+"30 hari" = perubahan harga 30 hari kalender terakhir. "hari terakhir" = perubahan pada hari perdagangan terakhir yang tersedia di data${labelTgl ? ` (${labelTgl}` + ', bisa bukan hari ini karena data delayed & libur bursa)' : ''}:
 ${pl30Lines}
-Pakai angka per-saham ini untuk menopang bagian "Per Sektor" dan "Emiten Kunci" — sebutkan saham mana yang benar-benar naik/turun paling tajam 30 hari terakhir dan kaitkan dgn kondisi makro, jangan menebak arah pergerakan tanpa data ini.`;
+Pakai angka ini untuk menopang bagian "Per Sektor" dan "Emiten Kunci": sebutkan saham mana yang bergerak paling tajam — baik 30 hari maupun pada hari terakhir — dan kaitkan dgn kondisi makro. Bedakan dengan jelas mana angka 30 hari dan mana yang harian; JANGAN menebak arah pergerakan tanpa angka ini. Ingat gerakan satu hari sangat berisik (noise): perlakukan sbg sinyal reaksi jangka sangat pendek, bukan bukti tren.`;
           }
         }
       } catch { /* abaikan; analisis tetap jalan tanpa blok performa */ }
 
       const dataBlock = `KONDISI MAKRO/GLOBAL TERKINI (dari halaman Global, data delayed):
-${marketSummary}${perfBlock}${stockPerfBlock}
+${marketSummary}${perfBlock}${stockPerfBlock}${diversifikasiBlock}
 
 PORTOFOLIO SAYA (bobot = perkiraan dari modal: qty × harga rata-rata):
 Komposisi sektor: ${sectorLines}
@@ -1209,15 +1262,17 @@ ${portLines}${curatedBlock}`;
         ? `Buat analisis MENDALAM dan menyeluruh dalam Bahasa Indonesia memakai format markdown:
 - "## Gambaran" — kondisi makro terpenting untuk portofolio ini (boleh beberapa kalimat).
 - "## Per Sektor" — bahas tiap sektor utama portofolio secara rinci; kaitkan dengan suku bunga BI/Fed, harga komoditas, USD/IDR, dan imbal hasil obligasi; sebut emiten paling terdampak beserta mekanisme sebab-akibatnya.
-- "## Emiten Kunci" — soroti 3–5 emiten paling sensitif terhadap kondisi makro saat ini dan jelaskan jalur dampaknya. Sertakan angka P/L 30 hari (perubahan harga) masing-masing dari blok "P/L 30 HARI PER SAHAM" saat menyebut emiten tsb.
+- "## Emiten Kunci" — soroti 3–5 emiten paling sensitif terhadap kondisi makro saat ini dan jelaskan jalur dampaknya. Sertakan angka dari blok "PERGERAKAN HARGA PER SAHAM" saat menyebut emiten tsb: sebutkan angka 30 hari DAN hari terakhir, dan bedakan keduanya dengan jelas (jangan tertukar). Perlakukan gerakan satu hari sbg reaksi jangka sangat pendek yang berisik, bukan bukti tren.
+- "## Ide Diversifikasi Sektoral" — pakai blok "STRUKTUR DIVERSIFIKASI SEKTORAL". Jelaskan: (a) seberapa terkonsentrasi portofolio ini dan apa artinya jumlah sektor efektif tsb, (b) risiko makro apa yang menjadi taruhan tunggal akibat konsentrasi itu (mis. bertumpu pada siklus suku bunga atau harga komoditas), (c) sektor IDX-IC mana yang belum ada dan jalur sebab-akibat kenapa sektor itu merespons BERBEDA terhadap kondisi makro saat ini — sehingga bisa menyeimbangkan. ATURAN KERAS: bahas pada tingkat SEKTOR dan mekanisme ekonominya, JANGAN menyebut atau menyarankan kode saham tertentu untuk dibeli, dan JANGAN memberi bobot/persentase target — ini penjelasan struktur, bukan rekomendasi. Sebut HANYA nama sektor yang benar-benar tercantum di blok itu; jangan mengarang nama sektor. Tambahkan pengingat singkat bahwa diversifikasi menurunkan risiko spesifik emiten tetapi tidak menghapus risiko pasar, dan korelasi antar sektor cenderung meningkat justru saat pasar jatuh.
 - "## Skenario" — 2–3 skenario (mis. BI/Fed menahan vs memangkas suku bunga, USD menguat/melemah) beserta implikasinya ke portofolio.
 - "## Yang Perlu Dipantau" — daftar hal konkret yang perlu diawasi.
 Gunakan **tebal**, *miring*, <u>garis bawah</u> (secukupnya), dan poin (-) agar enak dibaca. Boleh panjang dan detail — tidak ada batasan kata. Blok "ANALISIS TERKURASI APLIKASI" di atas ADALAH sumber angka fundamental resmi — pakai angka dari sana (laba, pendapatan, dll) saat membahas emiten terkait, dan JANGAN katakan "belum punya angka terkurasi" untuk emiten yang datanya sudah ada di blok itu. Hanya untuk emiten yang eksplisit ditandai "belum ada analisis terkurasi" kamu boleh arahkan ke tab Analisis/IDX. JANGAN mengarang angka yang tidak ada di data yang diberikan. Akhiri dengan satu kalimat bahwa ini bukan rekomendasi investasi.`
         : `Tolong buat analisis SINGKAT, rapi, dan mudah dibaca dalam Bahasa Indonesia memakai format markdown:
 - Awali dengan "## Gambaran" — 1–2 kalimat kondisi makro yang paling relevan untuk portofolio ini.
-- Lalu "## Per Sektor" — bahas HANYA 2–3 sektor dengan bobot TERBESAR di portofolio, jangan lebih. Untuk tiap sektor sebut 1–2 emiten paling terdampak beserta alasan keterkaitannya (suku bunga BI/Fed, harga komoditas, USD/IDR, atau imbal hasil obligasi), dan sertakan angka P/L 30 hari (perubahan harga) emiten tsb dari blok "P/L 30 HARI PER SAHAM". Ringkas, jangan bertele-tele.
+- Lalu "## Per Sektor" — bahas HANYA 2–3 sektor dengan bobot TERBESAR di portofolio, jangan lebih. Untuk tiap sektor sebut 1–2 emiten paling terdampak beserta alasan keterkaitannya (suku bunga BI/Fed, harga komoditas, USD/IDR, atau imbal hasil obligasi), dan sertakan angka emiten tsb dari blok "PERGERAKAN HARGA PER SAHAM" — sebut angka 30 hari dan hari terakhir, jangan sampai tertukar. Ringkas, jangan bertele-tele.
+- Lalu "## Ide Diversifikasi Sektoral" — 2–3 poin singkat dari blok "STRUKTUR DIVERSIFIKASI SEKTORAL": seberapa terkonsentrasi portofolio ini, risiko makro apa yang jadi taruhan tunggal akibatnya, dan sektor IDX-IC mana yang belum ada beserta alasan singkat kenapa sektor itu merespons berbeda. ATURAN KERAS: bicara di tingkat SEKTOR saja — JANGAN menyebut kode saham untuk dibeli dan JANGAN memberi bobot target. Sebut hanya nama sektor yang tercantum di blok itu. Tutup poin ini dgn pengingat singkat bahwa diversifikasi tidak menghapus risiko pasar.
 - Tutup dengan "## Yang Perlu Dipantau" — 2–3 poin singkat.
-Gunakan format agar enak dibaca: **tebal** untuk penekanan, *miring* untuk istilah/nuansa, <u>garis bawah</u> untuk menandai hal paling penting (secukupnya), serta poin (-) untuk daftar. Jangan berlebihan. Blok "ANALISIS TERKURASI APLIKASI" di atas ADALAH sumber angka fundamental resmi — pakai angka dari sana saat membahas emiten terkait, dan JANGAN katakan "belum punya angka terkurasi" untuk emiten yang datanya sudah ada di blok itu. Hanya untuk emiten yang eksplisit ditandai "belum ada analisis terkurasi" kamu boleh arahkan ke tab Analisis/IDX. Jangan mengarang angka yang tidak ada di data yang diberikan. PENTING: buat SANGAT RINGKAS, target maksimal 350 kata. Lebih baik pendek tapi tuntas daripada panjang lalu terputus. WAJIB menyelesaikan seluruh struktur (Gambaran, Per Sektor, Yang Perlu Dipantau) sampai bagian penutup, dan JANGAN PERNAH berhenti di tengah kalimat atau di tengah daftar — selalu akhiri dengan kalimat yang utuh. Akhiri dengan satu kalimat singkat bahwa ini bukan rekomendasi investasi.`;
+Gunakan format agar enak dibaca: **tebal** untuk penekanan, *miring* untuk istilah/nuansa, <u>garis bawah</u> untuk menandai hal paling penting (secukupnya), serta poin (-) untuk daftar. Jangan berlebihan. Blok "ANALISIS TERKURASI APLIKASI" di atas ADALAH sumber angka fundamental resmi — pakai angka dari sana saat membahas emiten terkait, dan JANGAN katakan "belum punya angka terkurasi" untuk emiten yang datanya sudah ada di blok itu. Hanya untuk emiten yang eksplisit ditandai "belum ada analisis terkurasi" kamu boleh arahkan ke tab Analisis/IDX. Jangan mengarang angka yang tidak ada di data yang diberikan. PENTING: buat SANGAT RINGKAS, target maksimal 450 kata. Lebih baik pendek tapi tuntas daripada panjang lalu terputus. WAJIB menyelesaikan seluruh struktur (Gambaran, Per Sektor, Ide Diversifikasi Sektoral, Yang Perlu Dipantau) sampai bagian penutup, dan JANGAN PERNAH berhenti di tengah kalimat atau di tengah daftar — selalu akhiri dengan kalimat yang utuh. Akhiri dengan satu kalimat singkat bahwa ini bukan rekomendasi investasi.`;
 
       const userMsg = `${dataBlock}
 
@@ -1679,18 +1734,18 @@ function BacaTab() {
 
   const ARTICLES = {
     id: [
-      { num: '05', tag: 'Portofolio · Risiko', title: 'Diversifikasi: Kenapa Jangan Taruh Semua Telur di Satu Keranjang', desc: 'Apa kata bukti: berapa banyak saham yang cukup, kenapa korelasi naik justru saat paling dibutuhkan, konteks sektor IDX, dan pelajaran dari Markowitz hingga Buffett.', href: '/articles/article_diversifikasi.html' },
-      { num: '04', tag: 'Filosofi · Proses', title: 'Proses: Mengapa Setiap Keberhasilan Dibangun dari Tindakan Kecil yang Berulang', desc: 'Mengapa proses lebih menentukan daripada hasil — pelajaran ketekunan dan penguasaan dari semangat Cina, Yunani, Arab, Persia, Jepang, dan sains modern, disusun menurut perkiraan waktu.', href: '/articles/article_proses_keberhasilan.html' },
-      { num: '03', tag: 'Teknikal · Bukti', title: 'Analisis Teknikal: Apa Kata Bukti', desc: 'Apa yang benar-benar dikatakan riset: bagian mana dari analisis teknikal yang lolos uji ketat (momentum, tren), mana yang runtuh (pola visual), dan kenapa — plus konteks IDX.', href: '/articles/article_analisis_teknikal.html' },
-      { num: '02', tag: 'Dividen · Compounding', title: 'Dividend Reinvesting: Bunga Berbunga, Plus-Minus, dan Pelajaran Para Tokoh', desc: 'Cara kerja reinvestasi dividen: mekanika bunga berbunga, plus-minusnya, konteks pajak IDX, dan pelajaran dari Rockefeller, Siegel, hingga Buffett.', href: '/articles/article_dividend_reinvesting.html' },
-      { num: '01', tag: 'Strategi · Metodologi', title: 'Backtest: Cara Menguji Strategi Saham Tanpa Menipu Diri Sendiri', desc: 'Apa itu backtest, tujuh jebakan yang membuatnya berbohong, dan cara membacanya untuk investor ritel IDX — termasuk biaya nyata, likuiditas, dan ARA/ARB.', href: '/articles/article_backtest.html' },
+      { num: '05', tag: 'Portofolio · Risiko', title: 'Diversifikasi: Kenapa Jangan Taruh Semua Telur di Satu Keranjang', desc: 'Apa kata bukti: berapa banyak saham yang cukup, kenapa korelasi naik justru saat paling dibutuhkan, konteks sektor IDX, dan pelajaran dari Markowitz hingga Buffett.', href: '/articles/article_diversifikasi' },
+      { num: '04', tag: 'Filosofi · Proses', title: 'Proses: Mengapa Setiap Keberhasilan Dibangun dari Tindakan Kecil yang Berulang', desc: 'Mengapa proses lebih menentukan daripada hasil — pelajaran ketekunan dan penguasaan dari semangat Cina, Yunani, Arab, Persia, Jepang, dan sains modern, disusun menurut perkiraan waktu.', href: '/articles/article_proses_keberhasilan' },
+      { num: '03', tag: 'Teknikal · Bukti', title: 'Analisis Teknikal: Apa Kata Bukti', desc: 'Apa yang benar-benar dikatakan riset: bagian mana dari analisis teknikal yang lolos uji ketat (momentum, tren), mana yang runtuh (pola visual), dan kenapa — plus konteks IDX.', href: '/articles/article_analisis_teknikal' },
+      { num: '02', tag: 'Dividen · Compounding', title: 'Dividend Reinvesting: Bunga Berbunga, Plus-Minus, dan Pelajaran Para Tokoh', desc: 'Cara kerja reinvestasi dividen: mekanika bunga berbunga, plus-minusnya, konteks pajak IDX, dan pelajaran dari Rockefeller, Siegel, hingga Buffett.', href: '/articles/article_dividend_reinvesting' },
+      { num: '01', tag: 'Strategi · Metodologi', title: 'Backtest: Cara Menguji Strategi Saham Tanpa Menipu Diri Sendiri', desc: 'Apa itu backtest, tujuh jebakan yang membuatnya berbohong, dan cara membacanya untuk investor ritel IDX — termasuk biaya nyata, likuiditas, dan ARA/ARB.', href: '/articles/article_backtest' },
     ],
     en: [
-      { num: '05', tag: 'Portfolio · Risk', title: "Diversification: Why You Shouldn't Put All Your Eggs in One Basket", desc: 'What the evidence says: how many stocks are enough, why correlation rises exactly when you need it most, IDX sector context, and lessons from Markowitz to Buffett.', href: '/articles/article_diversifikasi_en.html' },
-      { num: '04', tag: 'Philosophy · Process', title: 'Process: Why Every Lasting Success Is Built from Small, Repeated Actions', desc: 'Why process matters more than outcome — lessons in patience and mastery from Chinese, Greek, Arab, Persian, and Japanese traditions, and modern science, arranged by era.', href: '/articles/article_proses_keberhasilan_en.html' },
-      { num: '03', tag: 'Technical · Evidence', title: 'Technical Analysis: What the Evidence Says', desc: 'What the research actually shows: which parts of technical analysis survive rigorous testing, which collapse, and why — plus IDX context.', href: '/articles/article_analisis_teknikal_en.html' },
-      { num: '02', tag: 'Dividends · Compounding', title: 'Dividend Reinvesting: Compounding, Trade-offs, and Lessons from Great Investors', desc: 'How dividend reinvesting works: the mechanics of compounding, its pros and cons, Indonesian tax context, and lessons from Rockefeller, Siegel, and Buffett.', href: '/articles/article_dividend_reinvesting_en.html' },
-      { num: '01', tag: 'Strategy · Methodology', title: "Backtesting: How to Test a Stock Strategy Without Fooling Yourself", desc: 'What backtesting is, seven traps that make it lie, and how to read it as a retail IDX investor — including real costs, liquidity, and ARA/ARB.', href: '/articles/article_backtest_en.html' },
+      { num: '05', tag: 'Portfolio · Risk', title: "Diversification: Why You Shouldn't Put All Your Eggs in One Basket", desc: 'What the evidence says: how many stocks are enough, why correlation rises exactly when you need it most, IDX sector context, and lessons from Markowitz to Buffett.', href: '/articles/article_diversifikasi_en' },
+      { num: '04', tag: 'Philosophy · Process', title: 'Process: Why Every Lasting Success Is Built from Small, Repeated Actions', desc: 'Why process matters more than outcome — lessons in patience and mastery from Chinese, Greek, Arab, Persian, and Japanese traditions, and modern science, arranged by era.', href: '/articles/article_proses_keberhasilan_en' },
+      { num: '03', tag: 'Technical · Evidence', title: 'Technical Analysis: What the Evidence Says', desc: 'What the research actually shows: which parts of technical analysis survive rigorous testing, which collapse, and why — plus IDX context.', href: '/articles/article_analisis_teknikal_en' },
+      { num: '02', tag: 'Dividends · Compounding', title: 'Dividend Reinvesting: Compounding, Trade-offs, and Lessons from Great Investors', desc: 'How dividend reinvesting works: the mechanics of compounding, its pros and cons, Indonesian tax context, and lessons from Rockefeller, Siegel, and Buffett.', href: '/articles/article_dividend_reinvesting_en' },
+      { num: '01', tag: 'Strategy · Methodology', title: "Backtesting: How to Test a Stock Strategy Without Fooling Yourself", desc: 'What backtesting is, seven traps that make it lie, and how to read it as a retail IDX investor — including real costs, liquidity, and ARA/ARB.', href: '/articles/article_backtest_en' },
     ],
   };
   const articles = ARTICLES[lang];

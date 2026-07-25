@@ -8,73 +8,83 @@
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://sobatinvestor.com/articles/article_diversifikasi.html</loc>
+    <loc>https://sobatinvestor.com/articles/article_diversifikasi</loc>
     <lastmod>2026-07-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="id" href="https://sobatinvestor.com/articles/article_diversifikasi"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://sobatinvestor.com/articles/article_diversifikasi_en"/>
   </url>
   <url>
-    <loc>https://sobatinvestor.com/articles/article_proses_keberhasilan.html</loc>
-    <lastmod>2026-07-24</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-    <xhtml:link rel="alternate" hreflang="id" href="https://sobatinvestor.com/articles/article_proses_keberhasilan.html"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://sobatinvestor.com/articles/article_proses_keberhasilan_en.html"/>
-  </url>
-  <url>
-    <loc>https://sobatinvestor.com/articles/article_proses_keberhasilan_en.html</loc>
+    <loc>https://sobatinvestor.com/articles/article_diversifikasi_en</loc>
     <lastmod>2026-07-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
-    <xhtml:link rel="alternate" hreflang="id" href="https://sobatinvestor.com/articles/article_proses_keberhasilan.html"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://sobatinvestor.com/articles/article_proses_keberhasilan_en.html"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://sobatinvestor.com/articles/article_diversifikasi"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://sobatinvestor.com/articles/article_diversifikasi_en"/>
   </url>
   <url>
-    <loc>https://sobatinvestor.com/articles/article_analisis_teknikal.html</loc>
+    <loc>https://sobatinvestor.com/articles/article_proses_keberhasilan</loc>
     <lastmod>2026-07-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
-    <xhtml:link rel="alternate" hreflang="id" href="https://sobatinvestor.com/articles/article_analisis_teknikal.html"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://sobatinvestor.com/articles/article_analisis_teknikal_en.html"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://sobatinvestor.com/articles/article_proses_keberhasilan"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://sobatinvestor.com/articles/article_proses_keberhasilan_en"/>
   </url>
   <url>
-    <loc>https://sobatinvestor.com/articles/article_analisis_teknikal_en.html</loc>
+    <loc>https://sobatinvestor.com/articles/article_proses_keberhasilan_en</loc>
     <lastmod>2026-07-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
-    <xhtml:link rel="alternate" hreflang="id" href="https://sobatinvestor.com/articles/article_analisis_teknikal.html"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://sobatinvestor.com/articles/article_analisis_teknikal_en.html"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://sobatinvestor.com/articles/article_proses_keberhasilan"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://sobatinvestor.com/articles/article_proses_keberhasilan_en"/>
   </url>
   <url>
-    <loc>https://sobatinvestor.com/articles/article_dividend_reinvesting.html</loc>
+    <loc>https://sobatinvestor.com/articles/article_analisis_teknikal</loc>
     <lastmod>2026-07-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
-    <xhtml:link rel="alternate" hreflang="id" href="https://sobatinvestor.com/articles/article_dividend_reinvesting.html"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://sobatinvestor.com/articles/article_dividend_reinvesting_en.html"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://sobatinvestor.com/articles/article_analisis_teknikal"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://sobatinvestor.com/articles/article_analisis_teknikal_en"/>
   </url>
   <url>
-    <loc>https://sobatinvestor.com/articles/article_dividend_reinvesting_en.html</loc>
+    <loc>https://sobatinvestor.com/articles/article_analisis_teknikal_en</loc>
     <lastmod>2026-07-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
-    <xhtml:link rel="alternate" hreflang="id" href="https://sobatinvestor.com/articles/article_dividend_reinvesting.html"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://sobatinvestor.com/articles/article_dividend_reinvesting_en.html"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://sobatinvestor.com/articles/article_analisis_teknikal"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://sobatinvestor.com/articles/article_analisis_teknikal_en"/>
   </url>
   <url>
-    <loc>https://sobatinvestor.com/articles/article_backtest.html</loc>
+    <loc>https://sobatinvestor.com/articles/article_dividend_reinvesting</loc>
     <lastmod>2026-07-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
-    <xhtml:link rel="alternate" hreflang="id" href="https://sobatinvestor.com/articles/article_backtest.html"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://sobatinvestor.com/articles/article_backtest_en.html"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://sobatinvestor.com/articles/article_dividend_reinvesting"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://sobatinvestor.com/articles/article_dividend_reinvesting_en"/>
   </url>
   <url>
-    <loc>https://sobatinvestor.com/articles/article_backtest_en.html</loc>
+    <loc>https://sobatinvestor.com/articles/article_dividend_reinvesting_en</loc>
     <lastmod>2026-07-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
-    <xhtml:link rel="alternate" hreflang="id" href="https://sobatinvestor.com/articles/article_backtest.html"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://sobatinvestor.com/articles/article_backtest_en.html"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://sobatinvestor.com/articles/article_dividend_reinvesting"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://sobatinvestor.com/articles/article_dividend_reinvesting_en"/>
+  </url>
+  <url>
+    <loc>https://sobatinvestor.com/articles/article_backtest</loc>
+    <lastmod>2026-07-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="id" href="https://sobatinvestor.com/articles/article_backtest"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://sobatinvestor.com/articles/article_backtest_en"/>
+  </url>
+  <url>
+    <loc>https://sobatinvestor.com/articles/article_backtest_en</loc>
+    <lastmod>2026-07-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="id" href="https://sobatinvestor.com/articles/article_backtest"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://sobatinvestor.com/articles/article_backtest_en"/>
   </url>
 </urlset>
