@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Diversification: Why You Shouldn't Put All Your Eggs in One Basket — Sobat Investor</title>
+<meta name="description" content="What the evidence says about portfolio diversification: how many stocks are actually enough, why correlation rises exactly when you need diversification most, IDX sector context, and lessons from Markowitz to Buffett.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --forest:#1F3B2D; --forest-deep:#162a20; --cream:#F4EFE6; --cream2:#EBE3D3;
+    --ink:#1A2A20; --ink-soft:#46584d; --gold:#C49B3C; --rust:#B85C38;
+    --line:rgba(26,42,32,.12); --maxw:720px;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--cream);color:var(--ink);
+    font-family:'Plus Jakarta Sans',system-ui,-apple-system,sans-serif;
+    font-size:18px;line-height:1.72;font-weight:400;
+    text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased;}
+  .serif{font-family:'Fraunces',Georgia,serif;}
+
+  /* ---------- header band ---------- */
+  header.hero{background:var(--forest);color:var(--cream);position:relative;overflow:hidden;}
+  .hero-inner{max-width:var(--maxw);margin:0 auto;padding:54px 24px 60px;position:relative;z-index:2;}
+  .eyebrow{font-size:12.5px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--gold);margin:0 0 18px;}
+  h1.title{font-weight:600;font-size:clamp(30px,5.4vw,46px);line-height:1.08;margin:0;
+    letter-spacing:-.01em;max-width:13ch;}
+  .hero-sub{margin:18px 0 0;color:rgba(244,239,230,.78);font-size:16.5px;max-width:46ch;}
+  .hero-bull{position:absolute;right:-26px;bottom:-40px;width:230px;height:auto;opacity:.16;z-index:1;}
+  @media(max-width:640px){.hero-bull{width:160px;right:-22px;bottom:-30px}}
+
+  /* ---------- article ---------- */
+  main{max-width:var(--maxw);margin:0 auto;padding:8px 24px 72px;}
+  article{padding-top:40px;}
+  article p{margin:0 0 20px;}
+  article h2{font-family:'Fraunces',Georgia,serif;font-weight:600;color:var(--forest);
+    font-size:clamp(22px,3.6vw,28px);line-height:1.2;margin:46px 0 16px;
+    padding-top:18px;border-top:1px solid var(--line);letter-spacing:-.01em;}
+  article h3{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;color:var(--forest);
+    font-size:17px;margin:30px 0 10px;letter-spacing:.01em;}
+  article ul{margin:0 0 22px;padding-left:0;list-style:none;}
+  article ul li{position:relative;padding-left:26px;margin:0 0 12px;}
+  article ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;
+    background:var(--gold);border-radius:50%;}
+  article ol{margin:0 0 22px;padding-left:24px;}
+  article ol li{margin:0 0 12px;padding-left:4px;}
+  article ol li::marker{color:var(--gold);font-weight:700;}
+  strong{font-weight:700;color:var(--forest-deep);}
+  em{font-style:italic;}
+  a{color:var(--rust);text-decoration:underline;text-underline-offset:2px;text-decoration-thickness:1px;}
+
+  blockquote{margin:30px 0;padding:22px 26px;background:var(--forest);color:var(--cream);
+    border-radius:14px;font-family:'Fraunces',Georgia,serif;font-size:clamp(20px,3.2vw,25px);
+    line-height:1.3;font-weight:500;}
+  blockquote strong{color:var(--cream);font-weight:600;}
+
+  /* references */
+  hr{border:none;border-top:1px solid var(--line);margin:40px 0;}
+  article h2:has(+ h3){}
+  /* bagian referensi (setelah heading "Referensi") di-card-kan via .refs nanti */
+  .refs{background:var(--cream2);border-radius:16px;padding:6px 26px 22px;margin-top:8px;}
+  .refs h3{margin-top:26px;}
+  .refs ul li{font-size:15px;line-height:1.55;color:var(--ink-soft);}
+  .refs ul li::before{background:rgba(31,59,45,.4);width:5px;height:5px;top:.62em;}
+
+  .disclaimer{margin-top:34px;padding:16px 20px;border-left:3px solid var(--gold);
+    background:rgba(196,155,60,.08);border-radius:0 10px 10px 0;
+    font-size:14px;color:var(--ink-soft);font-style:italic;}
+  .disclaimer em{font-style:italic;}
+
+  footer.brand{max-width:var(--maxw);margin:0 auto;padding:0 24px 56px;
+    color:var(--ink-soft);font-size:13px;}
+  footer .dot{color:var(--gold);}
+</style>
+
+<style>
+  /* ===== Reader mode (paginasi seperti buku) ===== */
+  :root{ --rbar:50px; }
+  html,body{ height:100%; }
+  body{ margin:0; overflow:hidden; background:var(--cream); }
+
+  .rbar{ position:fixed; top:0; left:0; right:0; height:var(--rbar); z-index:60;
+    display:flex; align-items:center; gap:8px; padding:0 12px;
+    background:var(--cream); border-bottom:1px solid rgba(26,42,32,.1); }
+  .rbar .rback{ font-size:24px; color:var(--forest); text-decoration:none; line-height:1; padding:2px 8px; }
+  .rbar .rbrand{ font-family:'Fraunces',Georgia,serif; font-weight:600; font-size:15px; color:var(--ink); }
+  .rbar .rbrand b{ color:var(--gold); }
+  .rbar .rspace{ flex:1; }
+  .rbar .rpage{ font-size:12px; color:var(--ink-soft); font-variant-numeric:tabular-nums; min-width:38px; text-align:right; }
+  .rbar .rmark{ background:none; border:none; cursor:pointer; font-size:17px; line-height:1; padding:4px;
+    filter:grayscale(1); opacity:.45; transition:opacity .15s, filter .15s; }
+  .rbar .rmark.on{ filter:none; opacity:1; }
+
+  .book{ position:fixed; top:var(--rbar); left:0; right:0; bottom:6px;
+    column-gap:0; column-fill:auto;
+    padding:14px 0 6px; box-sizing:border-box;
+    overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch;
+    scroll-behavior:smooth; scrollbar-width:none; }
+  .book::-webkit-scrollbar{ display:none; }
+  .book article{ padding:0; }
+  .book article > *{ margin-left:26px; margin-right:26px; }
+  .book article h2{ margin-top:30px; }
+  .book h2, .book h3{ break-after:avoid; }
+  .book blockquote, .book li, .book .cover{ break-inside:avoid; }
+  .book p, .book li{ orphans:2; widows:2; }
+
+  .cover{ background:var(--forest); color:var(--cream); border-radius:16px;
+    margin:0 26px 22px !important; padding:30px 26px; }
+  .cover .eyebrow{ color:var(--gold); font-size:12px; font-weight:700; letter-spacing:.16em;
+    text-transform:uppercase; margin:0 0 14px; }
+  .cover h1{ font-family:'Fraunces',Georgia,serif; font-weight:600; font-size:clamp(28px,7.5vw,40px);
+    line-height:1.1; margin:0; }
+  .cover h1 b{ color:var(--gold); font-weight:600; }
+  .cover .sub{ margin:16px 0 0; color:rgba(244,239,230,.82); font-size:15px; line-height:1.5; }
+  .cover .hint{ margin:20px 0 0; color:rgba(244,239,230,.6); font-size:12.5px; }
+
+  .rprogress{ position:fixed; left:0; right:0; bottom:0; height:6px; background:rgba(26,42,32,.08); z-index:60; }
+  .rfill{ height:100%; width:0; background:var(--gold); transition:width .2s ease; }
+
+  .nav{ position:fixed; bottom:22px; z-index:61; width:42px; height:42px; border-radius:50%;
+    border:none; background:rgba(31,59,45,.92); color:var(--cream); font-size:24px; line-height:1;
+    display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0;
+    box-shadow:0 4px 14px rgba(26,42,32,.22); }
+  .nav.prev{ left:14px; } .nav.next{ right:14px; }
+
+  .rchip{ position:fixed; top:calc(var(--rbar) + 8px); right:12px; z-index:61; display:none;
+    align-items:center; gap:5px; background:var(--forest); color:var(--cream); border:none; cursor:pointer;
+    font-size:12px; padding:6px 11px; border-radius:100px; font-family:inherit;
+    box-shadow:0 4px 14px rgba(26,42,32,.2); }
+
+  .rtoast{ position:fixed; left:50%; transform:translateX(-50%); bottom:64px; z-index:62;
+    background:var(--ink); color:var(--cream); font-size:12.5px; padding:8px 14px; border-radius:100px;
+    opacity:0; pointer-events:none; transition:opacity .25s ease; max-width:80vw; text-align:center; }
+  .rtoast.show{ opacity:1; }
+</style>
+</head>
+<body>
+<div class="rbar">
+  <a href="/?tab=baca" class="rback" aria-label="Back to article list">&lsaquo;</a>
+  <span class="rbrand">sobat<b>.</b>investor</span>
+  <span class="rspace"></span>
+  <a href="article_diversifikasi_en.html" style="text-decoration:none;background:#C49B3C;color:#1A2A20;padding:6px 11px;border-radius:100px;font-size:12px;font-weight:700;white-space:nowrap;margin-right:2px;">📄 Article</a>
+  <button id="rmark" class="rmark" title="Mark your place" aria-label="Mark your place">&#128278;</button>
+  <span class="rpage"><span id="rcur">1</span>/<span id="rtot">1</span></span>
+</div>
+<button id="rchip" class="rchip" aria-label="Jump to bookmark">&#128278; Hal <span>1</span></button>
+
+<div id="book" class="book">
+  <article>
+    <div class="cover">
+      <p class="eyebrow">Education &middot; Sobat Investor</p>
+      <h1>Diversification<span style="color:var(--gold)">.</span></h1>
+      <p class="sub">Why you shouldn't put all your eggs in one basket — what the evidence says, how many stocks are enough, and IDX sector context.</p>
+      <p class="hint">Swipe left to read &rarr; &middot; tap &#128278; to mark your place</p>
+    </div>
+<p>There's one piece of investing advice so common it feels stale: don't put all your eggs in one basket. But behind its simplicity, diversification is one of the few ideas in finance that economist Harry Markowitz himself called the market's "only free lunch": a way to reduce risk without having to sacrifice expected return. It isn't magic — it's probability mathematics working in your favor, provided it's done correctly.</p>
+  <p>This article explains what diversification is, why it works mathematically, how many stocks are actually needed according to research, the limits that are rarely mentioned, IDX sector context that differs from the global narrative, and the lessons from the figures who shaped — and questioned — this idea.</p>
+
+  <h2>The big picture: risk you can remove, and risk you can't</h2>
+  <p>A stock's risk can be split into two kinds. <strong>Unsystematic risk</strong> (also called company-specific risk) — a CEO caught in scandal, a factory fire, a new product flopping — is unique to that particular issuer and can be removed by holding many different stocks: a loss in one tends to be offset by a neutral or positive event in another. <strong>Systematic risk</strong> (market risk) — a recession, rising interest rates, a global crisis — affects nearly all stocks at once and cannot simply be diversified away within a single asset class.</p>
+  <p>This is the core of Harry Markowitz's work (1952), later known as <em>Modern Portfolio Theory</em>: a portfolio's return is a weighted average of each asset's return, but a portfolio's <strong>risk</strong> is not merely the average of individual risks — it depends on how those assets move <em>relative to one another</em> (correlation). When two stocks don't move in perfect lockstep, combining them can lower the portfolio's total volatility without lowering its expected return. Markowitz won the 1990 Nobel Prize in Economics for this framework.</p>
+  <blockquote><strong>Diversification isn't about owning more stocks — it's about owning stocks that don't fail at the same time.</strong></blockquote>
+  <p>Holding 20 bank stocks isn't real diversification if they all fall together when interest rates spike sharply. What removes risk isn't the count — it's the low correlation between them.</p>
+
+  <h2>How many stocks are enough? What research says</h2>
+  <p>This question has been tested repeatedly, and the answer is more precise than simply "as many as possible."</p>
+  <ul>
+    <li><strong>The classic study.</strong> Evans &amp; Archer (1968) showed that most of the unsystematic-risk-reduction benefit in U.S. stocks was already captured with around 10 randomly selected stocks; adding an 11th and beyond delivered rapidly diminishing returns.</li>
+    <li><strong>A revision upward.</strong> Statman (1987) argued that number was too low once transaction costs were factored in, suggesting roughly 30–40 stocks for a portfolio that's genuinely efficient on a cost-benefit basis.</li>
+    <li><strong>A higher-volatility era.</strong> Domian, Louton &amp; Racine (2007) found that to truly push annual loss risk down to a statistically comfortable level, a random portfolio needs to be far larger than 10 — sometimes approaching 100 stocks — because the average volatility of individual stocks has risen compared to earlier decades.</li>
+  </ul>
+  <p>The takeaway isn't a single sacred number, but a consistent pattern: the diversification-benefit curve rises steeply with the first handful of stocks, then flattens. Where it flattens depends on how expensive your transaction costs are and how comfortable you are with the residual volatility.</p>
+
+  <h2>Diversification's Achilles heel: correlation rises exactly when you need it most</h2>
+  <p>This is the part rarely mentioned by anyone selling a "safe because diversified" portfolio. Longin &amp; Solnik (2001) found that correlation across global equity markets <strong>rises sharply exactly when markets are falling</strong> — a phenomenon called <em>asymmetric correlation</em>. During the 2008 crisis, for instance, stocks that had historically shown little correlation suddenly fell together, because the cause was the same for all of them: a liquidity crisis and broad-based panic, not company-specific factors anymore.</p>
+  <p>In other words: diversification works best exactly when you need it least (calm markets), and weakens exactly when you need it most (a market crisis). This isn't a reason to stop diversifying — without it, conditions would be far worse — but it is a reason not to treat it as an absolute safety net.</p>
+
+  <h2>IDX context: diversification that fails because of its shape</h2>
+  <p>The Indonesia Stock Exchange has characteristics that make "just hold many stocks" diversification risk becoming an illusion.</p>
+  <ul>
+    <li><strong>Sector concentration.</strong> IDX market capitalization has historically been dominated by the financial (banking) and commodity/energy sectors. An investor holding 15 stocks, 12 of which are large banks, actually has one big bet on the interest-rate and credit cycle — not 15 independent bets.</li>
+    <li><strong>Correlation to the commodity cycle.</strong> Many IDX issuers — directly or indirectly (through supply chains, domestic demand, or the exchange rate) — move in the same direction as coal, nickel, and CPO prices. Diversifying across issuer names doesn't help much if the underlying economic exposure is the same.</li>
+    <li><strong>Lopsided liquidity.</strong> A small subset of stocks (particularly LQ45/IDX30 constituents) accounts for most trading volume. A portfolio "diversified" across many second- and third-tier stocks can be hard to liquidate all at once without moving the price yourself — a liquidity risk that isn't captured by diversification based on stock count alone.</li>
+    <li><strong>Simultaneous ARA/ARB.</strong> When market sentiment sours sharply, many second- and third-tier stocks can hit their lower auto-rejection limit at the same time — exactly when diversification is needed most to protect the portfolio.</li>
+  </ul>
+  <p>The implication: meaningful diversification on the IDX needs to account for IDX-IC sectors and underlying economic exposure, not simply count the number of ticker codes in an account.</p>
+
+  <h2>The figures who shaped — and questioned — this idea</h2>
+  <p><strong>Harry Markowitz</strong> is the mathematical father of modern diversification. His paper "Portfolio Selection" (1952) turned stock selection from an intuitive art into a quantitative optimization framework — from it came the concept of the <em>efficient frontier</em>: the portfolio offering the highest return for a given level of risk. In frequently quoted interviews, he himself called diversification the only true "free lunch" in investing.</p>
+  <p><strong>William Sharpe</strong>, working in the same tradition, developed the <em>Capital Asset Pricing Model</em> (1964), which formalized the split between systematic and unsystematic risk, and introduced beta as a measure of a stock's sensitivity to the overall market — a tool still used today to understand how much a given stock actually adds to or reduces portfolio risk.</p>
+  <p><strong>John Bogle</strong>, founder of Vanguard and pioneer of the retail index fund, carried diversification from academic theory into mass practice. His philosophy is often summarized as: <em>don't look for the needle in the haystack — just buy the whole haystack.</em> An index fund spanning hundreds or thousands of stocks at once is Markowitz's diversification realized at near-zero cost for retail investors.</p>
+  <p><strong>Ray Dalio</strong>, founder of Bridgewater Associates, extended diversification beyond stocks — his <em>All Weather</em> portfolio diversifies across asset classes (equities, bonds, commodities) that respond differently to economic growth and inflation, on the thesis that true diversification means spreading across genuinely independent sources of risk, not merely across many instruments.</p>
+  <p><strong>Benjamin Graham</strong>, the father of value investing and author of <em>The Intelligent Investor</em> (1949), placed diversification as part of the defensive investor's toolkit — alongside <em>margin of safety</em> — as an honest acknowledgment that anyone's analysis can be wrong, and diversification is insurance against that error in judgment.</p>
+  <p>But not every investing legend agrees. <strong>Warren Buffett</strong>, Graham's own student, is famous for a seemingly opposite view: <em>"Diversification is protection against ignorance. It makes little sense if you know what you are doing."</em> Charlie Munger, his partner at Berkshire Hathaway, was even sharper, calling excessive diversification "diworsification" — a portfolio spread so thin that the result is merely an average of the market, while still paying the cost of deep research on every position. For them, concentrating on a handful of businesses genuinely understood in depth beats spreading thinly across many names.</p>
+  <p>The tension between Markowitz/Bogle and Buffett/Munger isn't a contradiction that needs resolving — it's a matter of <strong>who you are as an investor</strong>. Broad diversification makes sense for investors who don't — or don't want to — analyze every issuer as deeply as a professional analyst; concentration makes sense for those willing to put in deep research time and accept higher short-term volatility in exchange for higher long-term conviction.</p>
+
+  <h2>How to diversify honestly</h2>
+  <ul>
+    <li><strong>Count sectors, not just ticker codes.</strong> Ten issuers across five different IDX-IC sectors are more diversified than twenty issuers that are all banks.</li>
+    <li><strong>Look at underlying economic exposure</strong>, not just the official sector label — two issuers in different sectors can both depend on the same commodity price.</li>
+    <li><strong>Accept that correlation rises during a crisis.</strong> Don't assume a diversified portfolio will fall far less than the IHSG when the market truly crashes; treat it as reducing risk, not eliminating it.</li>
+    <li><strong>Consider liquidity as its own dimension of diversification</strong> — especially among second- and third-tier IDX stocks prone to simultaneous ARA/ARB when sentiment turns sour.</li>
+    <li><strong>Be honest about your own style.</strong> If you don't have the time or capacity for deep per-issuer research, broad diversification (or an index fund) is a statistically more durable choice than concentration unsupported by Buffett-level research.</li>
+  </ul>
+
+  <h2>Closing</h2>
+  <p>Diversification is one of the few investing ideas that is mathematically correct and yet easily misunderstood in practice. It removes the risk unique to individual companies, but it cannot erase the market-wide risk that hits everyone at once — and on the IDX, diversification that ignores sector and liquidity can be a mere illusion: many ticker codes, but the same single big bet.</p>
+  <p>This is the standard we hold at Sobat Investor: use diversification as an evidence-based tool, not a mantra — understand what it truly protects against, what it doesn't, and when it weakens exactly when it's needed most.</p>
+
+  <h2>References &amp; Further Reading</h2>
+  <div class="refs">
+  <p>The concepts in this article synthesize well-established quantitative finance literature, adapted to the IDX context. The list is split into sources <strong>directly cited</strong> and <strong>further reading</strong>.</p>
+  <h3>Cited references</h3>
+  <ul>
+    <li>Markowitz, H. (1952). <em>Portfolio Selection.</em> The Journal of Finance, 7(1), 77–91.</li>
+    <li>Sharpe, W. F. (1964). <em>Capital Asset Prices: A Theory of Market Equilibrium under Conditions of Risk.</em> The Journal of Finance, 19(3), 425–442.</li>
+    <li>Evans, J. L., &amp; Archer, S. H. (1968). <em>Diversification and the Reduction of Dispersion: An Empirical Analysis.</em> The Journal of Finance, 23(5), 761–767.</li>
+    <li>Statman, M. (1987). <em>How Many Stocks Make a Diversified Portfolio?</em> Journal of Financial and Quantitative Analysis, 22(3), 353–363.</li>
+    <li>Domian, D. L., Louton, D. A., &amp; Racine, M. D. (2007). <em>Diversification in Portfolios of Individual Stocks: 100 Stocks Are Not Enough.</em> The Financial Review, 42(4), 557–570.</li>
+    <li>Longin, F., &amp; Solnik, B. (2001). <em>Extreme Correlation of International Equity Markets.</em> The Journal of Finance, 56(2), 649–676.</li>
+    <li>Graham, B. (1949). <em>The Intelligent Investor.</em> New York: Harper &amp; Brothers.</li>
+    <li>Buffett, W. — remarks on diversification as "protection against ignorance," widely quoted from Berkshire Hathaway's Annual Letters to Shareholders.</li>
+  </ul>
+  <h3>Further reading</h3>
+  <ul>
+    <li>Bogle, J. C. (2007). <em>The Little Book of Common Sense Investing.</em> Hoboken: Wiley.</li>
+    <li>Dalio, R. (2017). <em>Principles: Life and Work.</em> New York: Simon &amp; Schuster.</li>
+    <li>Fama, E. F., &amp; French, K. R. (1992). <em>The Cross-Section of Expected Stock Returns.</em> The Journal of Finance, 47(2), 427–465.</li>
+    <li>Fama, E. F., &amp; French, K. R. (1993). <em>Common Risk Factors in the Returns on Stocks and Bonds.</em> Journal of Financial Economics, 33(1), 3–56.</li>
+    <li>Elton, E. J., Gruber, M. J., Brown, S. J., &amp; Goetzmann, W. N. (2014). <em>Modern Portfolio Theory and Investment Analysis</em> (9th ed.). Hoboken: Wiley.</li>
+    <li>French, K. R., &amp; Poterba, J. M. (1991). <em>Investor Diversification and International Equity Markets.</em> The American Economic Review, 81(2), 222–226. (The "home bias" phenomenon.)</li>
+    <li>Bernstein, W. J. (2010). <em>The Investor's Manifesto.</em> Hoboken: Wiley.</li>
+  </ul>
+  </div>
+  <p class="disclaimer"><em>This article is educational and does not constitute investment advice. Investment decisions and their risks are entirely your own responsibility. Past performance does not guarantee future results.</em></p>
+  
+  
+  </article>
+</div>
+
+<div class="rprogress"><div id="rfill" class="rfill"></div></div>
+<button id="rprev" class="nav prev" aria-label="Previous page">&lsaquo;</button>
+<button id="rnext" class="nav next" aria-label="Next page">&rsaquo;</button>
+<div id="rtoast" class="rtoast" role="status"></div>
+
+<script src="reader_en.js"></script>
+</body>
+</html>
