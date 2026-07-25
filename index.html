@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" sizes="48x48" href="/icons/favicon-48x48.png" />
   <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png" />
   <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16x16.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -17,18 +18,30 @@
   <meta name="mobile-web-app-capable" content="yes" />
 
   <title>Sobat Investor — Riset Saham IDX Berbasis Data</title>
-  <meta name="description" content="Riset dan analisis saham IDX berbasis data: analisis emiten, pelacakan portofolio & dividen, backtest sederhana, dan diskusi dengan AI. Bersifat edukatif, bukan nasihat investasi." />
+
+  <!-- Deskripsi situs (teks "About"). Versi panjangnya:
+       "sobatinvestor.com adalah platform edukasi dan asisten riset saham independen yang
+        dirancang khusus untuk pasar modal Indonesia (IDX). Visinya: tumbuh menjadi platform
+        berbasis data (data-driven) yang membantu investor ritel memahami peluang, risiko,
+        dan arah pergerakan pasar saham."
+       Di bawah ini sengaja DIPERPENDEK: Google memotong meta description di ~155-160
+       karakter, dan versi utuh (282 karakter) akan terpotong di tengah kata. Awalan
+       "sobatinvestor.com adalah" juga dibuang karena Google sudah menampilkan URL-nya. -->
+  <meta name="description" content="Platform edukasi dan asisten riset saham independen untuk pasar modal Indonesia (IDX). Visinya: tumbuh menjadi platform berbasis data bagi investor ritel." />
 
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://sobatinvestor.com/" />
+  <meta property="og:site_name" content="Sobat Investor" />
+  <meta property="og:locale" content="id_ID" />
   <meta property="og:title" content="Sobat Investor — Riset saham IDX berbasis data" />
-  <meta property="og:description" content="Analisis emiten IDX, portofolio, dividen, dan diskusi dengan AI. Bersifat edukatif, bukan nasihat investasi." />
+  <!-- Batas Open Graph lebih longgar dari meta description, jadi versi di sini lebih penuh. -->
+  <meta property="og:description" content="Platform edukasi dan asisten riset saham independen untuk pasar modal Indonesia (IDX). Visinya: tumbuh menjadi platform berbasis data yang membantu investor ritel memahami peluang dan risiko pasar." />
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Sobat Investor" />
-  <meta name="twitter:description" content="Riset saham IDX berbasis data. Bersifat edukatif, bukan nasihat investasi." />
+  <meta name="twitter:description" content="Platform edukasi & riset saham IDX independen. Bersifat edukatif, bukan nasihat investasi." />
 
   <!-- Fonts preconnect -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
