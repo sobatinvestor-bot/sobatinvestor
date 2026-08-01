@@ -28,9 +28,19 @@ export async function onRequestGet(context) {
   // Tanpa param → pakai daftar default STOCKS.
   const url = new URL(context.request.url);
   const param = url.searchParams.get("symbols");
+
+  // KERAS: hanya kode emiten IDX (2-6 huruf), maksimal MAX_SYMBOLS per request.
+  // Tanpa batas ini, satu request bisa memicu ratusan subrequest ke Yahoo
+  // (menghabiskan kuota subrequest Worker & memicu blokir IP dari Yahoo).
+  const MAX_SYMBOLS = 60;
   const symbols = param
-    ? param.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean)
-        .map((s) => (s.endsWith(".JK") ? s : s + ".JK"))
+    ? param.split(",")
+        .map((s) => s.trim().toUpperCase())
+        .map((s) => s.replace(/\.JK$/, ""))
+        .filter((s) => /^[A-Z]{2,6}$/.test(s))
+        .filter((s, i, a) => a.indexOf(s) === i)   // dedupe: cegah 1 simbol dipanggil berulang
+        .slice(0, MAX_SYMBOLS)
+        .map((s) => s + ".JK")
     : Object.keys(STOCKS);
 
   const [stockResults, indexResult] = await Promise.all([
@@ -57,24 +67,15 @@ export async function onRequestGet(context) {
     ? { value: indexResult.price, change: indexResult.changePct }
     : null;
 
-  // Mode debug: /api/quotes?debug=1 → status tiap simbol (untuk diagnosa throttling Yahoo).
+  // Diagnostik ?debug DIHAPUS (Juli 2026): membocorkan pesan error internal
+  // (status HTTP Yahoo, nama host, jejak kegagalan) ke siapa pun yang memanggil
+  // endpoint. Untuk diagnosa, pakai log Cloudflare (wrangler tail / dashboard).
   const body = {
     asOf: new Date().toISOString(),
     delayed: true,
     ihsg,
     quotes,
   };
-  if (url.searchParams.get("debug")) {
-    body.requested = symbols.length;
-    body.ok = quotes.length;
-    body.detail = symbols.map((sym, i) => {
-      const r = stockResults[i];
-      return r.status === "fulfilled" && r.value
-        ? { symbol: sym, status: "ok" }
-        : { symbol: sym, status: "gagal", reason: r.reason ? String(r.reason.message || r.reason) : "unknown" };
-    });
-    body.ihsgStatus = ihsg ? "ok" : "gagal";
-  }
 
   return new Response(
     JSON.stringify(body),

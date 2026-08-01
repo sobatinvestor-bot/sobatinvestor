@@ -5,12 +5,27 @@
 export async function onRequestGet(context) {
   const url = new URL(context.request.url);
   const param = url.searchParams.get("symbols");
-  const range = url.searchParams.get("range") || "2mo";
   if (!param) return json({ history: {} });
 
+  // range dibatasi daftar putih — mencegah nilai sembarang diteruskan ke Yahoo.
+  const ALLOWED_RANGES = new Set(["1mo", "2mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max"]);
+  const rawRange = url.searchParams.get("range") || "2mo";
+  const range = ALLOWED_RANGES.has(rawRange) ? rawRange : "2mo";
+
+  // KERAS: kode emiten IDX (2-6 huruf) atau indeks yang diizinkan saja,
+  // maksimal MAX_SYMBOLS per request agar fan-out subrequest terbatas.
+  const MAX_SYMBOLS = 60;
+  const ALLOWED_INDEXES = new Set(["^JKSE"]);
   const symbols = param
-    .split(",").map((s) => s.trim().toUpperCase()).filter(Boolean)
-    .map((s) => (s.startsWith("^") || s.endsWith(".JK") ? s : s + ".JK"));
+    .split(",")
+    .map((s) => s.trim().toUpperCase())
+    .map((s) => (s.startsWith("^") ? s : s.replace(/\.JK$/, "")))
+    .filter((s) => (s.startsWith("^") ? ALLOWED_INDEXES.has(s) : /^[A-Z]{2,6}$/.test(s)))
+    .filter((s, i, a) => a.indexOf(s) === i)   // dedupe
+    .slice(0, MAX_SYMBOLS)
+    .map((s) => (s.startsWith("^") ? s : s + ".JK"));
+
+  if (symbols.length === 0) return json({ history: {} });
 
   const results = await Promise.allSettled(symbols.map((s) => fetchHist(s, range)));
   const history = {};

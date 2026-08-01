@@ -1,21 +1,55 @@
-# Cloudflare Pages — kebijakan cache
-# Letakkan file ini di  public/_headers  agar Vite menyalinnya ke root dist/ saat build.
+# Cloudflare Pages — header keamanan & kebijakan cache
+# Taruh file ini di ROOT folder output build (`public/_headers` agar Vite menyalinnya ke `dist/`).
+# Cloudflare Pages membacanya otomatis; tidak perlu Transform Rules.
 #
-# Prinsip:
-#   - Shell HTML & sw.js: SELALU revalidasi (no-cache) → shell tak pernah basi,
-#     jadi tak pernah menunjuk chunk lama yang sudah 404 setelah deploy
-#     (akar masalah error "Failed to fetch dynamically imported module").
-#   - Aset ber-hash (/assets/*): boleh di-cache selamanya (immutable) karena
-#     setiap perubahan isi menghasilkan nama file baru.
+# CSP disusun dari inventaris nyata aplikasi (Juli 2026):
+#   fonts.googleapis.com / fonts.gstatic.com  -> Fraunces + Plus Jakarta Sans
+#   challenges.cloudflare.com                 -> Turnstile (login/daftar)
+#   cdn.jsdelivr.net                          -> Pyodide v0.26.4 (fitur Backtest)
+#   *.supabase.co                             -> auth, RLS, RPC, realtime
+#   'unsafe-inline' pada style-src            -> 461 penggunaan style={{}} di React
+#
+# CATATAN 'unsafe-inline' untuk STYLE: React menyuntikkan atribut style inline,
+# jadi ini tidak bisa dihapus tanpa menulis ulang seluruh styling ke kelas CSS.
+# Risikonya jauh lebih kecil daripada script inline: pembatasnya adalah CSS,
+# bukan eksekusi kode. script-src TETAP tanpa 'unsafe-inline' — itu yang penting.
+#
+# CATATAN 'wasm-unsafe-eval': WAJIB ada, kalau tidak fitur Backtest mati.
+# Pyodide menjalankan Python sebagai WebAssembly, dan instansiasi WASM diblokir
+# oleh CSP tanpa izin ini. Yang dipakai adalah 'wasm-unsafe-eval' (khusus WASM),
+# BUKAN 'unsafe-eval' — eval() dan new Function() untuk JavaScript tetap terlarang.
+#
+# JIKA ADA YANG RUSAK SETELAH DEPLOY: ubah nama header di bawah menjadi
+# `Content-Security-Policy-Report-Only` -> aturan berhenti memblokir, pelanggaran
+# hanya muncul di DevTools Console. Perbaiki, lalu kembalikan namanya.
+
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://challenges.cloudflare.com https://cdn.jsdelivr.net; script-src-elem 'self' https://challenges.cloudflare.com https://cdn.jsdelivr.net; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' https://hmkeqvxcifggxownzrhx.supabase.co wss://hmkeqvxcifggxownzrhx.supabase.co https://cdn.jsdelivr.net; frame-src https://challenges.cloudflare.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests
+  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: accelerometer=(), ambient-light-sensor=(), autoplay=(), battery=(), camera=(), display-capture=(), document-domain=(), encrypted-media=(), fullscreen=(self), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(), picture-in-picture=(), publickey-credentials-get=(), screen-wake-lock=(), serial=(), usb=(), xr-spatial-tracking=()
+  Cross-Origin-Opener-Policy: same-origin
+  X-Permitted-Cross-Domain-Policies: none
+
+# ── Kebijakan cache (pengerasan permanen thd shell basi) ──────────────────
+# HTML & service worker: JANGAN pernah di-cache -> setelah deploy, user selalu
+# mendapat index.html segar yang menunjuk chunk yang benar.
+/
+  Cache-Control: no-cache, no-store, must-revalidate
 
 /index.html
-  Cache-Control: no-cache
+  Cache-Control: no-cache, no-store, must-revalidate
 
 /sw.js
-  Cache-Control: no-cache
+  Cache-Control: no-cache, no-store, must-revalidate
 
-/manifest.json
-  Cache-Control: no-cache
-
+# Aset ber-hash dari Vite: nama file berubah tiap build, jadi aman di-cache selamanya.
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+# Endpoint API: jangan pernah disimpan browser/proxy perantara.
+# (Header cache per-endpoint tetap diatur masing-masing handler untuk edge cache.)
+/api/*
+  Cache-Control: no-store

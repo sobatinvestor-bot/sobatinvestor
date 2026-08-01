@@ -8,12 +8,25 @@
 export async function onRequestGet(context) {
   const url = new URL(context.request.url);
   const param = url.searchParams.get("symbols");
-  const range = url.searchParams.get("range") || "2y";
   if (!param) return json({ dividends: [] });
 
+  // range dibatasi daftar putih.
+  const ALLOWED_RANGES = new Set(["1y", "2y", "5y", "10y", "max"]);
+  const rawRange = url.searchParams.get("range") || "2y";
+  const range = ALLOWED_RANGES.has(rawRange) ? rawRange : "2y";
+
+  // KERAS: kode emiten IDX saja, maksimal MAX_SYMBOLS per request.
+  const MAX_SYMBOLS = 60;
   const symbols = param
-    .split(",").map((s) => s.trim().toUpperCase()).filter(Boolean)
-    .map((s) => (s.endsWith(".JK") ? s : s + ".JK"));
+    .split(",")
+    .map((s) => s.trim().toUpperCase())
+    .map((s) => s.replace(/\.JK$/, ""))
+    .filter((s) => /^[A-Z]{2,6}$/.test(s))
+    .filter((s, i, a) => a.indexOf(s) === i)   // dedupe
+    .slice(0, MAX_SYMBOLS)
+    .map((s) => s + ".JK");
+
+  if (symbols.length === 0) return json({ dividends: [] });
 
   const results = await Promise.allSettled(symbols.map((s) => fetchDivs(s, range)));
   const dividends = [];

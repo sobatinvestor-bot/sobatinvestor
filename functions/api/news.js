@@ -73,6 +73,7 @@ async function fetchRss(u, symbol, src, diag) {
       const pubDate = pick(block, "pubDate") || pick(block, "pubdate");
       if (!title || !link) continue;
       link = realLink(link); // buka redirect Bing/Google -> URL penerbit asli
+      if (!link) continue;   // skema tidak aman (bukan http/https) -> buang item
       const time = pubDate ? new Date(pubDate).getTime() : Date.now();
       if (isNaN(time)) continue;
       const source = clean(pick(block, "source")) || clean(pick(block, "News:Source")) || sourceFromUrl(link);
@@ -87,13 +88,17 @@ async function fetchRss(u, symbol, src, diag) {
 }
 
 // Buka redirect (Bing apiclick / Google) -> URL penerbit asli bila ada param url=
+// Mengembalikan "" bila skema bukan http/https, sehingga item dibuang oleh pemanggil.
+// Ini menutup kemungkinan tautan berskema javascript:/data: masuk ke atribut href
+// di frontend — React tidak memblokir skema tersebut, hanya memperingatkan.
 function realLink(raw) {
+  let out = raw;
   try {
     const u = new URL(raw);
     const inner = u.searchParams.get("url");
-    if (inner && /^https?:\/\//i.test(inner)) return inner;
+    if (inner && /^https?:\/\//i.test(inner)) out = inner;
   } catch (e) { /* abaikan */ }
-  return raw;
+  return /^https?:\/\//i.test(out) ? out : "";
 }
 // Nama sumber dari domain penerbit (mis. katadata.co.id)
 function sourceFromUrl(link) {

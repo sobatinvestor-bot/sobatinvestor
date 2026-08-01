@@ -63,13 +63,34 @@ export async function onRequestPost(context) {
     if (!Array.isArray(messages) || messages.length === 0) {
       return jsonResponse({ error: 'messages array required' }, 400);
     }
+    if (messages.length > 60) {
+      return jsonResponse({ error: 'Percakapan terlalu panjang, mulai chat baru ya.' }, 400);
+    }
     if (messages.filter((m) => m.role === 'user').length > 30) {
       return jsonResponse({ error: 'Percakapan terlalu panjang, mulai chat baru ya.' }, 400);
     }
 
+    const isAdmin = quota.admin === true;
+
+    // Validasi bentuk tiap pesan: hanya role yang dikenal + content berupa string.
+    // Tanpa ini, klien bisa menyelipkan struktur asing ke API hulu.
+    for (const m of messages) {
+      if (!m || (m.role !== 'user' && m.role !== 'assistant') || typeof m.content !== 'string') {
+        return jsonResponse({ error: 'Format pesan tidak valid' }, 400);
+      }
+    }
+
+    // BATAS UKURAN INPUT (kunci biaya). Jumlah pesan dibatasi, tapi UKURANNYA tidak —
+    // tanpa batas ini satu request berisi teks berukuran megabyte bisa menelan biaya
+    // token masukan jauh melebihi anggaran, walau kuota harian hanya 1-3 panggilan.
+    const MAX_CHARS = isAdmin ? 150000 : 40000;
+    const totalChars = messages.reduce((n, m) => n + m.content.length, 0);
+    if (totalChars > MAX_CHARS) {
+      return jsonResponse({ error: 'Pesan terlalu panjang. Ringkas pertanyaanmu ya.' }, 413);
+    }
+
     // 3) Paksa parameter aman di server (client TIDAK bisa override model/system/token)
     // Admin (Ahmad) -> Opus + output panjang. User/tamu -> Haiku + pendek (kunci budget).
-    const isAdmin = quota.admin === true;
     const safeBody = {
       model: isAdmin ? 'claude-opus-4-8' : 'claude-haiku-4-5-20251001',
       max_tokens: isAdmin ? 16000 : 1200,
