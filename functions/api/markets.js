@@ -88,7 +88,6 @@ export async function onRequestGet(context) {
     headers: {
       "Content-Type": "application/json",
       "Cache-Control": "public, max-age=60",
-      "Access-Control-Allow-Origin": "*",
     },
   });
 }

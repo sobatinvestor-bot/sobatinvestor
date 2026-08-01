@@ -84,7 +84,6 @@ export async function onRequestGet(context) {
         "Content-Type": "application/json",
         // cache di edge 60 detik supaya hemat panggilan ke Yahoo
         "Cache-Control": "public, max-age=60",
-        "Access-Control-Allow-Origin": "*",
       },
     }
   );
