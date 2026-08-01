@@ -47,12 +47,14 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 
-  <!-- Fonts: preload + non-blocking (display=swap → teks tampil pakai fallback dulu) -->
-  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" media="print" onload="this.media='all'" />
-  <noscript>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" />
-  </noscript>
+  <!-- Fonts: dimuat langsung sebagai stylesheet.
+       CATATAN CSP: pola lama memakai media="print" onload="this.media='all'".
+       Handler onload inline itu DIBLOKIR oleh Content-Security-Policy (script-src
+       tanpa 'unsafe-inline'), sehingga media tidak pernah berubah ke "all" dan
+       seluruh font gagal diterapkan. Diganti dengan link biasa: dampak performa
+       minimal karena origin sudah di-preconnect dan display=swap tetap membuat
+       teks tampil dengan font fallback lebih dulu. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" />
 </head>
 <body>
   <div id="root"></div>

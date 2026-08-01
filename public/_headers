@@ -23,13 +23,19 @@
 # `Content-Security-Policy-Report-Only` -> aturan berhenti memblokir, pelanggaran
 # hanya muncul di DevTools Console. Perbaiki, lalu kembalikan namanya.
 
+# CATATAN Permissions-Policy: 'ambient-light-sensor', 'battery', dan
+# 'document-domain' SENGAJA TIDAK dicantumkan. Chrome tidak mengenalinya dan
+# memuntahkan "Error with Permissions-Policy header: Unrecognized feature" ke
+# Console — mengotori log tanpa manfaat keamanan apa pun. Fitur yang tidak
+# dikenali browser memang tidak bisa dibatasi lewat header ini.
+
 /*
   Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://challenges.cloudflare.com https://cdn.jsdelivr.net; script-src-elem 'self' https://challenges.cloudflare.com https://cdn.jsdelivr.net; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' https://hmkeqvxcifggxownzrhx.supabase.co wss://hmkeqvxcifggxownzrhx.supabase.co https://cdn.jsdelivr.net; frame-src https://challenges.cloudflare.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests
   Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
-  Permissions-Policy: accelerometer=(), ambient-light-sensor=(), autoplay=(), battery=(), camera=(), display-capture=(), document-domain=(), encrypted-media=(), fullscreen=(self), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(), picture-in-picture=(), publickey-credentials-get=(), screen-wake-lock=(), serial=(), usb=(), xr-spatial-tracking=()
+  Permissions-Policy: accelerometer=(), autoplay=(), camera=(), display-capture=(), encrypted-media=(), fullscreen=(self), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(), picture-in-picture=(), publickey-credentials-get=(), screen-wake-lock=(), serial=(), usb=(), xr-spatial-tracking=()
   Cross-Origin-Opener-Policy: same-origin
   X-Permitted-Cross-Domain-Policies: none
 
