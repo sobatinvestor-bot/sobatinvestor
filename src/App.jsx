@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from 'react';
-// SOBAT BUILD MARKER: 2026-07-30-a  — ubah string ini (mis. -b, -c) tiap kali ingin
+// SOBAT BUILD MARKER: 2026-07-19-y  — ubah string ini (mis. -b, -c) tiap kali ingin
 // MEMAKSA build baru saat GitHub/Cloudflare mengira tidak ada perubahan.
 import { Send, Home, Sparkles, Briefcase, Download, Upload, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus, Globe, ArrowDown, Linkedin, Instagram, Eye, EyeOff, BookOpen } from 'lucide-react';
 import { supabase } from './lib/supabase';
@@ -149,7 +149,7 @@ function TikTokIcon({ size = 18 }) {
   );
 }
 
-function Footer({ onOpenLegal }) {
+function Footer({ onOpenLegal, loggedIn, setTab }) {
   const year = new Date().getFullYear();
   const linkStyle = { color: C.forest, textDecoration: 'underline', cursor: 'pointer', background: 'none', border: 'none', padding: 0, font: 'inherit' };
   const socialBadge = { width: 38, height: 38, borderRadius: '50%', background: C.forest, color: C.cream, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' };
@@ -162,6 +162,15 @@ function Footer({ onOpenLegal }) {
           <a href="https://www.tiktok.com/@sobatinvestor.indonesia" target="_blank" rel="noopener noreferrer" aria-label="TikTok" style={socialBadge}><TikTokIcon size={18} /></a>
         </div>
         <div style={{ marginBottom: 8 }}>
+          {/* "Lihat Portofolio" di Footer HANYA untuk pengunjung anonim.
+              Tombol yang di hero HomeTab disembunyikan untuk mereka; pindah ke
+              sini sebagai link kecil, konsisten dengan gaya link legal lainnya. */}
+          {!loggedIn && setTab && (
+            <>
+              <button type="button" style={linkStyle} onClick={() => setTab('portfolio')}>Lihat Portofolio</button>
+              <span style={{ margin: '0 10px', opacity: 0.5 }}>·</span>
+            </>
+          )}
           <button type="button" style={linkStyle} onClick={() => onOpenLegal('tos')}>Ketentuan Layanan</button>
           <span style={{ margin: '0 10px', opacity: 0.5 }}>·</span>
           <button type="button" style={linkStyle} onClick={() => onOpenLegal('privacy')}>Kebijakan Privasi</button>
@@ -669,7 +678,7 @@ export default function App() {
         {/* Footer disembunyikan di tab Diskusi: antarmuka chat semestinya berakhir di
             kolom input. Teks panjang footer di bawah input bikin gulir janggal. Sebagai
             gantinya ada disclaimer ringkas menetap tepat di bawah input (lihat ChatTab). */}
-        {tab !== 'chat' && <Footer onOpenLegal={setLegalDoc} />}
+        {tab !== 'chat' && <Footer onOpenLegal={setLegalDoc} loggedIn={!!session} setTab={setTab} />}
       </div>
       <BottomNav tab={tab} setTab={setTab} isAdmin={!!session && session.user.id === ADMIN_UID} loggedIn={!!session} />
       <LegalModal doc={legalDoc} onClose={() => setLegalDoc(null)} />
@@ -1470,9 +1479,12 @@ export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0
                 {links.map((l) => linkBtn(l, false))}
               </div>
             )}
-            <div className="mono" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: C.inkSoft }} title={ihsg == null ? 'Data IHSG belum tersedia' : undefined}>
-              <span style={{ fontWeight: 600, color: C.ink }}>{ihsg == null ? '—' : ihsg.toFixed(2)}</span>
-              {ihsg != null && <span style={{ color: ihsgChange >= 0 ? C.green : C.red, fontWeight: 600 }}>{fmtPct(ihsgChange)}</span>}
+            <div className="mono" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: C.inkSoft }} title={!session ? 'Masuk untuk melihat data IHSG' : (ihsg == null ? 'Data IHSG belum tersedia' : undefined)}>
+              {/* Sembunyikan angka IHSG untuk pengunjung tanpa login — tampilkan
+                  em-dash sebagai placeholder supaya layout header tetap. Angka
+                  hanya muncul untuk user yang login. */}
+              <span style={{ fontWeight: 600, color: C.ink }}>{!session ? '—' : (ihsg == null ? '—' : ihsg.toFixed(2))}</span>
+              {session && ihsg != null && <span style={{ color: ihsgChange >= 0 ? C.green : C.red, fontWeight: 600 }}>{fmtPct(ihsgChange)}</span>}
             </div>
             {session && (
               // Mata di bar sticky (position:sticky, top:0) -> tetap terlihat saat
@@ -1646,17 +1658,26 @@ function HomeTab({ stocks, setTab, goTo, visitStats, loggedIn }) {
           >
             <Sparkles size={16} /> Ngobrol sama Sobat
           </button>
+          {/* "Lihat Portofolio" di hero: HANYA untuk user yang sudah login.
+              Untuk pengunjung anonim, tombol ini dipindah ke Footer sebagai
+              link kecil — konsisten dengan penyembunyian IHSG & pita harga. */}
+          {loggedIn && (
           <button
             onClick={() => setTab('portfolio')}
             style={{ background: 'transparent', color: C.ink, padding: '14px 24px', borderRadius: 100, border: `1.5px solid rgba(26,42,32,0.15)`, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
           >
             Lihat Portofolio →
           </button>
+          )}
         </div>
       </div>
 
       <InstallPrompt />
 
+      {/* Pita harga saham berjalan HANYA untuk user yang sudah login.
+          Alasan: menghindari menunjukkan angka pasar penuh ke pengunjung anonim
+          (konsisten dengan menyembunyikan IHSG di header Nav). */}
+      {loggedIn && (
       <div style={{ background: C.ink, color: C.cream, padding: '14px 0', overflow: 'hidden', margin: '20px', borderRadius: 14 }}>
         {stocks.length === 0 ? (
           <div className="mono" style={{ textAlign: 'center', fontSize: 12, color: 'rgba(244,239,230,0.6)', padding: '0 20px' }}>
@@ -1676,6 +1697,7 @@ function HomeTab({ stocks, setTab, goTo, visitStats, loggedIn }) {
         </div>
         )}
       </div>
+      )}
 
       <div style={{ padding: '40px 20px', maxWidth: 1100, margin: '0 auto' }}>
         <h2 className="serif" style={{ fontSize: 'clamp(28px, 5vw, 44px)', fontWeight: 500, letterSpacing: '-0.02em', lineHeight: 1.05, marginBottom: 32 }}>
