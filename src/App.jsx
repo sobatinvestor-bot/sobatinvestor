@@ -182,7 +182,7 @@ function Footer({ onOpenLegal, loggedIn, setTab }) {
           </a>
         </div>
         <div style={{ marginBottom: 6, opacity: 0.85 }}>
-          Konten bersifat edukatif, <strong>bukan nasihat investasi</strong>. Keputusan dan risiko investasi ada di tanganmu.
+          Konten bersifat edukatif, <strong>bukan nasihat investasi</strong>.
         </div>
         <div style={{ opacity: 0.7 }}>© {year} Sobat Investor — Hak cipta dilindungi.</div>
       </div>

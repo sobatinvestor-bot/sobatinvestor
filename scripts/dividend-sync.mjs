@@ -1,15 +1,17 @@
 // ============================================================
 // SINKRON JADWAL DIVIDEN — versi GRATIS (GitHub Actions, bukan Cloudflare Worker).
-// Cakupan: SELURUH emiten di stock_directory (~958, sumber Kalender Dividen publik)
-// DIGABUNG simbol yang dipegang user (lots) sbg jaring pengaman utk simbol lawas yang
-// belum tentu ada di direktori. Logika deteksi sama seperti sebelumnya: tarik dividen
-// (Yahoo via app) -> catat yang belum punya tanggal resmi sebagai pending (confirmed=false).
+// Cakupan: SIMBOL DENGAN ANALISIS TERKURASI di tabel `analyses` DIGABUNG simbol yang
+// dipegang user (lots). Sebelumnya menyisir seluruh direktori BEI (~958 emiten) yang
+// menghasilkan antrean panjang (300+) berisi emiten yang tak pernah ditampilkan di
+// UI dan tak akan dipegang siapa pun — pekerjaan admin sia-sia. Sekarang dibatasi
+// ke emiten yang benar-benar muncul di aplikasi (tab Analisis + portofolio user).
+// Logika deteksi sama: tarik dividen (Yahoo via app) -> catat yang belum punya
+// tanggal resmi sebagai pending (confirmed=false).
 // TIDAK pernah menimpa baris yang sudah ada (ignore-duplicates), jadi tanggal resmi aman.
 //
-// PERINGATAN SKALA: dulu hanya menyisir simbol yang dipegang user (puluhan). Sekarang
-// ~958 simbol -> ~48 chunk berurutan ke /api/dividends (masing2 20 simbol paralel di
-// dalamnya). Ada jeda antar-chunk (CHUNK_DELAY_MS) supaya tidak membombardir Yahoo
-// sekaligus dan berisiko IP datacenter diblokir.
+// KONSEKUENSI: bila kelak analisis emiten baru ditambahkan, dividen bulan itu masuk
+// antrean di run mingguan berikutnya (bukan terlambat berbulan-bulan). Emiten yang
+// dipegang user tetap tercakup penuh, jadi kredit RDN untuk user tidak terganggu.
 //
 // Dijalankan oleh .github/workflows/dividend-sync.yml (cron mingguan + tombol manual).
 // Butuh env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (rahasia), APP_BASE_URL.
@@ -27,23 +29,7 @@ const WINDOW_PAST_DAYS = 100;
 const CHUNK = 20;
 const CHUNK_DELAY_MS = 300; // jeda sopan antar-chunk ke Yahoo (bukan batasan teknis, sekadar hati-hati)
 
-// MITIGASI RISIKO: jangan hantam SELURUH direktori (~958 simbol) ke Yahoo tiap
-// minggu — itu jejak besar utk endpoint tak resmi. Rotasi 4 batch (deterministik
-// dari nomor minggu ISO, tanpa perlu simpan state) -> tiap Sabtu cuma ~1/4 direktori
-// (~240 simbol) + SEMUA simbol yang dipegang user (prioritas tetap penuh, karena itu
-// yang memengaruhi kredit RDN). Konsekuensi: cakupan market-wide utk Kalender Dividen
-// terisi bertahap ±1 bulan, bukan seketika — trade-off yang sengaja diambil demi
-// jejak lebih kecil ke Yahoo.
-const DIRECTORY_BATCHES = 4;
-
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
-
-function currentBatchIndex(total) {
-  const now = new Date();
-  const start = new Date(now.getFullYear(), 0, 1);
-  const week = Math.ceil((((now - start) / 86400000) + start.getDay() + 1) / 7);
-  return week % total;
-}
 
 function svcHeaders() {
   return {
@@ -59,11 +45,11 @@ async function getHeldSymbols() {
   return [...new Set(rows.map((x) => (x.symbol || '').toUpperCase()).filter(Boolean))];
 }
 
-// Sumber cakupan MARKET-WIDE untuk Kalender Dividen publik — direktori resmi BEI
-// (~958 emiten), sama yang dipakai fitur sektor IDX-IC di tempat lain.
-async function getDirectorySymbols() {
-  const r = await fetch(`${env.SUPABASE_URL}/rest/v1/stock_directory?select=symbol`, { headers: svcHeaders() });
-  if (!r.ok) throw new Error(`stock_directory ${r.status}: ${await r.text()}`);
+// Sumber cakupan: simbol dengan analisis terkurasi (tab Analisis di aplikasi).
+// Emiten di luar daftar ini tidak muncul di UI, jadi tidak perlu jadwal dividen.
+async function getAnalysesSymbols() {
+  const r = await fetch(`${env.SUPABASE_URL}/rest/v1/analyses?select=symbol`, { headers: svcHeaders() });
+  if (!r.ok) throw new Error(`analyses ${r.status}: ${await r.text()}`);
   const rows = await r.json();
   return [...new Set(rows.map((x) => (x.symbol || '').toUpperCase()).filter(Boolean))];
 }
@@ -105,17 +91,16 @@ async function main() {
   for (const k of ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'APP_BASE_URL']) {
     if (!env[k]) { console.error(`ENV ${k} kosong`); process.exit(1); }
   }
-  const [directorySymbols, heldSymbols] = await Promise.all([
-    getDirectorySymbols().catch((e) => { console.error('stock_directory gagal, lanjut pakai held saja:', e.message); return []; }),
+  const [analysesSymbols, heldSymbols] = await Promise.all([
+    getAnalysesSymbols().catch((e) => { console.error('analyses gagal, lanjut pakai held saja:', e.message); return []; }),
     getHeldSymbols(),
   ]);
-  // Gabungan: SATU BATCH direktori resmi (rotasi mingguan, lihat DIRECTORY_BATCHES)
-  // + held (selalu penuh, prioritas RDN). Union, bukan salah satu saja.
-  const batchIdx = currentBatchIndex(DIRECTORY_BATCHES);
-  const directoryBatch = directorySymbols.filter((_, i) => i % DIRECTORY_BATCHES === batchIdx);
-  const symbols = [...new Set([...directoryBatch, ...heldSymbols])];
-  console.log(`dividend-sync: batch direktori ${batchIdx + 1}/${DIRECTORY_BATCHES} (${directoryBatch.length}/${directorySymbols.length} simbol direktori) + ${heldSymbols.length} held`);
-  if (!symbols.length) { console.log('dividend-sync: tidak ada simbol (direktori & held sama-sama kosong)'); return; }
+  // Union: emiten dengan analisis terkurasi (muncul di tab Analisis) + simbol yang
+  // dipegang user (prioritas RDN). Setiap Sabtu penuh, tanpa rotasi — jumlahnya
+  // sekarang puluhan, bukan ratusan.
+  const symbols = [...new Set([...analysesSymbols, ...heldSymbols])];
+  console.log(`dividend-sync: ${analysesSymbols.length} analisis + ${heldSymbols.length} held -> ${symbols.length} simbol unik`);
+  if (!symbols.length) { console.log('dividend-sync: tidak ada simbol (analyses & held sama-sama kosong)'); return; }
 
   const [existing, divs] = await Promise.all([getExisting(), fetchDividends(symbols)]);
 
