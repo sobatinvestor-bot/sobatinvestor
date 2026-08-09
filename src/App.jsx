@@ -1580,8 +1580,9 @@ export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0
             ) : (
               // Pengunjung tanpa login: pojok kanan diisi ikon aplikasi, bukan
               // dibiarkan kosong — supaya header tetap seimbang dan brand terlihat.
-              // Diklik -> tab portfolio, yang otomatis memunculkan gerbang login.
-              <button onClick={() => setTab('portfolio')} title="Masuk" aria-label="Masuk"
+              // Diklik -> tab Baca (materi edukasi terbuka untuk semua, tidak
+              // memaksa login lebih dulu).
+              <button onClick={() => setTab('baca')} title="Baca" aria-label="Buka tab Baca"
                 style={{ width: 40, height: 40, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
                 <img src="/icons/icon-192.png" alt="" width="34" height="34"
                   style={{ borderRadius: 9, display: 'block' }} />
