@@ -1479,13 +1479,15 @@ export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0
                 {links.map((l) => linkBtn(l, false))}
               </div>
             )}
-            <div className="mono" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: C.inkSoft }} title={!session ? 'Masuk untuk melihat data IHSG' : (ihsg == null ? 'Data IHSG belum tersedia' : undefined)}>
-              {/* Sembunyikan angka IHSG untuk pengunjung tanpa login — tampilkan
-                  em-dash sebagai placeholder supaya layout header tetap. Angka
-                  hanya muncul untuk user yang login. */}
-              <span style={{ fontWeight: 600, color: C.ink }}>{!session ? '—' : (ihsg == null ? '—' : ihsg.toFixed(2))}</span>
-              {session && ihsg != null && <span style={{ color: ihsgChange >= 0 ? C.green : C.red, fontWeight: 600 }}>{fmtPct(ihsgChange)}</span>}
+            {/* Blok IHSG hanya dirender untuk user yang login. Untuk pengunjung
+                anonim seluruh blok dihilangkan (bukan diganti em-dash) supaya
+                tidak muncul strip menggantung di header. */}
+            {session && (
+            <div className="mono" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: C.inkSoft }} title={ihsg == null ? 'Data IHSG belum tersedia' : undefined}>
+              <span style={{ fontWeight: 600, color: C.ink }}>{ihsg == null ? '—' : ihsg.toFixed(2)}</span>
+              {ihsg != null && <span style={{ color: ihsgChange >= 0 ? C.green : C.red, fontWeight: 600 }}>{fmtPct(ihsgChange)}</span>}
             </div>
+            )}
             {session && (
               // Mata di bar sticky (position:sticky, top:0) -> tetap terlihat saat
               // halaman digulung. Yang di judul "Ringkasan" ikut tergulung, dan yang
@@ -1575,7 +1577,16 @@ export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0
                     </div>
                 )}
               </div>
-            ) : null}
+            ) : (
+              // Pengunjung tanpa login: pojok kanan diisi ikon aplikasi, bukan
+              // dibiarkan kosong — supaya header tetap seimbang dan brand terlihat.
+              // Diklik -> tab portfolio, yang otomatis memunculkan gerbang login.
+              <button onClick={() => setTab('portfolio')} title="Masuk" aria-label="Masuk"
+                style={{ width: 40, height: 40, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                <img src="/icons/icon-192.png" alt="" width="34" height="34"
+                  style={{ borderRadius: 9, display: 'block' }} />
+              </button>
+            )}
           </div>
         </div>
         {isMobile && links.length > 0 && (
