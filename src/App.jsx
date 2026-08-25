@@ -158,7 +158,7 @@ function Footer({ onOpenLegal, loggedIn, setTab }) {
       <div style={{ maxWidth: 680, margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginBottom: 14 }}>
           <a href="https://www.linkedin.com/in/sobat-investor-665a01419" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" style={socialBadge}><Linkedin size={18} /></a>
-          <a href="https://www.instagram.com/sobatinvestor.app" target="_blank" rel="noopener noreferrer" aria-label="Instagram" style={socialBadge}><Instagram size={18} /></a>
+          <a href="https://www.instagram.com/sobatinvestor.indonesia" target="_blank" rel="noopener noreferrer" aria-label="Instagram" style={socialBadge}><Instagram size={18} /></a>
           <a href="https://www.tiktok.com/@sobatinvestor.indonesia" target="_blank" rel="noopener noreferrer" aria-label="TikTok" style={socialBadge}><TikTokIcon size={18} /></a>
         </div>
         <div style={{ marginBottom: 8 }}>
