@@ -774,6 +774,9 @@ function PrivateArea({ tab, userId, ihsgQuote, goAnalisis, onPortfolioTotal, onP
             onDivTotal12={setDivTotal12}
           />
         </div>
+        <div id="sec-ff" style={{ scrollMarginTop: 70, maxWidth: 1100, margin: '0 auto', padding: '0 20px' }}>
+          <FreedomCard equity={totalEquity} divTotal12={divTotal12} ffTarget={ffTarget} hideBalance={hideBalance} />
+        </div>
         <div id="sec-rdn" style={{ scrollMarginTop: 70, maxWidth: 1100, margin: '0 auto', padding: '0 20px' }}><RdnCard settings={settings} onAdjust={adjustRdn} onSaveFees={saveFees} userId={userId} hideBalance={hideBalance} /></div>
         <div style={{ maxWidth: 1100, margin: '16px auto 0', padding: '0 20px' }}>
           <div style={{ padding: 14, background: 'rgba(196,155,60,0.1)', borderRadius: 12, fontSize: 12, color: C.inkSoft, lineHeight: 1.5 }}>
@@ -1509,7 +1512,7 @@ export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0
     setPwdReminderOff(true);
   };
   const links = (session && tab === 'portfolio')
-    ? [['sec-saham', 'Saham'], ['sec-dividen', 'Dividen'], ['sec-rdn', 'RDN'], ['sec-berita', 'Berita'], ]
+    ? [['sec-saham', 'Saham'], ['sec-dividen', 'Dividen'], ['sec-ff', 'Freedom'], ['sec-rdn', 'RDN'], ['sec-berita', 'Berita'], ]
     : [];
   const goSec = (id) => { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
   const linkBtn = ([id, lbl], chip) => (
@@ -1856,6 +1859,7 @@ function BacaTab() {
 
   const ARTICLES = {
     id: [
+      { num: '06', tag: 'Kemerdekaan · Filosofi', title: 'Menuju Financial Freedom: Aritmatika, Bukti, dan Kebijaksanaan Lintas Peradaban', desc: 'Tingkat tabungan yang menentukan waktu, batas-batas aturan 4%, risiko urutan imbal hasil, model dividen dan pajaknya di IDX, apa kata sains tentang uang dan kebahagiaan, serta jawaban enam peradaban atas pertanyaan "berapa yang cukup".', href: '/articles/article_financial_freedom' },
       { num: '05', tag: 'Portofolio · Risiko', title: 'Diversifikasi: Kenapa Jangan Taruh Semua Telur di Satu Keranjang', desc: 'Apa kata bukti: berapa banyak saham yang cukup, kenapa korelasi naik justru saat paling dibutuhkan, konteks sektor IDX, dan pelajaran dari Markowitz hingga Buffett.', href: '/articles/article_diversifikasi' },
       { num: '04', tag: 'Filosofi · Proses', title: 'Proses: Mengapa Setiap Keberhasilan Dibangun dari Tindakan Kecil yang Berulang', desc: 'Mengapa proses lebih menentukan daripada hasil — pelajaran ketekunan dan penguasaan dari semangat Cina, Yunani, Arab, Persia, Jepang, dan sains modern, disusun menurut perkiraan waktu.', href: '/articles/article_proses_keberhasilan' },
       { num: '03', tag: 'Teknikal · Bukti', title: 'Analisis Teknikal: Apa Kata Bukti', desc: 'Apa yang benar-benar dikatakan riset: bagian mana dari analisis teknikal yang lolos uji ketat (momentum, tren), mana yang runtuh (pola visual), dan kenapa — plus konteks IDX.', href: '/articles/article_analisis_teknikal' },
@@ -3364,6 +3368,192 @@ function DividendAdmin({ userId }) {
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Simulator "Menuju Financial Freedom".
+// Semua angka diturunkan dari data nyata portofolio (ekuitas + perkiraan dividen
+// 12 bulan), BUKAN asumsi yield generik. Yang diasumsikan hanya tiga hal yang
+// memang tak bisa diketahui: setoran ke depan, pertumbuhan DPS, dan reinvestasi
+// — ketiganya dikendalikan pengguna lewat slider, jadi tidak ada angka ajaib.
+// Capital gain sengaja diabaikan (konservatif).
+function FreedomCard({ equity, divTotal12, ffTarget, hideBalance }) {
+  const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : Number(v); } catch { return d; } };
+  const [setoran, setSetoran] = useState(() => lsGet('si_ff_setoran', 0));
+  const [growth, setGrowth] = useState(() => lsGet('si_ff_growth', 5));
+  const [reinvest, setReinvest] = useState(() => lsGet('si_ff_reinvest', 1) === 1);
+  useEffect(() => { try { localStorage.setItem('si_ff_setoran', String(setoran)); } catch { /* abaikan */ } }, [setoran]);
+  useEffect(() => { try { localStorage.setItem('si_ff_growth', String(growth)); } catch { /* abaikan */ } }, [growth]);
+  useEffect(() => { try { localStorage.setItem('si_ff_reinvest', reinvest ? '1' : '0'); } catch { /* abaikan */ } }, [reinvest]);
+
+  // Yield on cost bruto: dari dividen & ekuitas nyata. null bila salah satu belum tegak.
+  const yoc = (equity > 0 && divTotal12 > 0) ? divTotal12 / equity : null;
+  const ffNow = (ffTarget > 0 && divTotal12 > 0) ? (divTotal12 * FF_DIV_NET / FF_MONTHS) / ffTarget * 100 : null;
+  const equityNeeded = (yoc && ffTarget > 0) ? (ffTarget * FF_MONTHS) / (FF_DIV_NET * yoc) : null;
+
+  const proj = useMemo(() => {
+    if (!yoc || !(ffTarget > 0) || ffNow == null) return null;
+    const pts = [{ year: 0, ff: ffNow }];
+    let P = equity, y = yoc, reach = ffNow >= 100 ? 0 : null;
+    const milestone = {};
+    for (let t = 1; t <= 40; t++) {
+      const div = P * y * FF_DIV_NET;
+      P += (reinvest ? div : 0) + setoran * 12;
+      y *= (1 + growth / 100);
+      const ff = (P * y * FF_DIV_NET / FF_MONTHS) / ffTarget * 100;
+      pts.push({ year: t, ff });
+      [50, 75, 100].forEach((m) => { if (milestone[m] == null && ff >= m) milestone[m] = t; });
+      if (reach == null && ff >= 100) reach = t;
+    }
+    return { pts, reach, milestone };
+  }, [yoc, ffTarget, ffNow, equity, setoran, growth, reinvest]);
+
+  const wrap = { background: C.cream2, borderRadius: 20, padding: 20, marginTop: 16 };
+  const head = (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14 }}>
+      <h3 className="serif" style={{ fontSize: 18, fontWeight: 600 }}>Menuju Financial Freedom</h3>
+      <button onClick={() => window.dispatchEvent(new CustomEvent('sobat-edit-ff-target'))} className="mono"
+        style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.cuan, fontSize: 10, letterSpacing: '0.08em', padding: '2px 4px', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+        <Pencil size={11} /> TARGET
+      </button>
+    </div>
+  );
+
+  if (!(ffTarget > 0)) {
+    return (
+      <div style={wrap}>
+        {head}
+        <p style={{ fontSize: 13, color: C.inkSoft, lineHeight: 1.6, margin: 0 }}>
+          Atur dulu kebutuhan hidupmu per bulan. Dari situ kami hitung berapa besar portofolio yang perlu kamu kumpulkan, dan berapa lama waktunya dengan pola setoran yang kamu pilih.
+        </p>
+        <button onClick={() => window.dispatchEvent(new CustomEvent('sobat-edit-ff-target'))}
+          style={{ marginTop: 14, background: C.forest, color: C.cream, border: 'none', padding: '10px 18px', borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+          Atur Target Bulanan
+        </button>
+      </div>
+    );
+  }
+
+  if (!proj) {
+    return (
+      <div style={wrap}>
+        {head}
+        <p style={{ fontSize: 13, color: C.inkSoft, lineHeight: 1.6, margin: 0 }}>
+          Proyeksi belum bisa dihitung: belum ada perkiraan dividen 12 bulan ke depan dari emiten yang kamu pegang{equity > 0 ? '' : ', atau nilai portofolio masih kosong'}. Angka menyusul setelah ada riwayat dividen yang bisa diproyeksikan.
+        </p>
+      </div>
+    );
+  }
+
+  const { pts, reach, milestone } = proj;
+  const maxFF = Math.max(110, ...pts.map((p) => p.ff));
+  const W = 300, H = 84;
+  const px = (i) => (i / (pts.length - 1)) * W;
+  const py = (v) => H - (Math.min(v, maxFF) / maxFF) * H;
+  const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${px(i).toFixed(1)},${py(p.ff).toFixed(1)}`).join(' ');
+  const area = `${line} L${W},${H} L0,${H} Z`;
+  const y100 = py(100);
+  const reachIdx = reach != null ? reach : null;
+
+  const stat = (label, value, sub) => (
+    <div style={{ flex: '1 1 40%', minWidth: 120 }}>
+      <div className="mono" style={{ fontSize: 9, letterSpacing: '0.08em', color: C.inkSoft, marginBottom: 3 }}>{label}</div>
+      <div className="mono" style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>{value}</div>
+      {sub && <div style={{ fontSize: 10, color: C.inkSoft, marginTop: 2 }}>{sub}</div>}
+    </div>
+  );
+
+  const sliderStyle = { width: '100%', accentColor: C.cuan, cursor: 'pointer' };
+  const maxSetoran = Math.max(ffTarget * 3, 1);
+  const stepSetoran = Math.max(Math.round(ffTarget / 20), 1);
+
+  return (
+    <div style={wrap}>
+      {head}
+
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 4 }}>
+        <div className="serif" style={{ fontSize: 34, fontWeight: 600, color: C.cuan }}>{ffNow.toFixed(1)}%</div>
+        <div style={{ fontSize: 12, color: C.inkSoft }}>dari kebutuhan bulananmu sudah ditutup dividen</div>
+      </div>
+      <div style={{ height: 6, borderRadius: 100, background: 'rgba(26,42,32,0.1)', overflow: 'hidden', marginBottom: 16 }}>
+        <div style={{ width: `${Math.min(100, ffNow).toFixed(1)}%`, height: '100%', background: ffNow >= 100 ? C.green : C.cuan, borderRadius: 100 }} />
+      </div>
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginBottom: 18 }}>
+        {stat('YIELD ON COST', `${(yoc * 100).toFixed(2)}%`, 'dividen ÷ nilai portofolio')}
+        {stat('PORTOFOLIO DIBUTUHKAN', hideBalance ? 'Rp ••••••' : fmtRp(equityNeeded), `${(equityNeeded / equity).toFixed(1)}× dari sekarang`)}
+      </div>
+
+      {/* ---- Tuas yang bisa kamu kendalikan ---- */}
+      <div style={{ borderTop: `1px solid rgba(26,42,32,0.10)`, paddingTop: 16 }}>
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+            <span style={{ fontSize: 12, color: C.inkSoft }}>Setoran rutin</span>
+            <span className="mono" style={{ fontSize: 13, fontWeight: 700, color: C.ink }}>{hideBalance ? 'Rp ••••••' : fmtRp(setoran)}<span style={{ fontWeight: 400, color: C.inkSoft }}>/bln</span></span>
+          </div>
+          <input type="range" min={0} max={maxSetoran} step={stepSetoran} value={Math.min(setoran, maxSetoran)}
+            onChange={(e) => setSetoran(Number(e.target.value))} style={sliderStyle} aria-label="Setoran rutin per bulan" />
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+            <span style={{ fontSize: 12, color: C.inkSoft }}>Pertumbuhan dividen per tahun</span>
+            <span className="mono" style={{ fontSize: 13, fontWeight: 700, color: C.ink }}>{growth}%</span>
+          </div>
+          <input type="range" min={0} max={15} step={1} value={growth}
+            onChange={(e) => setGrowth(Number(e.target.value))} style={sliderStyle} aria-label="Pertumbuhan dividen per tahun" />
+        </div>
+
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: C.inkSoft, cursor: 'pointer', marginBottom: 18 }}>
+          <input type="checkbox" checked={reinvest} onChange={(e) => setReinvest(e.target.checked)} style={{ accentColor: C.cuan, cursor: 'pointer' }} />
+          Dividen direinvestasi (tidak dipakai konsumsi)
+        </label>
+      </div>
+
+      {/* ---- Hasil ---- */}
+      <div style={{ background: C.cream, borderRadius: 14, padding: 16 }}>
+        <div className="mono" style={{ fontSize: 9, letterSpacing: '0.08em', color: C.inkSoft, marginBottom: 4 }}>PERKIRAAN TERCAPAI</div>
+        <div className="serif" style={{ fontSize: 26, fontWeight: 600, color: reach != null ? C.green : C.inkSoft, marginBottom: 2 }}>
+          {reach === 0 ? 'sudah tercapai' : (reach != null ? `${reach} tahun lagi` : 'lebih dari 40 tahun')}
+        </div>
+        <div style={{ fontSize: 11, color: C.inkSoft, marginBottom: 14 }}>
+          {reach === 0
+            ? 'dividenmu sudah menutup kebutuhan bulanan — periksa ulang targetnya bila terasa terlalu rendah'
+            : (reach != null
+              ? `sekitar tahun ${new Date().getFullYear() + reach} — dengan pola di atas`
+              : 'naikkan setoran rutin, atau turunkan target bulanan')}
+        </div>
+
+        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: 84, display: 'block', overflow: 'visible' }} role="img" aria-label="Proyeksi persentase menuju financial freedom per tahun">
+          <path d={area} fill="rgba(196,155,60,0.18)" />
+          <path d={line} fill="none" stroke={C.cuan} strokeWidth="2" vectorEffect="non-scaling-stroke" />
+          <line x1="0" y1={y100} x2={W} y2={y100} stroke={C.green} strokeWidth="1" strokeDasharray="4 3" vectorEffect="non-scaling-stroke" />
+          {reachIdx != null && reachIdx > 0 && (
+            <circle cx={px(reachIdx)} cy={py(pts[reachIdx].ff)} r="3.5" fill={C.green} />
+          )}
+        </svg>
+        <div className="mono" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: C.inkSoft, marginTop: 4 }}>
+          <span>sekarang</span><span style={{ color: C.green }}>--- garis 100%</span><span>40 th</span>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+          {[50, 75, 100].map((m) => (
+            <div key={m} className="mono" style={{ flex: '1 1 30%', minWidth: 84, background: C.cream2, borderRadius: 10, padding: '8px 10px' }}>
+              <div style={{ fontSize: 9, letterSpacing: '0.06em', color: C.inkSoft }}>{m}%</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: milestone[m] != null ? C.ink : C.inkSoft }}>
+                {ffNow >= m ? 'tercapai' : (milestone[m] != null ? `${milestone[m]} th` : '—')}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ marginTop: 12, fontSize: 11, color: C.inkSoft, lineHeight: 1.55 }}>
+        ⓘ Proyeksi, bukan janji. Dihitung dari nilai portofolio &amp; perkiraan dividen 12 bulan ke depan milikmu sendiri, dikurangi pajak dividen 10%, dibagi 13 (asumsi konservatif ala gaji ke-13). Kenaikan harga saham sengaja <strong style={{ color: C.ink }}>tidak</strong> dihitung, dan dividen diasumsikan tumbuh mulus tiap tahun — kenyataannya bisa dipotong atau dilewati sesuai keputusan RUPS. Bukan saran investasi.
+      </div>
+    </div>
+  );
+}
+
 
 // Cash from Dividend — jumlah real dari Yahoo; tanggal bayar = resmi dari tabel
 // dividend_schedule (bila diumumkan) atau perkiraan (ex-date + offset).
