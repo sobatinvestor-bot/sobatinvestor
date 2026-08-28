@@ -63,7 +63,8 @@ export async function onRequestGet(context) {
       };
     });
 
-  const ihsg = indexResult
+  // changePct null (prevClose tak tegak) → jangan render IHSG setengah benar.
+  const ihsg = (indexResult && typeof indexResult.changePct === "number")
     ? { value: indexResult.price, change: indexResult.changePct }
     : null;
 
@@ -93,9 +94,14 @@ export async function onRequestGet(context) {
 const YAHOO_HOSTS = ["query1.finance.yahoo.com", "query2.finance.yahoo.com"];
 
 async function fetchOnce(symbol, host) {
+  // range=5d (bukan 1d): kita butuh deret close harian untuk menurunkan prevClose
+  // sendiri. Jangan andalkan meta.previousClose — untuk ^JKSE field itu terbukti
+  // tertinggal satu sesi (28 Ags 2026: price = close Kamis 6.521,75 tapi
+  // previousClose = close Selasa 6.501,67 → +0,31%, padahal seharusnya +1,81%
+  // terhadap close Rabu 6.405,69).
   const url =
     `https://${host}/v8/finance/chart/` +
-    `${encodeURIComponent(symbol)}?interval=1d&range=1d`;
+    `${encodeURIComponent(symbol)}?interval=1d&range=5d`;
 
   const res = await fetch(url, {
     headers: {
@@ -103,7 +109,7 @@ async function fetchOnce(symbol, host) {
         "Mozilla/5.0 (compatible; sobatinvestor/1.0; +https://sobatinvestor.com)",
       Accept: "application/json",
     },
-    cf: { cacheTtl: 120, cacheEverything: true }, // 60->120s: kurangi volume request ke Yahoo; data toh sudah delayed 15-20 menit dari sumbernya, jadi tak ada kehilangan kesegaran nyata
+    cf: { cacheTtl: 120, cacheEverything: true },
   });
 
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -113,9 +119,30 @@ async function fetchOnce(symbol, host) {
   if (!result || !result.meta) throw new Error("No data");
 
   const meta = result.meta;
-  const price = meta.regularMarketPrice;
-  const prevClose = meta.previousClose ?? meta.chartPreviousClose ?? price;
-  const changePct = prevClose ? ((price - prevClose) / prevClose) * 100 : 0;
+  const closes = (result?.indicators?.quote?.[0]?.close || [])
+    .filter((c) => typeof c === "number" && c > 0);
+
+  const price = (typeof meta.regularMarketPrice === "number" && meta.regularMarketPrice > 0)
+    ? meta.regularMarketPrice
+    : (closes.length ? closes[closes.length - 1] : null);
+  if (price == null) throw new Error("No price");
+
+  // prevClose = close bar terakhir yang BUKAN sesi berjalan.
+  // Saat bursa buka, bar terakhir = hari ini (close-nya = harga berjalan) → ambil bar sebelumnya.
+  // Saat bursa tutup, bar terakhir = penutupan hari ini → juga ambil bar sebelumnya.
+  let prevClose = null;
+  if (closes.length >= 2) {
+    const last = closes[closes.length - 1];
+    prevClose = Math.abs(last - price) / price < 1e-6
+      ? closes[closes.length - 2]
+      : last;
+  } else if (typeof meta.previousClose === "number" && meta.previousClose > 0) {
+    prevClose = meta.previousClose; // fallback tunggal: emiten baru/suspend, deret < 2 bar
+  }
+
+  // Blank lebih baik daripada salah: kalau prevClose tak bisa ditegakkan, kirim null,
+  // bukan 0 (0% terbaca sebagai "pasar flat" — itu klaim yang tidak kita punya bukti).
+  const changePct = prevClose ? ((price - prevClose) / prevClose) * 100 : null;
 
   return {
     symbol: symbol.replace(".JK", ""),
