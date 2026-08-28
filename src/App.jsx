@@ -61,8 +61,14 @@ const initialStocks = [
 ];
 
 const fmtRp = (n) => 'Rp ' + Math.round(n).toLocaleString('id-ID');
-const fmtPct = (n) => (n >= 0 ? '+' : '') + n.toFixed(2) + '%';
+const fmtPct = (n) => (typeof n !== 'number' || !isFinite(n) ? '—' : (n >= 0 ? '+' : '') + n.toFixed(2) + '%');
 const ADMIN_UID = 'fb34e91b-dde7-42ce-83e9-ff70a2eaf52f';
+// Faktor neto dividen untuk indikator "menuju financial freedom".
+// PPh final dividen WP orang pribadi = 10% (UU PPh Pasal 17 ayat 2c; bebas bila
+// memenuhi syarat reinvestasi PMK 18/2021 — dipakai asumsi konservatif: kena).
+const FF_DIV_NET = 0.9;
+// Pembagi 13 = asumsi konservatif ala gaji ke-13 (bukan 12).
+const FF_MONTHS = 13;
 
 // Menangkap error render agar satu komponen bermasalah tidak memblank seluruh app.
 class ErrorBoundary extends React.Component {
@@ -438,7 +444,7 @@ export default function App() {
   const [analisisSymbol, setAnalisisSymbol] = useState(null); // permintaan buka analisis emiten tertentu
   const [legalDoc, setLegalDoc] = useState(null); // null | 'tos' | 'privacy' — modal dokumen legal
   const [pfTotal, setPfTotal] = useState(0); // nilai total portofolio (dilaporkan dari PrivateArea)
-  const [pfStats, setPfStats] = useState({ plPortfolioPct: null, plModalPct: null, modalAwal: 0, rdn: 0 }); // % P/L portofolio, modal awal & saldo RDN
+  const [pfStats, setPfStats] = useState({ plPortfolioPct: null, plModalPct: null, modalAwal: 0, rdn: 0, divTotal12: 0, ffTarget: 0 }); // % P/L portofolio, modal awal & saldo RDN
   const [showChangePw, setShowChangePw] = useState(false); // modal ganti kata sandi
   const [recoveryMode, setRecoveryMode] = useState(false); // halaman set-password dari link email (Jalur B)
   const [mfaGate, setMfaGate] = useState('checking'); // checking | need | ok — gate AAL2 utk akun ber-2FA (admin)
@@ -638,7 +644,7 @@ export default function App() {
   return (
     <div style={{ background: C.cream, minHeight: '100vh', color: C.ink }}>
       {idleWarning && <IdleWarningModal onStay={stayLoggedIn} />}
-      <Nav ihsg={ihsg} ihsgChange={ihsgChange} session={session} setTab={setTab} tab={tab} portfolioTotal={pfTotal} plPortfolioPct={pfStats.plPortfolioPct} plModalPct={pfStats.plModalPct} modalAwal={pfStats.modalAwal} rdn={pfStats.rdn} onChangePassword={() => setShowChangePw(true)} />
+      <Nav ihsg={ihsg} ihsgChange={ihsgChange} session={session} setTab={setTab} tab={tab} portfolioTotal={pfTotal} plPortfolioPct={pfStats.plPortfolioPct} plModalPct={pfStats.plModalPct} modalAwal={pfStats.modalAwal} rdn={pfStats.rdn} divTotal12={pfStats.divTotal12} ffTarget={pfStats.ffTarget} onChangePassword={() => setShowChangePw(true)} />
       <div style={{ paddingBottom: 100 }}>
         <div style={{ display: tab === 'home' ? 'block' : 'none' }}>
           <HomeTab stocks={market.quotes} setTab={setTab} goTo={goTo} visitStats={visitStats} loggedIn={!!session} />
@@ -700,7 +706,7 @@ function PrivateArea({ tab, userId, ihsgQuote, goAnalisis, onPortfolioTotal, onP
   // RdnCard ada di Account.jsx; App.jsx sudah mengimpor dari sana, jadi hook
   // useHideBalance TIDAK boleh diimpor balik (impor melingkar). Diteruskan sbg prop.
   const [hideBalance] = useHideBalance();
-  const { stocks, addHolding, updateHolding, deleteHolding, deleteAll, sellHolding, settings, adjustRdn, saveFees, saveModalAwal, saveZakatPaid, exportCSV, importData } = usePortfolio(userId);
+  const { stocks, addHolding, updateHolding, deleteHolding, deleteAll, sellHolding, settings, adjustRdn, saveFees, saveModalAwal, saveZakatPaid, saveFfTarget, exportCSV, importData } = usePortfolio(userId);
   const pfTotalValue = stocks.reduce((sum, s) => sum + (s.price || 0) * (s.qty || 0), 0);
   const costBasis = stocks.reduce((sum, s) => sum + (s.avg || 0) * (s.qty || 0), 0);
   const rdn = Number(settings.rdn || 0);
@@ -708,11 +714,17 @@ function PrivateArea({ tab, userId, ihsgQuote, goAnalisis, onPortfolioTotal, onP
   // sedangkan yang menghitung (DividendCard) tetap di PortfolioTab.
   const [divTotalHist, setDivTotalHist] = useState(0);
   const modalAwal = Number(settings.modal_awal || 0);
+  const ffTarget = Number(settings.ff_target || 0);
+  // Perkiraan dividen 12 bulan ke depan — dihitung di DividendCard, diangkat ke sini
+  // untuk indikator "menuju financial freedom" di menu akun. Dipaksa 0 saat holdings
+  // kosong supaya angka lama tidak nyangkut setelah portofolio dihapus.
+  const [divTotal12Raw, setDivTotal12] = useState(0);
+  const divTotal12 = stocks.length > 0 ? divTotal12Raw : 0;
   const totalEquity = pfTotalValue + rdn; // nilai holdings + kas RDN (gain & dividen terealisasi)
   const plPortfolioPct = costBasis > 0 ? (pfTotalValue - costBasis) / costBasis * 100 : null;
   const plModalPct = modalAwal > 0 ? (totalEquity - modalAwal) / modalAwal * 100 : null;
   useEffect(() => { if (onPortfolioTotal) onPortfolioTotal(pfTotalValue); }, [pfTotalValue, onPortfolioTotal]);
-  useEffect(() => { if (onPortfolioStats) onPortfolioStats({ plPortfolioPct, plModalPct, modalAwal, rdn }); }, [plPortfolioPct, plModalPct, modalAwal, rdn, onPortfolioStats]);
+  useEffect(() => { if (onPortfolioStats) onPortfolioStats({ plPortfolioPct, plModalPct, modalAwal, rdn, divTotal12, ffTarget }); }, [plPortfolioPct, plModalPct, modalAwal, rdn, divTotal12, ffTarget, onPortfolioStats]);
   const [editing, setEditing] = useState(null);
   const [selling, setSelling] = useState(null);
   const [editModalAwal, setEditModalAwal] = useState(false);
@@ -725,6 +737,18 @@ function PrivateArea({ tab, userId, ihsgQuote, goAnalisis, onPortfolioTotal, onP
   async function submitModalAwal() {
     const ok = await saveModalAwal(modalAwalInput);
     if (ok) setEditModalAwal(false);
+  }
+
+  const [editFfTarget, setEditFfTarget] = useState(false);
+  const [ffTargetInput, setFfTargetInput] = useState('');
+  useEffect(() => {
+    const open = () => { setFfTargetInput(ffTarget ? String(ffTarget) : ''); setEditFfTarget(true); };
+    window.addEventListener('sobat-edit-ff-target', open);
+    return () => window.removeEventListener('sobat-edit-ff-target', open);
+  }, [ffTarget]);
+  async function submitFfTarget() {
+    const ok = await saveFfTarget(ffTargetInput);
+    if (ok) setEditFfTarget(false);
   }
 
   function handleSave(h) {
@@ -747,6 +771,7 @@ function PrivateArea({ tab, userId, ihsgQuote, goAnalisis, onPortfolioTotal, onP
             onImport={importData}
             onSymbol={goAnalisis}
             onDivTotalHist={setDivTotalHist}
+            onDivTotal12={setDivTotal12}
           />
         </div>
         <div id="sec-rdn" style={{ scrollMarginTop: 70, maxWidth: 1100, margin: '0 auto', padding: '0 20px' }}><RdnCard settings={settings} onAdjust={adjustRdn} onSaveFees={saveFees} userId={userId} hideBalance={hideBalance} /></div>
@@ -766,6 +791,27 @@ function PrivateArea({ tab, userId, ihsgQuote, goAnalisis, onPortfolioTotal, onP
       <ChatTab stocks={stocks} active={tab === 'chat'} />
       {editing && <Editor holding={editing} onSave={handleSave} onClose={() => setEditing(null)} />}
       {selling && <SellEditor holding={selling} onSell={sellHolding} onClose={() => setSelling(null)} fees={settings} />}
+      {editFfTarget && (
+        <div onClick={() => setEditFfTarget(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(26,42,32,0.45)', zIndex: 130, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: C.cream, borderRadius: 18, maxWidth: 380, width: '100%', padding: 24, boxShadow: '0 20px 60px rgba(26,42,32,0.25)' }}>
+            <h2 className="serif" style={{ fontSize: 21, fontWeight: 600, margin: '0 0 6px', color: C.ink }}>Target Bulanan</h2>
+            <p style={{ fontSize: 12.5, color: C.inkSoft, lineHeight: 1.5, margin: '0 0 16px' }}>Kebutuhan hidupmu per bulan. Dipakai menghitung progres menuju financial freedom: perkiraan dividen 12 bulan ke depan dikurangi pajak 10%, dibagi 13 (asumsi konservatif ala gaji ke-13), lalu dibandingkan dengan target ini. Angka dividennya perkiraan — bukan komitmen emiten.</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: C.cream2, borderRadius: 12, padding: '12px 14px' }}>
+              <span style={{ fontSize: 14, color: C.inkSoft, fontWeight: 600 }}>Rp</span>
+              <input type="number" inputMode="numeric" value={ffTargetInput} onChange={(e) => setFfTargetInput(e.target.value)} placeholder="0"
+                style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: 16, fontWeight: 600, color: C.ink, fontFamily: "'JetBrains Mono', monospace" }} />
+              <span style={{ fontSize: 12, color: C.inkSoft }}>/bulan</span>
+            </div>
+            {Number(ffTargetInput) > 0 && (
+              <div style={{ fontSize: 12.5, color: C.inkSoft, margin: '8px 2px 0' }}>= Rp {Math.round(Number(ffTargetInput)).toLocaleString('id-ID')} / bulan</div>
+            )}
+            <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+              <button onClick={() => setEditFfTarget(false)} style={{ flex: 1, background: 'transparent', color: C.inkSoft, border: `1px solid rgba(26,42,32,0.2)`, padding: 12, borderRadius: 100, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Batal</button>
+              <button onClick={submitFfTarget} style={{ flex: 1, background: C.forest, color: C.cream, border: 'none', padding: 12, borderRadius: 100, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Simpan</button>
+            </div>
+          </div>
+        </div>
+      )}
       {editModalAwal && (
         <div onClick={() => setEditModalAwal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(26,42,32,0.45)', zIndex: 130, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <div onClick={(e) => e.stopPropagation()} style={{ background: C.cream, borderRadius: 18, maxWidth: 380, width: '100%', padding: 24, boxShadow: '0 20px 60px rgba(26,42,32,0.25)' }}>
@@ -1418,7 +1464,7 @@ function useHideBalance() {
 // >>> SESUAIKAN ke tanggal kamu benar-benar mengaktifkan aturan tersebut <<<
 const PWD_POLICY_CUTOFF = '2026-06-20T00:00:00Z';
 
-export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0, plPortfolioPct = null, plModalPct = null, modalAwal = 0, rdn = 0, onChangePassword }) {
+export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0, plPortfolioPct = null, plModalPct = null, modalAwal = 0, rdn = 0, divTotal12 = 0, ffTarget = 0, onChangePassword }) {
   const isMobile = useIsMobile();
   const [menuOpen, setMenuOpen] = useState(false);
   const [hideBalance, toggleHideBalance] = useHideBalance();
@@ -1445,6 +1491,12 @@ export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0
   }, [menuOpen]);
   const userEmail = (session && session.user && session.user.email) || '';
   const userInitial = userEmail ? userEmail[0].toUpperCase() : 'U';
+  // Progres menuju financial freedom:
+  //   (perkiraan dividen 12 bln ke depan × 0,9 neto pajak) / 13  ÷  target bulanan.
+  // null bila salah satu input belum tegak → UI menampilkan "atur"/"—", bukan 0%.
+  // Keduanya const biasa (bukan hook) → aman, tidak mengganggu urutan hooks.
+  const ffMonthly = divTotal12 * FF_DIV_NET / FF_MONTHS;
+  const ffPct = (ffTarget > 0 && ffMonthly > 0) ? (ffMonthly / ffTarget) * 100 : null;
   const menuItemStyle = { width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: C.ink, fontFamily: 'inherit', textAlign: 'left' };
   const userCreatedAt = (session && session.user && session.user.created_at) || null;
   const isOldAccount = !!userCreatedAt && new Date(userCreatedAt) < new Date(PWD_POLICY_CUTOFF);
@@ -1548,6 +1600,32 @@ export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0
                         </div>
                         {modalAwal > 0 && (
                           <div className="mono" style={{ fontSize: 10, color: C.inkSoft, textAlign: 'right', marginTop: 2 }}>modal awal {hideBalance ? 'Rp ••••••' : fmtRp(modalAwal)}</div>
+                        )}
+                        {/* Menuju financial freedom = (perkiraan dividen 12 bln × 0,9) / 13 / target bulanan.
+                            0,9 = neto setelah PPh final dividen 10%. Pembagi 13 = asumsi gaji ke-13.
+                            Bila target belum diatur ATAU belum ada perkiraan dividen → "atur"/"—", bukan 0%. */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, paddingTop: 10, borderTop: `1px solid rgba(26,42,32,0.08)` }}>
+                          <span style={{ fontSize: 11, color: C.inkSoft, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            Menuju Financial Freedom
+                            <button onClick={() => { setMenuOpen(false); window.dispatchEvent(new CustomEvent('sobat-edit-ff-target')); }}
+                              title="Atur kebutuhan bulanan" aria-label="Atur kebutuhan bulanan"
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.cuan, padding: 0, display: 'inline-flex', alignItems: 'center' }}>
+                              <Pencil size={11} />
+                            </button>
+                          </span>
+                          <span className="mono" style={{ fontSize: 13, fontWeight: 700, color: ffPct == null ? C.inkSoft : C.cuan }}>
+                            {ffTarget <= 0 ? 'atur' : (ffPct == null ? '—' : `${ffPct.toFixed(1)}%`)}
+                          </span>
+                        </div>
+                        {ffPct != null && (
+                          <>
+                            <div style={{ height: 5, borderRadius: 100, background: 'rgba(26,42,32,0.1)', marginTop: 6, overflow: 'hidden' }}>
+                              <div style={{ width: `${Math.min(100, ffPct).toFixed(1)}%`, height: '100%', background: ffPct >= 100 ? C.green : C.cuan, borderRadius: 100 }} />
+                            </div>
+                            <div className="mono" style={{ fontSize: 10, color: C.inkSoft, textAlign: 'right', marginTop: 3, lineHeight: 1.4 }}>
+                              ± {hideBalance ? 'Rp ••••••' : fmtRp(Math.round(ffMonthly))}/bln <span style={{ opacity: 0.75 }}>(perkiraan, neto pajak 10%)</span> · target {hideBalance ? 'Rp ••••••' : fmtRp(ffTarget)}
+                            </div>
+                          </>
                         )}
                       </div>
                       {isOldAccount && !pwdReminderOff && (
@@ -2667,7 +2745,7 @@ function BiRateReminder() {
   );
 }
 
-function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImport, onSymbol, onDivTotalHist }) {
+function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImport, onSymbol, onDivTotalHist, onDivTotal12 }) {
   const [hideBalance] = useHideBalance();   // sinkron otomatis via HIDEBAL_EVENT
   // Fundamental dari tabel yang SAMA dengan tab Analisis. Gagal ambil = biarkan
   // kosong; jangan bikin Daftar Saham ikut gagal.
@@ -2857,7 +2935,7 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
         </div>
       )}
 
-      {stocks.length > 0 && <div id="sec-dividen" style={{ scrollMarginTop: 70 }}><DividendCard stocks={stocks} onSymbol={onSymbol} onTotalHist={onDivTotalHist} /></div>}
+      {stocks.length > 0 && <div id="sec-dividen" style={{ scrollMarginTop: 70 }}><DividendCard stocks={stocks} onSymbol={onSymbol} onTotalHist={onDivTotalHist} onTotal12={onDivTotal12} /></div>}
 
       {/* Konfirmasi hapus */}
       {confirmDel && (
@@ -3279,7 +3357,7 @@ function DividendAdmin({ userId }) {
 
 // Cash from Dividend — jumlah real dari Yahoo; tanggal bayar = resmi dari tabel
 // dividend_schedule (bila diumumkan) atau perkiraan (ex-date + offset).
-export function DividendCard({ stocks, onSymbol, onTotalHist }) {
+export function DividendCard({ stocks, onSymbol, onTotalHist, onTotal12 }) {
   const [hideBalance] = useHideBalance();   // sinkron otomatis via HIDEBAL_EVENT
   const symKey = stocks.map((s) => s.symbol).join(',');
   const [raw, setRaw] = useState([]);   // [{ symbol, amount, exDate }]
@@ -3425,6 +3503,7 @@ export function DividendCard({ stocks, onSymbol, onTotalHist }) {
   const totalHist = hist.reduce((s, r) => s + r.cash, 0);
 
   useEffect(() => { if (onTotalHist) onTotalHist(totalHist); }, [totalHist, onTotalHist]);
+  useEffect(() => { if (onTotal12) onTotal12(total12); }, [total12, onTotal12]);
 
   // Kredit otomatis dividen yang tanggal bayarnya sudah lewat ke saldo RDN.
   // Dua sumber: (1) feed Yahoo (raw), (2) dividend_schedule confirmed yang punya `amount`

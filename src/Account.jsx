@@ -94,10 +94,10 @@ export function usePortfolio(userId) {
   const [ihsg, setIhsg] = useState(null);
   const [loading, setLoading] = useState(true);
   // Fee transaksi (persen) + saldo RDN — dimuat dari user_settings, default praktik umum IDX
-  const [settings, setSettings] = useState({ fee_buy: 0.15, fee_sell: 0.15, tax_sell: 0.10, rdn: 0, modal_awal: 0, zakat_paid: 0 });
+  const [settings, setSettings] = useState({ fee_buy: 0.15, fee_sell: 0.15, tax_sell: 0.10, rdn: 0, modal_awal: 0, zakat_paid: 0, ff_target: 0 });
 
   const loadSettings = useCallback(async () => {
-    const { data } = await supabase.from('user_settings').select('fee_buy,fee_sell,tax_sell,rdn,modal_awal,zakat_paid').maybeSingle();
+    const { data } = await supabase.from('user_settings').select('fee_buy,fee_sell,tax_sell,rdn,modal_awal,zakat_paid,ff_target').maybeSingle();
     if (data) setSettings(data);
   }, []);
   useEffect(() => { if (userId) loadSettings(); }, [userId, loadSettings]);
@@ -140,6 +140,18 @@ export function usePortfolio(userId) {
     const { error } = await supabase.from('user_settings').upsert(row, { onConflict: 'user_id' });
     if (error) { alert('Gagal menyimpan modal awal: ' + error.message); return false; }
     setSettings((p) => ({ ...p, modal_awal: val }));
+    return true;
+  }
+
+  // Target kebutuhan bulanan untuk indikator "menuju financial freedom".
+  // Disimpan di user_settings.ff_target (rupiah/bulan). 0 = belum diatur → UI
+  // menampilkan "atur", bukan 0% (blank lebih baik daripada salah).
+  async function saveFfTarget(v) {
+    const val = Math.max(0, Math.round(Number(v) || 0));
+    const row = { user_id: userId, fee_buy: Number(settings.fee_buy), fee_sell: Number(settings.fee_sell), tax_sell: Number(settings.tax_sell), ff_target: val };
+    const { error } = await supabase.from('user_settings').upsert(row, { onConflict: 'user_id' });
+    if (error) { alert('Gagal menyimpan target bulanan: ' + error.message); return false; }
+    setSettings((p) => ({ ...p, ff_target: val }));
     return true;
   }
 
@@ -358,7 +370,7 @@ export function usePortfolio(userId) {
     ihsg: ihsg ? ihsg.value : 7800,
     ihsgChange: ihsg ? ihsg.change : 0,
     addHolding, updateHolding, deleteHolding, deleteAll, sellHolding,
-    settings, adjustRdn, saveFees, saveModalAwal, saveZakatPaid, exportCSV, importData,
+    settings, adjustRdn, saveFees, saveModalAwal, saveZakatPaid, saveFfTarget, exportCSV, importData,
   };
 }
 
