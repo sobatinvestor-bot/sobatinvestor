@@ -1495,6 +1495,7 @@ export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0
   //   (perkiraan dividen 12 bln ke depan × 0,9 neto pajak) / 13  ÷  target bulanan.
   // null bila salah satu input belum tegak → UI menampilkan "atur"/"—", bukan 0%.
   // Keduanya const biasa (bukan hook) → aman, tidak mengganggu urutan hooks.
+  const openFfEditor = () => { setMenuOpen(false); window.dispatchEvent(new CustomEvent('sobat-edit-ff-target')); };
   const ffMonthly = divTotal12 * FF_DIV_NET / FF_MONTHS;
   const ffPct = (ffTarget > 0 && ffMonthly > 0) ? (ffMonthly / ffTarget) * 100 : null;
   const menuItemStyle = { width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: C.ink, fontFamily: 'inherit', textAlign: 'left' };
@@ -1603,29 +1604,38 @@ export function Nav({ ihsg, ihsgChange, session, setTab, tab, portfolioTotal = 0
                         )}
                         {/* Menuju financial freedom = (perkiraan dividen 12 bln × 0,9) / 13 / target bulanan.
                             0,9 = neto setelah PPh final dividen 10%. Pembagi 13 = asumsi gaji ke-13.
-                            Bila target belum diatur ATAU belum ada perkiraan dividen → "atur"/"—", bukan 0%. */}
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, paddingTop: 10, borderTop: `1px solid rgba(26,42,32,0.08)` }}>
-                          <span style={{ fontSize: 11, color: C.inkSoft, display: 'flex', alignItems: 'center', gap: 6 }}>
-                            Menuju Financial Freedom
-                            <button onClick={() => { setMenuOpen(false); window.dispatchEvent(new CustomEvent('sobat-edit-ff-target')); }}
-                              title="Atur kebutuhan bulanan" aria-label="Atur kebutuhan bulanan"
-                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.cuan, padding: 0, display: 'inline-flex', alignItems: 'center' }}>
-                              <Pencil size={11} />
+                            Bila target belum diatur ATAU belum ada perkiraan dividen → "atur"/"—", bukan 0%.
+                            Pensil sengaja menempel pada "target", bukan pada persen: yang bisa diedit
+                            adalah targetnya, sedangkan persen adalah hasil hitung. */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 12, paddingTop: 10, borderTop: `1px solid rgba(26,42,32,0.08)` }}>
+                          <span style={{ fontSize: 11, color: C.inkSoft }}>Menuju Financial Freedom</span>
+                          {ffTarget <= 0 ? (
+                            <button onClick={openFfEditor} title="Atur kebutuhan bulanan"
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.cuan, padding: 0, fontSize: 12, fontWeight: 600, fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
+                              <Pencil size={11} /> atur
                             </button>
-                          </span>
-                          <span className="mono" style={{ fontSize: 13, fontWeight: 700, color: ffPct == null ? C.inkSoft : C.cuan }}>
-                            {ffTarget <= 0 ? 'atur' : (ffPct == null ? '—' : `${ffPct.toFixed(1)}%`)}
-                          </span>
+                          ) : (
+                            <span className="mono" style={{ fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', color: ffPct == null ? C.inkSoft : C.cuan }}>
+                              {ffPct == null ? '—' : `${ffPct.toFixed(1)}%`}
+                            </span>
+                          )}
                         </div>
                         {ffPct != null && (
-                          <>
-                            <div style={{ height: 5, borderRadius: 100, background: 'rgba(26,42,32,0.1)', marginTop: 6, overflow: 'hidden' }}>
-                              <div style={{ width: `${Math.min(100, ffPct).toFixed(1)}%`, height: '100%', background: ffPct >= 100 ? C.green : C.cuan, borderRadius: 100 }} />
-                            </div>
-                            <div className="mono" style={{ fontSize: 10, color: C.inkSoft, textAlign: 'right', marginTop: 3, lineHeight: 1.4 }}>
-                              ± {hideBalance ? 'Rp ••••••' : fmtRp(Math.round(ffMonthly))}/bln <span style={{ opacity: 0.75 }}>(perkiraan, neto pajak 10%)</span> · target {hideBalance ? 'Rp ••••••' : fmtRp(ffTarget)}
-                            </div>
-                          </>
+                          <div style={{ height: 5, borderRadius: 100, background: 'rgba(26,42,32,0.1)', marginTop: 6, overflow: 'hidden' }}>
+                            <div style={{ width: `${Math.min(100, ffPct).toFixed(1)}%`, height: '100%', background: ffPct >= 100 ? C.green : C.cuan, borderRadius: 100 }} />
+                          </div>
+                        )}
+                        {ffTarget > 0 && (
+                          <div className="mono" style={{ fontSize: 10, color: C.inkSoft, textAlign: 'right', marginTop: 3, lineHeight: 1.5 }}>
+                            {ffPct != null && <>± {hideBalance ? 'Rp ••••••' : fmtRp(Math.round(ffMonthly))}/bln <span style={{ opacity: 0.75 }}>(perkiraan, neto pajak 10%)</span> · </>}
+                            <span style={{ whiteSpace: 'nowrap' }}>
+                              target {hideBalance ? 'Rp ••••••' : fmtRp(ffTarget)}
+                              <button onClick={openFfEditor} title="Ubah kebutuhan bulanan" aria-label="Ubah kebutuhan bulanan"
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.cuan, padding: 0, marginLeft: 5, verticalAlign: 'middle', display: 'inline-flex', alignItems: 'center' }}>
+                                <Pencil size={11} />
+                              </button>
+                            </span>
+                          </div>
                         )}
                       </div>
                       {isOldAccount && !pwdReminderOff && (
