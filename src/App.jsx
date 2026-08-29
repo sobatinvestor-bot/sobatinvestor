@@ -164,8 +164,8 @@ function Footer({ onOpenLegal, loggedIn, setTab }) {
       <div style={{ maxWidth: 680, margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginBottom: 14 }}>
           <a href="https://www.linkedin.com/in/sobat-investor-665a01419" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" style={socialBadge}><Linkedin size={18} /></a>
-          <a href="https://www.instagram.com/sobatinvestor.indonesia" target="_blank" rel="noopener noreferrer" aria-label="Instagram" style={socialBadge}><Instagram size={18} /></a>
-          <a href="https://www.tiktok.com/@sobatinvestor.indonesia" target="_blank" rel="noopener noreferrer" aria-label="TikTok" style={socialBadge}><TikTokIcon size={18} /></a>
+          {/* tautan sosial disembunyikan sementara: node scripts/hide-socials.mjs --restore */}
+          {/* tautan sosial disembunyikan sementara: node scripts/hide-socials.mjs --restore */}
         </div>
         <div style={{ marginBottom: 8 }}>
           {/* "Lihat Portofolio" di Footer HANYA untuk pengunjung anonim.
@@ -3445,15 +3445,28 @@ function FreedomCard({ equity, divTotal12, ffTarget, hideBalance }) {
     );
   }
 
-  const { pts, reach, milestone } = proj;
-  const maxFF = Math.max(110, ...pts.map((p) => p.ff));
+  const { pts: allPts, reach, milestone } = proj;
+
+  // Sumbu Y dipatok 120%, BUKAN nilai maksimum 40 tahun. Dengan pertumbuhan dividen
+  // majemuk, FF tahun ke-40 bisa menembus puluhan ribu persen — memakainya sebagai
+  // batas atas menggencet rentang 0-100% jadi setipis garis dan kurvanya tampak
+  // datar lalu meledak di ujung. Yang ingin dijawab grafik ini cuma satu:
+  // kapan garis 100% terlewati. Nilai di atas 120% dipangkas, bukan diskalakan.
+  const Y_MAX = 120;
+  // Sumbu X berhenti tak lama setelah target tercapai, supaya kurvanya mengisi bidang.
+  // Bila tak pernah tercapai, tampilkan penuh 40 tahun apa adanya.
+  const xEnd = reach != null && reach > 0
+    ? Math.min(40, Math.max(reach + 2, Math.ceil(reach * 1.4)))
+    : 40;
+  const pts = allPts.slice(0, xEnd + 1);
+
   const W = 300, H = 84;
   const px = (i) => (i / (pts.length - 1)) * W;
-  const py = (v) => H - (Math.min(v, maxFF) / maxFF) * H;
+  const py = (v) => H - (Math.min(v, Y_MAX) / Y_MAX) * H;
   const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${px(i).toFixed(1)},${py(p.ff).toFixed(1)}`).join(' ');
   const area = `${line} L${W},${H} L0,${H} Z`;
   const y100 = py(100);
-  const reachIdx = reach != null ? reach : null;
+  const reachIdx = (reach != null && reach > 0 && reach < pts.length) ? reach : null;
 
   const stat = (label, value, sub) => (
     <div style={{ flex: '1 1 40%', minWidth: 120 }}>
@@ -3533,7 +3546,7 @@ function FreedomCard({ equity, divTotal12, ffTarget, hideBalance }) {
           )}
         </svg>
         <div className="mono" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: C.inkSoft, marginTop: 4 }}>
-          <span>sekarang</span><span style={{ color: C.green }}>--- garis 100%</span><span>40 th</span>
+          <span>sekarang</span><span style={{ color: C.green }}>--- garis 100%</span><span>{xEnd} th</span>
         </div>
 
         <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
