@@ -12,6 +12,16 @@
     <lastmod>2026-08-29</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="id" href="https://sobatinvestor.com/articles/article_financial_freedom"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://sobatinvestor.com/articles/article_financial_freedom_en"/>
+  </url>
+  <url>
+    <loc>https://sobatinvestor.com/articles/article_financial_freedom_en</loc>
+    <lastmod>2026-08-29</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="id" href="https://sobatinvestor.com/articles/article_financial_freedom"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://sobatinvestor.com/articles/article_financial_freedom_en"/>
   </url>
   <url>
     <loc>https://sobatinvestor.com/articles/article_diversifikasi</loc>
