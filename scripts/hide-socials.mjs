@@ -1,121 +1,141 @@
 #!/usr/bin/env node
 // ============================================================
-// hide-socials.mjs — sembunyikan / kembalikan tautan Instagram & TikTok
+// hide-socials.mjs v2 — sembunyikan / kembalikan tautan Instagram & TikTok
 //
-// Jalankan dari root repo:
-//   node scripts/hide-socials.mjs            -> sembunyikan
-//   node scripts/hide-socials.mjs --restore  -> kembalikan
-//   node scripts/hide-socials.mjs --status   -> cek kondisi saat ini
+//   node scripts/hide-socials.mjs --scan      -> LIHAT SAJA, tidak mengubah apa pun
+//   node scripts/hide-socials.mjs             -> sembunyikan
+//   node scripts/hide-socials.mjs --restore   -> kembalikan
+//   node scripts/hide-socials.mjs --status    -> ringkasan kondisi
 //
-// Cara kerja: baris <a> Instagram/TikTok dipotong dari file dan disimpan utuh
-// di scripts/.social-backup.json, lalu diganti penanda satu baris. Pemulihan
-// membaca sidecar itu, jadi tidak ada escaping HTML/JSX yang bisa rusak dan
-// tidak ada risiko markup asli hilang.
+// Perubahan dari v1:
+//  1. Pencarian REKURSIF ke seluruh src/, public/, dan functions/
+//     (v1 hanya melihat dua folder dan melewatkan subfolder).
+//  2. Pencocokan berdasarkan URL instagram.com / tiktok.com pada elemen <a>,
+//     bukan berdasarkan aria-label. Tautan tanpa aria-label kini ikut tertangkap.
+//  3. Menangani elemen <a> yang membentang lebih dari satu baris.
+//  4. AMAN DIJALANKAN ULANG. Ini yang paling penting: setiap kali sebuah file
+//     diganti versi baru (App.jsx hasil edit, artikel baru), tautannya ikut
+//     kembali. Cukup jalankan lagi — entri sidecar ditambah, yang sudah
+//     tersembunyi dilewati dengan sendirinya karena tidak lagi cocok pola.
 //
-// LinkedIn sengaja TIDAK disentuh — baris sosial tetap punya isi, tata letak aman.
+// LinkedIn sengaja TIDAK disentuh.
 // ============================================================
 
-import { readFileSync, writeFileSync, existsSync, readdirSync, unlinkSync } from 'node:fs';
-import { join, dirname, relative, sep } from 'node:path';
+import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, unlinkSync } from 'node:fs';
+import { join, dirname, relative, sep, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const BACKUP = join(ROOT, 'scripts', '.social-backup.json');
-const MARK_HTML = '<!-- tautan sosial disembunyikan sementara: node scripts/hide-socials.mjs --restore -->';
-const MARK_JSX = '{/* tautan sosial disembunyikan sementara: node scripts/hide-socials.mjs --restore */}';
+const MARK = 'tautan sosial disembunyikan sementara';
+const MARK_HTML = `<!-- ${MARK}: node scripts/hide-socials.mjs --restore -->`;
+const MARK_JSX = `{/* ${MARK}: node scripts/hide-socials.mjs --restore */}`;
 
-// Kunci sidecar SELALU memakai garis miring depan, apa pun OS-nya. Di Windows
-// path.join menghasilkan backslash, sehingga string-replace naif akan gagal dan
-// membuat kunci berisi jalur absolut — pemulihan lalu rusak. relative() + normalisasi
-// separator membuat sidecar yang dibuat di Windows tetap bisa dipulihkan di macOS/Linux.
 const toKey = (abs) => relative(ROOT, abs).split(sep).join('/');
 const fromKey = (key) => join(ROOT, ...key.split('/'));
 
-// Kumpulkan target: App.jsx + seluruh HTML di public/
-function targets() {
-  const out = [];
-  const push = (p) => { if (existsSync(p)) out.push(p); };
-  push(join(ROOT, 'src', 'App.jsx'));
-  for (const dir of [join(ROOT, 'public'), join(ROOT, 'public', 'articles')]) {
-    if (!existsSync(dir)) continue;
-    for (const f of readdirSync(dir)) if (f.endsWith('.html')) push(join(dir, f));
+const SKIP = new Set(['node_modules', '.git', 'dist', 'build', '.wrangler', '.vercel', '.next']);
+const EXT = new Set(['.jsx', '.js', '.html', '.htm']);
+
+function walk(dir, out = []) {
+  if (!existsSync(dir)) return out;
+  for (const name of readdirSync(dir)) {
+    if (SKIP.has(name)) continue;
+    const p = join(dir, name);
+    if (statSync(p).isDirectory()) walk(p, out);
+    else if (EXT.has(extname(name).toLowerCase())) out.push(p);
   }
   return out;
 }
 
-const isSocialLine = (line) =>
-  /aria-label="(Instagram|TikTok)"/.test(line) && /<a\s/.test(line);
+function targets() {
+  const out = [];
+  for (const d of ['src', 'public', 'functions']) walk(join(ROOT, d), out);
+  const idx = join(ROOT, 'index.html');
+  if (existsSync(idx)) out.push(idx);
+  return out;
+}
+
+// Elemen <a ...> ... </a>, boleh membentang beberapa baris.
+const ANCHOR = /<a\b[\s\S]*?<\/a>/g;
+const IS_SOCIAL = (html) => /(?:instagram\.com|tiktok\.com)/i.test(html);
 
 const mode = process.argv.includes('--restore') ? 'restore'
-  : process.argv.includes('--status') ? 'status' : 'hide';
+  : process.argv.includes('--status') ? 'status'
+  : process.argv.includes('--scan') ? 'scan' : 'hide';
 
-// ---------- STATUS ----------
-if (mode === 'status') {
-  let hidden = 0, active = 0;
+// ---------- SCAN / STATUS ----------
+if (mode === 'scan' || mode === 'status') {
+  let aktif = 0, tersembunyi = 0, nFile = 0;
   for (const f of targets()) {
     const s = readFileSync(f, 'utf8');
-    const h = (s.match(/tautan sosial disembunyikan sementara/g) || []).length;
-    const a = s.split('\n').filter(isSocialLine).length;
-    hidden += h; active += a;
-    if (h || a) console.log(`  ${toKey(f)}: ${a} aktif, ${h} tersembunyi`);
+    const hits = (s.match(ANCHOR) || []).filter(IS_SOCIAL);
+    const marks = (s.match(new RegExp(MARK, 'g')) || []).length;
+    if (!hits.length && !marks) continue;
+    nFile++; aktif += hits.length; tersembunyi += marks;
+    console.log(`  ${toKey(f)}  —  aktif: ${hits.length}, tersembunyi: ${marks}`);
+    if (mode === 'scan') for (const h of hits) {
+      const url = (h.match(/href="([^"]+)"/) || [, '?'])[1];
+      console.log(`        ${url}`);
+    }
   }
-  console.log(`\nTotal: ${active} tautan aktif, ${hidden} penanda tersembunyi`);
-  console.log(existsSync(BACKUP) ? 'Sidecar backup ADA.' : 'Sidecar backup tidak ada.');
+  console.log(`\n${nFile} file tersentuh · ${aktif} tautan MASIH AKTIF · ${tersembunyi} penanda tersembunyi`);
+  console.log(existsSync(BACKUP) ? 'Sidecar backup: ADA.' : 'Sidecar backup: tidak ada.');
+  if (aktif && mode === 'scan') console.log('\nJalankan tanpa argumen untuk menyembunyikan yang masih aktif.');
   process.exit(0);
 }
 
 // ---------- RESTORE ----------
 if (mode === 'restore') {
   if (!existsSync(BACKUP)) {
-    console.error('GAGAL: scripts/.social-backup.json tidak ditemukan. Tidak ada yang bisa dipulihkan.');
+    console.error('GAGAL: scripts/.social-backup.json tidak ada. Tidak ada yang bisa dipulihkan.');
     process.exit(1);
   }
   const backup = JSON.parse(readFileSync(BACKUP, 'utf8'));
-  let n = 0;
-  for (const [rel, lines] of Object.entries(backup)) {
-    const file = fromKey(rel);
-    if (!existsSync(file)) { console.warn(`  LEWAT (tidak ada): ${rel}`); continue; }
-    const src = readFileSync(file, 'utf8').split('\n');
-    const queue = [...lines];
-    const out = src.map((line) => {
-      if (line.includes('tautan sosial disembunyikan sementara') && queue.length) { n++; return queue.shift(); }
-      return line;
-    });
-    if (queue.length) console.warn(`  PERINGATAN ${rel}: ${queue.length} baris tersisa di backup, penanda kurang.`);
-    writeFileSync(file, out.join('\n'));
-    console.log(`  pulih: ${rel}`);
+  let n = 0, lewat = 0;
+  for (const [key, blocks] of Object.entries(backup)) {
+    const file = fromKey(key);
+    if (!existsSync(file)) { console.warn(`  LEWAT (file tidak ada): ${key}`); lewat++; continue; }
+    let s = readFileSync(file, 'utf8');
+    const q = [...blocks];
+    for (const m of [MARK_JSX, MARK_HTML]) {
+      while (q.length && s.includes(m)) { s = s.replace(m, q.shift()); n++; }
+    }
+    if (q.length) console.warn(`  PERINGATAN ${key}: ${q.length} blok tanpa penanda pasangan (file mungkin sudah diganti versi baru).`);
+    writeFileSync(file, s);
+    console.log(`  pulih: ${key}`);
   }
   unlinkSync(BACKUP);
-  console.log(`\n${n} tautan dipulihkan. Sidecar backup dihapus.`);
+  console.log(`\n${n} tautan dipulihkan${lewat ? `, ${lewat} file dilewati` : ''}. Sidecar dihapus.`);
   process.exit(0);
 }
 
-// ---------- HIDE ----------
-if (existsSync(BACKUP)) {
-  console.error('GAGAL: scripts/.social-backup.json sudah ada — tautan tampaknya sudah disembunyikan.');
-  console.error('Jalankan --restore dulu, atau hapus sidecar itu bila memang sudah tidak relevan.');
-  process.exit(1);
-}
-const backup = {};
-let n = 0;
+// ---------- HIDE (idempoten, aman dijalankan berulang) ----------
+const backup = existsSync(BACKUP) ? JSON.parse(readFileSync(BACKUP, 'utf8')) : {};
+if (Object.keys(backup).length) console.log('Sidecar sudah ada — mode lanjutan, entri lama dipertahankan.\n');
+
+let n = 0, nFile = 0;
 for (const file of targets()) {
-  const rel = toKey(file);
-  const src = readFileSync(file, 'utf8').split('\n');
+  const key = toKey(file);
+  const isJsx = /\.jsx?$/i.test(file);
   const removed = [];
-  const out = src.map((line) => {
-    if (!isSocialLine(line)) return line;
-    removed.push(line);
-    n++;
-    const indent = line.match(/^\s*/)[0];
-    return indent + (file.endsWith('.jsx') ? MARK_JSX : MARK_HTML);
+  const s = readFileSync(file, 'utf8').replace(ANCHOR, (m) => {
+    if (!IS_SOCIAL(m)) return m;
+    removed.push(m);
+    return isJsx ? MARK_JSX : MARK_HTML;
   });
   if (!removed.length) continue;
-  backup[rel] = removed;
-  writeFileSync(file, out.join('\n'));
-  console.log(`  ${rel}: ${removed.length} tautan disembunyikan`);
+  backup[key] = (backup[key] || []).concat(removed);
+  writeFileSync(file, s);
+  n += removed.length; nFile++;
+  console.log(`  ${key}: ${removed.length} tautan disembunyikan`);
 }
-if (!n) { console.log('Tidak ada tautan Instagram/TikTok yang ditemukan.'); process.exit(0); }
+
+if (!n) {
+  console.log('Tidak ada tautan Instagram/TikTok aktif. Semua sudah bersih.');
+  process.exit(0);
+}
 writeFileSync(BACKUP, JSON.stringify(backup, null, 2));
-console.log(`\n${n} tautan disembunyikan di ${Object.keys(backup).length} file.`);
-console.log('Markup asli tersimpan di scripts/.social-backup.json — JANGAN dihapus, itu kunci pemulihan.');
-console.log('Commit sidecar ini juga supaya pemulihan tetap bisa dilakukan dari mesin lain.');
+console.log(`\n${n} tautan disembunyikan di ${nFile} file.`);
+console.log('Markup asli tersimpan di scripts/.social-backup.json — WAJIB ikut di-commit.');
+console.log('\nIngat: setiap kali menimpa file dengan versi baru, jalankan skrip ini lagi.');
