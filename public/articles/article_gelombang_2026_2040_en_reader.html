@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2026–2040: The Next Great Economic Wave — From Power and Downstreaming to Robotics and the Space Economy — Sobat Investor</title>
+<meta name="description" content="A 2026-2040 map with evidence separated from hope: Indonesia’s 69.5 GW power plan, the IEA data-centre electricity projection and its scenario range, IDR584.1 trillion of realised downstream investment, robotics, advanced materials and the space economy — plus how this thesis could be proven wrong.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --forest:#1F3B2D; --forest-deep:#162a20; --cream:#F4EFE6; --cream2:#EBE3D3;
+    --ink:#1A2A20; --ink-soft:#46584d; --gold:#C49B3C; --rust:#B85C38;
+    --line:rgba(26,42,32,.12); --maxw:720px;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--cream);color:var(--ink);
+    font-family:'Plus Jakarta Sans',system-ui,-apple-system,sans-serif;
+    font-size:18px;line-height:1.72;font-weight:400;
+    text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased;}
+  .serif{font-family:'Fraunces',Georgia,serif;}
+
+  /* ---------- header band ---------- */
+  header.hero{background:var(--forest);color:var(--cream);position:relative;overflow:hidden;}
+  .hero-inner{max-width:var(--maxw);margin:0 auto;padding:54px 24px 60px;position:relative;z-index:2;}
+  .eyebrow{font-size:12.5px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--gold);margin:0 0 18px;}
+  h1.title{font-weight:600;font-size:clamp(30px,5.4vw,46px);line-height:1.08;margin:0;
+    letter-spacing:-.01em;max-width:13ch;}
+  .hero-sub{margin:18px 0 0;color:rgba(244,239,230,.78);font-size:16.5px;max-width:46ch;}
+  .hero-bull{position:absolute;right:-26px;bottom:-40px;width:230px;height:auto;opacity:.16;z-index:1;}
+  @media(max-width:640px){.hero-bull{width:160px;right:-22px;bottom:-30px}}
+
+  /* ---------- article ---------- */
+  main{max-width:var(--maxw);margin:0 auto;padding:8px 24px 72px;}
+  article{padding-top:40px;}
+  article p{margin:0 0 20px;}
+  article h2{font-family:'Fraunces',Georgia,serif;font-weight:600;color:var(--forest);
+    font-size:clamp(22px,3.6vw,28px);line-height:1.2;margin:46px 0 16px;
+    padding-top:18px;border-top:1px solid var(--line);letter-spacing:-.01em;}
+  article h3{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;color:var(--forest);
+    font-size:17px;margin:30px 0 10px;letter-spacing:.01em;}
+  article ul{margin:0 0 22px;padding-left:0;list-style:none;}
+  article ul li{position:relative;padding-left:26px;margin:0 0 12px;}
+  article ul li::before{content:"";position:absolute;left:4px;top:.66em;width:7px;height:7px;
+    background:var(--gold);border-radius:50%;}
+  article ol{margin:0 0 22px;padding-left:24px;}
+  article ol li{margin:0 0 12px;padding-left:4px;}
+  article ol li::marker{color:var(--gold);font-weight:700;}
+  strong{font-weight:700;color:var(--forest-deep);}
+  em{font-style:italic;}
+  a{color:var(--rust);text-decoration:underline;text-underline-offset:2px;text-decoration-thickness:1px;}
+
+  blockquote{margin:30px 0;padding:22px 26px;background:var(--forest);color:var(--cream);
+    border-radius:14px;font-family:'Fraunces',Georgia,serif;font-size:clamp(20px,3.2vw,25px);
+    line-height:1.3;font-weight:500;}
+  blockquote strong{color:var(--cream);font-weight:600;}
+
+  /* references */
+  hr{border:none;border-top:1px solid var(--line);margin:40px 0;}
+  article h2:has(+ h3){}
+  /* bagian referensi (setelah heading "Referensi") di-card-kan via .refs nanti */
+  .refs{background:var(--cream2);border-radius:16px;padding:6px 26px 22px;margin-top:8px;}
+  .refs h3{margin-top:26px;}
+  .refs ul li{font-size:15px;line-height:1.55;color:var(--ink-soft);}
+  .refs ul li::before{background:rgba(31,59,45,.4);width:5px;height:5px;top:.62em;}
+
+  .disclaimer{margin-top:34px;padding:16px 20px;border-left:3px solid var(--gold);
+    background:rgba(196,155,60,.08);border-radius:0 10px 10px 0;
+    font-size:14px;color:var(--ink-soft);font-style:italic;}
+  .disclaimer em{font-style:italic;}
+
+  footer.brand{max-width:var(--maxw);margin:0 auto;padding:0 24px 56px;
+    color:var(--ink-soft);font-size:13px;}
+  footer .dot{color:var(--gold);}
+</style>
+
+<style>
+  /* ===== Reader mode (paginasi seperti buku) ===== */
+  :root{ --rbar:50px; }
+  html,body{ height:100%; }
+  body{ margin:0; overflow:hidden; background:var(--cream); }
+
+  .rbar{ position:fixed; top:0; left:0; right:0; height:var(--rbar); z-index:60;
+    display:flex; align-items:center; gap:8px; padding:0 12px;
+    background:var(--cream); border-bottom:1px solid rgba(26,42,32,.1); }
+  .rbar .rback{ font-size:24px; color:var(--forest); text-decoration:none; line-height:1; padding:2px 8px; }
+  .rbar .rbrand{ font-family:'Fraunces',Georgia,serif; font-weight:600; font-size:15px; color:var(--ink); }
+  .rbar .rbrand b{ color:var(--gold); }
+  .rbar .rspace{ flex:1; }
+  .rbar .rpage{ font-size:12px; color:var(--ink-soft); font-variant-numeric:tabular-nums; min-width:38px; text-align:right; }
+  .rbar .rmark{ background:none; border:none; cursor:pointer; font-size:17px; line-height:1; padding:4px;
+    filter:grayscale(1); opacity:.45; transition:opacity .15s, filter .15s; }
+  .rbar .rmark.on{ filter:none; opacity:1; }
+
+  .book{ position:fixed; top:var(--rbar); left:0; right:0; bottom:6px;
+    column-gap:0; column-fill:auto;
+    padding:14px 0 6px; box-sizing:border-box;
+    overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch;
+    scroll-behavior:smooth; scrollbar-width:none; }
+  .book::-webkit-scrollbar{ display:none; }
+  .book article{ padding:0; }
+  .book article > *{ margin-left:26px; margin-right:26px; }
+  .book article h2{ margin-top:30px; }
+  .book h2, .book h3{ break-after:avoid; }
+  .book blockquote, .book li, .book .cover{ break-inside:avoid; }
+  .book p, .book li{ orphans:2; widows:2; }
+
+  .cover{ background:var(--forest); color:var(--cream); border-radius:16px;
+    margin:0 26px 22px !important; padding:30px 26px; }
+  .cover .eyebrow{ color:var(--gold); font-size:12px; font-weight:700; letter-spacing:.16em;
+    text-transform:uppercase; margin:0 0 14px; }
+  .cover h1{ font-family:'Fraunces',Georgia,serif; font-weight:600; font-size:clamp(28px,7.5vw,40px);
+    line-height:1.1; margin:0; }
+  .cover h1 b{ color:var(--gold); font-weight:600; }
+  .cover .sub{ margin:16px 0 0; color:rgba(244,239,230,.82); font-size:15px; line-height:1.5; }
+  .cover .hint{ margin:20px 0 0; color:rgba(244,239,230,.6); font-size:12.5px; }
+
+  .rprogress{ position:fixed; left:0; right:0; bottom:0; height:6px; background:rgba(26,42,32,.08); z-index:60; }
+  .rfill{ height:100%; width:0; background:var(--gold); transition:width .2s ease; }
+
+  .nav{ position:fixed; bottom:22px; z-index:61; width:42px; height:42px; border-radius:50%;
+    border:none; background:rgba(31,59,45,.92); color:var(--cream); font-size:24px; line-height:1;
+    display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0;
+    box-shadow:0 4px 14px rgba(26,42,32,.22); }
+  .nav.prev{ left:14px; } .nav.next{ right:14px; }
+
+  .rchip{ position:fixed; top:calc(var(--rbar) + 8px); right:12px; z-index:61; display:none;
+    align-items:center; gap:5px; background:var(--forest); color:var(--cream); border:none; cursor:pointer;
+    font-size:12px; padding:6px 11px; border-radius:100px; font-family:inherit;
+    box-shadow:0 4px 14px rgba(26,42,32,.2); }
+
+  .rtoast{ position:fixed; left:50%; transform:translateX(-50%); bottom:64px; z-index:62;
+    background:var(--ink); color:var(--cream); font-size:12.5px; padding:8px 14px; border-radius:100px;
+    opacity:0; pointer-events:none; transition:opacity .25s ease; max-width:80vw; text-align:center; }
+  .rtoast.show{ opacity:1; }
+</style>
+</head>
+<body>
+<div class="rbar">
+  <a href="/?tab=baca" class="rback" aria-label="Back to article list">&lsaquo;</a>
+  <span class="rbrand">sobat<b>.</b>investor</span>
+  <span class="rspace"></span>
+  <a href="article_gelombang_2026_2040_en.html" style="text-decoration:none;background:#C49B3C;color:#1A2A20;padding:6px 11px;border-radius:100px;font-size:12px;font-weight:700;white-space:nowrap;margin-right:2px;">📄 Article</a>
+  <button id="rmark" class="rmark" title="Mark your place" aria-label="Mark your place">&#128278;</button>
+  <span class="rpage"><span id="rcur">1</span>/<span id="rtot">1</span></span>
+</div>
+<button id="rchip" class="rchip" aria-label="Jump to bookmark">&#128278; Hal <span>1</span></button>
+
+<div id="book" class="book">
+  <article>
+    <div class="cover">
+      <p class="eyebrow">Education &middot; Sobat Investor</p>
+      <h1>The Next Wave<span style="color:var(--gold)">.</span></h1>
+      <p class="sub">Not which technology is fashionable, but which infrastructure becomes indispensable once that technology stops being news.</p>
+      <p class="hint">Swipe left to read &rarr; &middot; tap &#128278; to mark your place</p>
+    </div>
+  <p>Every few years a single theme absorbs almost all of the market's attention. For the past few years that theme has been AI. Before it, electric vehicles; before that, the digital economy. The pattern repeats: attention lands on the most visible layer, while the layer holding it up goes undiscussed until it becomes the constraint.</p>
+  <p>This article tries to reverse that order. The question is not which technology is currently fashionable, but <strong>which infrastructure and capabilities become indispensable once that technology stops being news and starts being a normal part of the economy.</strong></p>
+  <p>The horizon runs from 2026 to 2040, split into two acts. The first, 2026–2030, is largely already written into official plans and realised figures — so it can be checked. The second, beyond 2030, depends increasingly on assumptions the further out it goes. The difference in evidence status between the two is the most important thing in this piece, and it is deliberately not blurred.</p>
+
+  <h2>How to read this article</h2>
+  <p>The biggest problem with writing about the future isn't the content but the way readers give all of it equal weight. Last year's realised investment figures and a 2035 space-economy projection sit side by side, and both end up reading as equally solid. Yet the first has happened and the second is a model.</p>
+  <p>So every claim below is labelled with one of four classes:</p>
+  <div style="background:#EBE3D3;border-radius:16px;padding:20px 24px;margin:26px 0;">
+    <table style="width:100%;border-collapse:collapse;font-size:15px;line-height:1.55;">
+      <tr><td style="padding:8px 10px 8px 0;vertical-align:top;white-space:nowrap;"><strong>Realised data</strong></td><td style="padding:8px 0;color:#46584d;">Already happened and reported. It can be wrong through statistical revision, not through assumptions.</td></tr>
+      <tr><td style="padding:8px 10px 8px 0;vertical-align:top;white-space:nowrap;"><strong>Official target</strong></td><td style="padding:8px 0;color:#46584d;">A government or institutional plan. It shows policy direction, not guaranteed delivery.</td></tr>
+      <tr><td style="padding:8px 10px 8px 0;vertical-align:top;white-space:nowrap;"><strong>Institutional forecast</strong></td><td style="padding:8px 0;color:#46584d;">Model output with explicit assumptions. Sensitive to those assumptions.</td></tr>
+      <tr><td style="padding:8px 10px 8px 0;vertical-align:top;white-space:nowrap;"><strong>Frontier scenario</strong></td><td style="padding:8px 0;color:#46584d;">A long-term possibility. Worth monitoring, not worth deciding on.</td></tr>
+    </table>
+  </div>
+  <p>The further out the horizon, the lower the evidence class falls. That is not a weakness of the analysis — it is the actual state of things, and hiding it is what makes such writing dangerous.</p>
+
+  <h2>Part I · 2026–2030: Building the foundations</h2>
+
+  <h3>1. Power and grid: the common denominator beneath almost every theme</h3>
+  <p>Nearly every growth wave converges on the same requirement. AI, data centres, smelters, factories, electric vehicles, water treatment, robotics — all of them need reliable electricity. Power infrastructure is therefore better read as a layer supporting many sectors than as a standalone energy theme.</p>
+  <p><em>Official target.</em> Indonesia's RUPTL 2025–2034 plans 69.5 GW of additional capacity: 42.6 GW of renewables (61%), 10.3 GW of storage (15%), and 16.6 GW of fossil-based capacity (24%). Renewables and storage together account for 76%.</p>
+
+  <div style="background:#EBE3D3;border-radius:16px;padding:24px;margin:26px 0;">
+    <div style="font-size:13px;font-weight:700;letter-spacing:.06em;color:#1F3B2D;margin-bottom:16px;">PLANNED CAPACITY ADDITIONS, RUPTL 2025–2034 (GW)</div>
+    <svg viewBox="0 0 460 150" style="width:100%;height:auto;display:block;" role="img" aria-label="Bar chart of planned capacity additions under RUPTL">
+      <g font-family="'Plus Jakarta Sans',sans-serif" font-size="11">
+        <text x="0" y="20" fill="#46584d">Renewables</text>
+        <rect x="76" y="9" width="316" height="16" rx="3" fill="#2E7D4F"/>
+        <text x="400" y="21" fill="#1A2A20" font-weight="700">42.6</text>
+        <text x="0" y="52" fill="#46584d">Fossil</text>
+        <rect x="76" y="41" width="123" height="16" rx="3" fill="#B85C38"/>
+        <text x="207" y="53" fill="#1A2A20" font-weight="700">16.6</text>
+        <text x="0" y="84" fill="#46584d">Storage</text>
+        <rect x="76" y="73" width="76" height="16" rx="3" fill="#C49B3C"/>
+        <text x="160" y="85" fill="#1A2A20" font-weight="700">10.3</text>
+        <line x1="76" y1="104" x2="440" y2="104" stroke="rgba(26,42,32,.15)"/>
+        <text x="0" y="124" fill="#1F3B2D" font-weight="700">Total</text>
+        <text x="76" y="124" fill="#1F3B2D" font-weight="700">69.5 GW</text>
+        <text x="164" y="124" fill="#46584d">— 76% from renewables + storage</text>
+        <text x="0" y="142" fill="#46584d" font-size="10">Renewables detail: solar 17.1 · hydro 11.7 · wind 7.2 · geothermal 5.2 · bioenergy 0.9 · nuclear 0.5</text>
+      </g>
+    </svg>
+  </div>
+
+  <p>Generation alone is not enough without networks. PLN cites plans for roughly 47,758 circuit-kilometres of new transmission, with transmission and substation investment needs of about IDR565.3 trillion. This is why transformers, switchgear, cables, substations, storage and grid management can become pinch points when capacity build-out and demand growth arrive at the same time.</p>
+  <p>Two details usually missing from popular summaries, and both matter:</p>
+  <ul>
+    <li><strong>The load is back-weighted.</strong> The additions split into two phases: 27.9 GW across 2025–2029 and 41.6 GW across 2030–2034. Sixty per cent of the work sits in the second five years, when the renewables share rises to 73%.</li>
+    <li><strong>The plan itself is under review.</strong> In April 2026 the Ministry of Energy and Mineral Resources stated it was discussing a revision of RUPTL 2025–2034 to make it more adaptive to national electricity needs. Every figure above therefore stands as a target that can still shift — not a final commitment.</li>
+  </ul>
+  <p>The underlying assumption is worth knowing too: the RUPTL was built to support an economic growth target of 8% per year. If realised growth runs well below that, electricity demand follows, and part of the planned capacity risks being delayed or surplus. This is not merely a technical risk — it is the variable the entire thesis rests on.</p>
+  <blockquote><strong>Consumer technology can change within months; power plants, grids and electrical equipment take years. That gap in lead times is exactly what creates pinch points.</strong></blockquote>
+
+  <h3>2. AI and data centres: a digital world that turns out to be very physical</h3>
+  <p>AI is usually discussed as software. Yet behind every model sit chips, servers, storage, networking, fibre, buildings, cooling and electricity.</p>
+  <p><em>Institutional forecast.</em> The International Energy Agency projects global data-centre electricity consumption rising from about 415 TWh in 2024 — roughly 1.5% of world electricity use — to around 945 TWh by 2030 in its Base Case, growing about 15% per year. By 2035 the figure is projected at around 1,200 TWh.</p>
+  <p>What is rarely quoted: the IEA does not publish a single number but a range. Its low scenario reaches roughly 700 TWh and its high scenario roughly 1,100 TWh by 2030. That range matters precisely because it is wide — it says something the single figure of 945 does not.</p>
+
+  <div style="background:#EBE3D3;border-radius:16px;padding:24px;margin:26px 0;">
+    <div style="font-size:13px;font-weight:700;letter-spacing:.06em;color:#1F3B2D;margin-bottom:16px;">GLOBAL DATA-CENTRE ELECTRICITY CONSUMPTION (TWh per year)</div>
+    <svg viewBox="0 0 460 170" style="width:100%;height:auto;display:block;" role="img" aria-label="Chart of global data centre electricity consumption in 2024 and the 2030 projection range">
+      <g font-family="'Plus Jakarta Sans',sans-serif" font-size="11">
+        <line x1="40" y1="130" x2="450" y2="130" stroke="rgba(26,42,32,.25)"/>
+        <rect x="70" y="82" width="70" height="48" rx="3" fill="#1F3B2D"/>
+        <text x="105" y="76" fill="#1A2A20" font-weight="700" text-anchor="middle">415</text>
+        <text x="105" y="146" fill="#46584d" text-anchor="middle">2024 (realised)</text>
+        <rect x="250" y="21" width="70" height="109" rx="3" fill="#C49B3C"/>
+        <text x="285" y="15" fill="#1A2A20" font-weight="700" text-anchor="middle">945</text>
+        <text x="285" y="146" fill="#46584d" text-anchor="middle">2030 (Base Case)</text>
+        <line x1="360" y1="3" x2="360" y2="49" stroke="#B85C38" stroke-width="2"/>
+        <line x1="352" y1="3" x2="368" y2="3" stroke="#B85C38" stroke-width="2"/>
+        <line x1="352" y1="49" x2="368" y2="49" stroke="#B85C38" stroke-width="2"/>
+        <text x="376" y="7" fill="#B85C38" font-size="10">1,100 (high)</text>
+        <text x="376" y="53" fill="#B85C38" font-size="10">700 (low)</text>
+        <text x="376" y="26" fill="#46584d" font-size="10">2030 scenario</text>
+        <text x="376" y="38" fill="#46584d" font-size="10">range</text>
+        <text x="0" y="166" fill="#46584d" font-size="10">Source: IEA, Energy and AI (2025). Base Case grows about 15% per year; around 1,200 TWh by 2035.</text>
+      </g>
+    </svg>
+  </div>
+
+  <p>The IEA also highlights a timing mismatch that sits at the heart of this section: a data centre can be built in two to three years, while the generation and grid that supply it require far longer planning and construction. AI growth therefore does not stop at chip demand — it propagates into grid connections, transformers, backup power, cooling, fibre and power management.</p>
+  <p>One comparison puts the scale in place: according to the IEA, by the end of this decade the United States is set to consume more electricity for data centres than for producing aluminium, steel, cement, chemicals and all other energy-intensive goods combined.</p>
+
+  <h3>3. Gas: the flexibility still needed through the transition</h3>
+  <p>Renewables growth does not remove the need for dispatchable supply. Solar and wind are variable, while industry and data centres need round-the-clock reliability. RUPTL 2025–2034 still includes 10.3 GW of additional gas-fired capacity — equal to the storage addition, and the largest part of the fossil share.</p>
+  <p><em>Institutional forecast.</em> In the IEA's Stated Policies Scenario, Southeast Asian gas demand still grows by more than 30% to 2035. This is not a claim that gas will dominate the future energy mix; it is a claim that pipelines, compression, LNG/CNG, storage, regasification and distribution retain a function for as long as the transition is unfinished.</p>
+
+  <h3>4. Downstream industrialisation: from tonnage to value added</h3>
+  <p><em>Realised data.</em> Across 2025 Indonesia's realised investment reached IDR1,931.2 trillion — 101.3% of target and 12.7% growth year on year. Downstream investment contributed IDR584.1 trillion, or 30.2% of the total, growing 43.3%. Minerals were the largest contributor at IDR373.1 trillion: nickel IDR185.2 trillion, copper IDR65.8 trillion, bauxite IDR53.1 trillion, iron and steel IDR39.2 trillion, tin IDR11.3 trillion. The remainder came from plantations and forestry at IDR144.5 trillion, oil and gas at IDR60 trillion, and fisheries and marine at IDR6.4 trillion.</p>
+  <p>Three things in these numbers deserve slower reading.</p>
+  <ul>
+    <li><strong>Downstreaming grew three times faster than national investment</strong> — 43.3% against 12.7%. That is a shift in composition, not merely a rising tide.</li>
+    <li><strong>The spread is moving off Java.</strong> Some 71.1% of downstream investment sits outside Java, and nationally, off-Java investment (IDR991.2 trillion) has now overtaken Java (IDR940 trillion). Central Sulawesi is the largest downstreaming province.</li>
+    <li><strong>Capital-intensive, not labour-intensive.</strong> Investment grew 12.7% while employment absorbed grew only 10.4%, to 2.71 million people. For investors this is a reminder that the value added by downstreaming flows more to owners of capital and technology than to wages — with social and political consequences that belong in the analysis.</li>
+  </ul>
+  <p>The next act is not simply ore to smelter. Economic value rises as the chain moves through refining, intermediate materials, advanced materials, components, finished products and recycling. But the constraint moves too: from permits and mines toward technology, energy, logistics, quality control and industrial engineering capability. The second kind of constraint is far harder to buy.</p>
+
+  <h3>5. Industrial estates, logistics and connectivity</h3>
+  <p><em>Realised data.</em> By mid-2026 the Ministry of Industry recorded 179 industrial estates — up 51.7% since 2020, an addition of 61 estates. Java still holds 106 of them (59%), with the remaining 73 outside Java. May 2026 figures record 176 estates covering 98,291 hectares with 11,970 industrial tenants and 2.35 million workers. Industrial estates are where land, power, water, gas, fibre, roads, ports, warehouses and waste treatment meet — and therefore where every theme in this article converges physically.</p>
+  <p>The realisation figures support this: the housing, industrial estate and office subsector recorded IDR140.4 trillion in 2025, while transport, warehousing and telecommunications reached IDR211 trillion — second only to basic metals at IDR262 trillion.</p>
+
+  <h3>6. Water and environment: the most frequently ignored constraint</h3>
+  <p><em>Official target.</em> The 2025–2029 RPJMN targets safe drinking-water access for 43% of households and piped access for 40.2%. In 2026 the government issued Minister of Public Works Regulation No. 6/2026 setting the national drinking-water supply strategy for 2026–2030.</p>
+  <p>Industrialisation raises demand for clean water, process water, wastewater treatment, recycling and reliable cooling. Because water infrastructure has long asset lives and highly local constraints, its importance can rise precisely while public attention is elsewhere. Data centres are the most direct example: they are not only electricity consumers but consumers of cooling water, often in locations already under stress.</p>
+
+  <h3>7. Healthcare: quieter structural growth</h3>
+  <p>Healthcare has a different profile from AI. Its drivers are slower but more certain: shifting age structure, urbanisation, rising service-quality expectations, and diagnostics. Statistics Indonesia publishes population projections through 2050 as a basis for reading demographic change, and the Ministry of Health's 2025–2029 Strategic Plan emphasises stronger primary and referral care, health workforce, system resilience and digital transformation.</p>
+  <p>Because basic healthcare demand is persistent, this sector reads better as long-run structural growth than as a short-cycle trend. It rarely becomes a loud theme — which is exactly why it belongs on the list.</p>
+
+  <h3>8. Look for the pinch point, not the popular theme</h3>
+  <p>When demand accelerates, the problem shifts from demand to capacity. Data centres need grid connections; renewables need transmission; industrial estates need water; smelters need power reliability; digital infrastructure needs fibre and cooling.</p>
+  <p>The stronger strategic question is therefore not "which theme is rising" but <strong>what becomes the pinch point when growth actually arrives.</strong> A pinch point is where demand rises faster than supply can respond — and that is where investment needs, pricing power and new economic value tend to form.</p>
+  <p>One caveat rarely accompanies this argument: pinch points do not stay pinched. Precisely because margins there are attractive, capital flows in, capacity is added, and margins normalise — sometimes overshooting into oversupply. What determines long-term value is not the existence of a pinch point but how hard it is to replicate: permits, location, scale, technology, or long-term contracts.</p>
+
+  <h2>Part II · Beyond 2030: from the digital economy to the intelligent physical economy</h2>
+  <p>The caveat begins here. Part I rests on realised figures and official plans. Part II rests on institutional forecasts and scenarios. Confidence is lower, and it should be.</p>
+
+  <h3>9. What matters is not one technology but where they meet</h3>
+  <p>Once the physical and digital foundations mature, the 2030s may be defined by convergence. AI meets robotics; AI meets biology; materials science meets nanotechnology; satellite services meet autonomous systems. What changes an economy is not only progress within each field but the way they reinforce one another.</p>
+
+  <h3>10. Robotics: giving AI a body</h3>
+  <p><em>Realised data.</em> The IFR recorded about 542,000 new industrial robots installed globally in 2024, more than double the figure of ten years earlier. Asia accounted for 74% of new deployments, Europe 16%, the Americas 9%. China alone was 54% of the global total. The worldwide operational stock reached 4,664,000 units, up 9%.</p>
+  <p>An important nuance usually lost: 2024 was the second-highest annual count on record, but 2% <em>below</em> the peak set two years earlier. Annual installations have now topped 500,000 units for four consecutive years — meaning the pattern is flat at a high level, not vertical. "More than double in ten years" is true, but most of that jump happened in the first half of the decade. The IFR expects the market to pass 700,000 units per year by 2028.</p>
+  <p>The next generation combines computer vision, generative AI, sensors, reinforcement learning and edge computing. Machines increasingly see, interpret, decide, move and learn — widening application from factories and warehouses to mining, ports, agriculture, construction, hospitals and offshore operations.</p>
+
+  <h3>11. Autonomous systems: from robots to systems that run themselves</h3>
+  <p>Combine AI, robotics, sensors, satellites, 5G/6G and edge computing and the result is autonomy: autonomous mines, warehouses and vessels, drone inspection, precision agriculture, robotic ports. For an archipelagic country, satellite connectivity and autonomy carry particular relevance for logistics, maritime activity, disaster monitoring, plantations and remote regions.</p>
+
+  <h3>12. The space economy: the value is not in tourism</h3>
+  <p><em>Institutional forecast.</em> The World Economic Forum with McKinsey projects the global space economy growing from roughly US$630 billion in 2023 to US$1.8 trillion by 2035. The main drivers are not the most visible ones: satellite communications, positioning-navigation-timing, Earth observation, and space-enabled services used on Earth.</p>
+  <p>Space tourism will likely remain a high-profile premium segment rather than the centre of the economic thesis. NASA itself is preparing a transition from the International Space Station toward commercially owned and operated low-Earth-orbit stations, with NASA as one customer among several. If a commercial LEO market does form, opportunities could emerge in research services, private missions, microgravity experiments and — in a more distant scenario — niche orbital manufacturing. Commercial scale and economics remain highly uncertain.</p>
+
+  <h3>13. Nanotechnology and advanced materials: the revolution you don't see</h3>
+  <p>Nanotechnology operates at roughly 1–100 nanometres, where materials can display properties different from their bulk form. Applications already span electronics, medicine, transport, energy, food safety and environmental science. The OECD notes that advanced materials appear regularly on lists of critical technologies and are increasingly the subject of national strategies.</p>
+  <p>The relevance to Indonesia connects directly to the downstreaming section above: moving from raw materials to advanced materials raises sophistication, performance, purity and value — but demands capability that cannot be acquired simply by building a plant.</p>
+
+  <h3>14. Synthetic biology: engineering enters living systems</h3>
+  <p>The OECD sees synthetic biology as capable of transforming industrial activity by engineering living systems to produce goods across health, food, chemicals and materials. Its convergence with AI and automation accelerates the design-build-test-learn cycle.</p>
+  <p>For a biodiversity-rich country, long-term value does not come from possessing the biological resources. It comes from the ability to convert that diversity into data, research, intellectual property, biotechnology and manufacturing at scale. The gap between owning and being able to process is exactly the gap that separates exporting ore from exporting advanced materials.</p>
+
+  <h3>15. Quantum: large potential, uncertain timing</h3>
+  <p>The OECD divides quantum technologies into computing, sensing and communication. Their potential applications are broad, but commercial readiness varies and timelines are hard to pin down. Quantum therefore belongs as frontier optionality rather than as a base-case assumption for the early 2030s.</p>
+
+  <h3>16. Fusion: a more ambitious roadmap, unproven economics</h3>
+  <p><em>Official target.</em> On 9 June 2026 the U.S. Department of Energy released the finalised Fusion Science and Technology Roadmap — a national strategy built with input from more than 800 scientists and engineers, over 15 private companies, more than 10 national laboratories and over 70 universities. Its aim is to support fusion pilot plants and commercial fusion power in the mid-2030s.</p>
+  <p>This is a roadmap and a strategic target, not a guarantee that fusion will be economic or scalable by any particular date. Fusion still faces engineering, materials, supply-chain, funding and economic challenges. Its position in this outlook remains long-term optionality: potentially transformative if achieved, with materially lower timeline confidence than AI, robotics or satellite services.</p>
+
+  <h2>What this means for investors on the Indonesia Stock Exchange</h2>
+  <p>This section is why this article sits on Sobat Investor, and it is also the section requiring the most care.</p>
+  <p>A big theme does not automatically become shareholder profit. History offers many examples of industries that grew rapidly while destroying their owners' capital — airlines and solar are the two most cited. What decides outcomes is not demand growth but who manages to hold margins once that demand arrives.</p>
+  <p>A more useful frame is therefore not "which stocks benefit from AI" but three questions in order:</p>
+  <ol>
+    <li><strong>Where is the pinch point?</strong> Rarely in the most visible layer; usually in the one beneath it.</li>
+    <li><strong>How hard is that point to replicate?</strong> Permits, location, long-term contracts and scale last far longer than a technological edge that can be purchased.</li>
+    <li><strong>What has the market already paid for the story?</strong> The right theme at the wrong price still produces poor returns.</li>
+  </ol>
+  <p>Under the official IDX-IC sector classification, the themes above connect to several sectors at once — and they are deliberately named as sectors rather than tickers, because selecting an issuer requires company-level analysis that no theme can substitute for:</p>
+  <ul>
+    <li><strong>Infrastructure</strong> — electrical construction, grids, toll roads, ports, towers and fibre, and water management.</li>
+    <li><strong>Industrials</strong> — electrical equipment, machinery, heavy equipment, engineering and industrial maintenance services.</li>
+    <li><strong>Basic Materials</strong> — mineral refining, chemicals, cement and intermediate materials.</li>
+    <li><strong>Energy</strong> — gas, energy support services, and the transition fuel supply chain.</li>
+    <li><strong>Properties &amp; Real Estate</strong> — industrial estate developers, leasing serviced land together with its utilities.</li>
+    <li><strong>Technology</strong> — system integrators, data centres and enterprise digital services.</li>
+    <li><strong>Healthcare</strong> — hospitals, diagnostics and pharmaceuticals.</li>
+  </ul>
+  <p>One methodological reminder applies across that whole list: a sector label is not an investment thesis. Two issuers in the same sector can occupy very different positions in the value chain — one selling a commodity at thin margins, another holding long-term contracts with real bargaining power. That difference shows up only in the financial statements, never in the sector label.</p>
+
+  <h2>How this thesis could be proven wrong</h2>
+  <p>An analysis that cannot be wrong is useless. The following, if they occur, should lead a reader to downgrade the entire framework above:</p>
+  <ul>
+    <li><strong>Economic growth well below 8%.</strong> The whole scale of the RUPTL is built on that assumption. Sustained 5% growth would leave much of the planned capacity surplus, and the anticipated pinch points would never form.</li>
+    <li><strong>A RUPTL revision that cuts or reschedules targets.</strong> Revision discussions have been under way since April 2026. Any change in composition or timing directly alters Part I's conclusions.</li>
+    <li><strong>AI efficiency improving faster than expected.</strong> If compute required per unit of output falls sharply, data-centre electricity demand could track the IEA's low scenario at 700 TWh rather than 945 — weakening the entire downstream chain.</li>
+    <li><strong>A prolonged fall in mineral prices.</strong> The economics of downstreaming rest on the spread between raw and processed prices. Global nickel oversupply, for instance, can compress the whole chain.</li>
+    <li><strong>Capital arriving faster than the pinch point forms.</strong> This is the most common risk and the least anticipated: the problem is not that growth fails to arrive, but that too many parties build capacity to greet it.</li>
+  </ul>
+  <p>Four of those five can be monitored from public data published on a regular schedule. That is not accidental — a framework that cannot be monitored also cannot be corrected.</p>
+
+  <h2>Timeline 2026–2040</h2>
+  <div style="background:#EBE3D3;border-radius:16px;padding:8px 24px 20px;margin:26px 0;overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:15px;line-height:1.5;min-width:460px;">
+      <thead>
+        <tr style="border-bottom:2px solid rgba(31,59,45,.25);">
+          <th style="text-align:left;padding:14px 12px 10px 0;color:#1F3B2D;font-size:12px;letter-spacing:.06em;">HORIZON</th>
+          <th style="text-align:left;padding:14px 12px 10px 0;color:#1F3B2D;font-size:12px;letter-spacing:.06em;">DOMINANT THEMES</th>
+          <th style="text-align:left;padding:14px 0 10px;color:#1F3B2D;font-size:12px;letter-spacing:.06em;">EVIDENCE CLASS</th>
+        </tr>
+      </thead>
+      <tbody style="color:#46584d;">
+        <tr style="border-bottom:1px solid rgba(31,59,45,.10);"><td style="padding:12px 12px 12px 0;font-weight:700;color:#1A2A20;white-space:nowrap;">2026–2030</td><td style="padding:12px 12px 12px 0;">Power, grids, data centres, renewables, gas flexibility, downstreaming, water</td><td style="padding:12px 0;">Realised data + official targets</td></tr>
+        <tr style="border-bottom:1px solid rgba(31,59,45,.10);"><td style="padding:12px 12px 12px 0;font-weight:700;color:#1A2A20;white-space:nowrap;">2030–2035</td><td style="padding:12px 12px 12px 0;">Robotics, autonomy, satellite services, advanced materials</td><td style="padding:12px 0;">Commercial acceleration</td></tr>
+        <tr style="border-bottom:1px solid rgba(31,59,45,.10);"><td style="padding:12px 12px 12px 0;font-weight:700;color:#1A2A20;white-space:nowrap;">2030–2040</td><td style="padding:12px 12px 12px 0;">Applied nanotechnology, synthetic biology</td><td style="padding:12px 0;">Gradual commercialisation</td></tr>
+        <tr style="border-bottom:1px solid rgba(31,59,45,.10);"><td style="padding:12px 12px 12px 0;font-weight:700;color:#1A2A20;white-space:nowrap;">2035+</td><td style="padding:12px 12px 12px 0;">Commercial low Earth orbit, quantum</td><td style="padding:12px 0;">Early commercial / frontier</td></tr>
+        <tr><td style="padding:12px 12px 12px 0;font-weight:700;color:#1A2A20;white-space:nowrap;">2035+</td><td style="padding:12px 12px 12px 0;">Orbital manufacturing, fusion</td><td style="padding:12px 0;">Scenario; economics unproven</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Look at the last column. It declines consistently from top to bottom, and that is the most useful information in the table — not the list of themes.</p>
+
+  <h2>Closing: from trend to infrastructure</h2>
+  <p>The 2026–2030 period will likely be more about building platforms: power, grids, data centres, industrial estates, water, logistics, advanced manufacturing and human capital. Those platforms are what then let robotics, autonomy, advanced materials, synthetic biology and space-enabled services scale faster.</p>
+  <p>The technologies that most change economies are rarely the most spectacular. The internet was once merely a network; cloud was a collection of servers; semiconductors were small pieces of silicon. Each became infrastructure that stopped being thought of as new.</p>
+  <blockquote><strong>The most useful question may not be "which technology will be popular" but "which technologies become so important that one day we stop thinking of them as new technology?"</strong></blockquote>
+  <p>When that happens, innovation has become infrastructure — and infrastructure has become part of how the economy works.</p>
+  <p>For investors the practical conclusion is simple and slightly anticlimactic. Most of the value in this wave probably does not sit where the conversation is loudest, but in the boring layer underneath it: cables, substations, pipes, land, water and permits. That layer makes poor headlines. Which is exactly why it is less often overpriced.</p>
+
+  <h2>Methodology note</h2>
+  <div class="refs">
+  <p>Every figure in this article comes from the sources listed and was re-verified against its original source in August 2026. Figures that are plans or projections are explicitly labelled as such in the text. Charts were built by the editors from the numbers in the relevant sources, not copied from original materials.</p>
+  <p><strong>Limits of this analysis.</strong> This article is educational and thematic, not an investment recommendation. No ticker is named, and the mention of sectors is not intended as allocation advice. Institutional forecasts depend on assumptions that can change; official targets can be revised — RUPTL 2025–2034 itself was under revision discussion at the time of writing. The further out the horizon, the greater the need to update assumptions as new data arrives.</p>
+  <h3>References</h3>
+  <ul>
+    <li>Ministry of Energy and Mineral Resources, Directorate General of Electricity. (2025). <em>RUPTL PLN 2025–2034</em> — official presentation materials.</li>
+    <li>PT PLN (Persero). (2025). <em>RUPTL 2025–2034: PLN to Build a 47,758 km Green Super Grid.</em></li>
+    <li>Ministry of Energy and Mineral Resources. (2026). Statement on RUPTL 2025–2034 revision discussions, April 2026.</li>
+    <li>International Energy Agency. (2025). <em>Energy and AI</em> — Energy demand from AI; Executive Summary.</li>
+    <li>International Energy Agency. (2024). <em>Southeast Asia Energy Outlook 2024.</em></li>
+    <li>Ministry of Investment and Downstream Industry/BKPM. (2026). <em>Investment Realisation in 2025 Exceeds Target, Downstream Investment Jumps 43.3 Percent</em> (press release, 15 January 2026) and presentation to Commission XII of the House of Representatives, 15 July 2026.</li>
+    <li>Ministry of Industry. (2026). Industrial estate data: presentation to Commission VII of the House of Representatives, 29 June 2026 (179 estates); and May 2026 data (176 estates, 11,970 tenants, 2.35 million workers).</li>
+    <li>Ministry of National Development Planning/Bappenas. (2025). <em>Synergy of the 2026 Government Work Plan and State Budget.</em></li>
+    <li>Ministry of Public Works. (2026). RPJMN 2025–2029 drinking-water targets.</li>
+    <li>Minister of Public Works Regulation No. 6/2026 — National Drinking Water Supply Strategy 2026–2030.</li>
+    <li>Minister of Health Regulation No. 12/2025 — Ministry of Health Strategic Plan 2025–2029.</li>
+    <li>BPS-Statistics Indonesia. (2023). <em>Indonesia Population Projection 2020–2050.</em></li>
+    <li>International Federation of Robotics. (2025). <em>World Robotics 2025.</em></li>
+    <li>World Economic Forum &amp; McKinsey &amp; Company. (2024). <em>Space: The $1.8 Trillion Opportunity for Global Economic Growth.</em></li>
+    <li>NASA. (2025). <em>Commercial Space Stations</em>; NASA. (2022). <em>What is the Commercial Low Earth Orbit Economy?</em></li>
+    <li>U.S. National Nanotechnology Coordination Office. (2026). <em>About Nanotechnology</em>; <em>Applications of Nanotechnology.</em></li>
+    <li>OECD. (2025). <em>Steering the Future of Advanced Materials</em>; <em>Synthetic Biology in Focus</em>; <em>A Quantum Technologies Policy Primer.</em></li>
+    <li>U.S. Department of Energy. (2026). <em>Fusion Science and Technology Roadmap</em>, released 9 June 2026.</li>
+  </ul>
+  </div>
+  <p class="disclaimer"><em>This article is educational and thematic analysis, not investment advice. Projections and scenarios must not be read as certainties. Investment decisions remain entirely the responsibility of each reader.</em></p>
+  </article>
+</div>
+
+<div class="rprogress"><div id="rfill" class="rfill"></div></div>
+<button id="rprev" class="nav prev" aria-label="Previous page">&lsaquo;</button>
+<button id="rnext" class="nav next" aria-label="Next page">&rsaquo;</button>
+<div id="rtoast" class="rtoast" role="status"></div>
+
+<script src="reader_en.js"></script>
+</body>
+</html>

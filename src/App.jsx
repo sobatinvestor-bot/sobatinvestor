@@ -164,8 +164,8 @@ function Footer({ onOpenLegal, loggedIn, setTab }) {
       <div style={{ maxWidth: 680, margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginBottom: 14 }}>
           <a href="https://www.linkedin.com/in/sobat-investor-665a01419" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" style={socialBadge}><Linkedin size={18} /></a>
-          {/* tautan sosial disembunyikan sementara: node scripts/hide-socials.mjs --restore */}
-          {/* tautan sosial disembunyikan sementara: node scripts/hide-socials.mjs --restore */}
+          <a href="https://www.instagram.com/sobatinvestor.indonesia" target="_blank" rel="noopener noreferrer" aria-label="Instagram" style={socialBadge}><Instagram size={18} /></a>
+          <a href="https://www.tiktok.com/@sobatinvestor.indonesia" target="_blank" rel="noopener noreferrer" aria-label="TikTok" style={socialBadge}><TikTokIcon size={18} /></a>
         </div>
         <div style={{ marginBottom: 8 }}>
           {/* "Lihat Portofolio" di Footer HANYA untuk pengunjung anonim.
@@ -1859,6 +1859,7 @@ function BacaTab() {
 
   const ARTICLES = {
     id: [
+      { num: '07', tag: 'Makro · Tematik', title: '2026–2040: Gelombang Besar Ekonomi Baru', desc: 'Peta 2026–2040 dengan bukti yang dipisahkan dari harapan: RUPTL 69,5 GW, proyeksi listrik data center IEA beserta rentang skenarionya, realisasi hilirisasi Rp584,1 triliun, robotika, material maju, dan ekonomi antariksa — plus bagaimana tesis ini bisa terbukti salah.', href: '/articles/article_gelombang_2026_2040' },
       { num: '06', tag: 'Kemerdekaan · Filosofi', title: 'Menuju Financial Freedom: Aritmatika, Bukti, dan Kebijaksanaan Lintas Peradaban', desc: 'Tingkat tabungan yang menentukan waktu, batas-batas aturan 4%, risiko urutan imbal hasil, model dividen dan pajaknya di IDX, apa kata sains tentang uang dan kebahagiaan, serta jawaban enam peradaban atas pertanyaan "berapa yang cukup".', href: '/articles/article_financial_freedom' },
       { num: '05', tag: 'Portofolio · Risiko', title: 'Diversifikasi: Kenapa Jangan Taruh Semua Telur di Satu Keranjang', desc: 'Apa kata bukti: berapa banyak saham yang cukup, kenapa korelasi naik justru saat paling dibutuhkan, konteks sektor IDX, dan pelajaran dari Markowitz hingga Buffett.', href: '/articles/article_diversifikasi' },
       { num: '04', tag: 'Filosofi · Proses', title: 'Proses: Mengapa Setiap Keberhasilan Dibangun dari Tindakan Kecil yang Berulang', desc: 'Mengapa proses lebih menentukan daripada hasil — pelajaran ketekunan dan penguasaan dari semangat Cina, Yunani, Arab, Persia, Jepang, dan sains modern, disusun menurut perkiraan waktu.', href: '/articles/article_proses_keberhasilan' },
@@ -1867,6 +1868,7 @@ function BacaTab() {
       { num: '01', tag: 'Strategi · Metodologi', title: 'Backtest: Cara Menguji Strategi Saham Tanpa Menipu Diri Sendiri', desc: 'Apa itu backtest, tujuh jebakan yang membuatnya berbohong, dan cara membacanya untuk investor ritel IDX — termasuk biaya nyata, likuiditas, dan ARA/ARB.', href: '/articles/article_backtest' },
     ],
     en: [
+      { num: '07', tag: 'Macro · Thematic', title: '2026–2040: The Next Great Economic Wave', desc: 'A 2026–2040 map with evidence separated from hope: Indonesia\u2019s 69.5 GW power plan, the IEA data-centre electricity projection and its scenario range, IDR584.1 trillion of realised downstream investment, robotics, advanced materials and the space economy — plus how this thesis could be proven wrong.', href: '/articles/article_gelombang_2026_2040_en' },
       { num: '06', tag: 'Freedom · Philosophy', title: 'Toward Financial Freedom: The Arithmetic, the Evidence, and Wisdom Across Civilizations', desc: 'The savings rate that determines the timeline, the limits of the 4% rule, sequence-of-returns risk, the dividend model and its Indonesian tax context, what science says about money and happiness, and how six civilizations answered "how much is enough".', href: '/articles/article_financial_freedom_en' },
       { num: '05', tag: 'Portfolio · Risk', title: "Diversification: Why You Shouldn't Put All Your Eggs in One Basket", desc: 'What the evidence says: how many stocks are enough, why correlation rises exactly when you need it most, IDX sector context, and lessons from Markowitz to Buffett.', href: '/articles/article_diversifikasi_en' },
       { num: '04', tag: 'Philosophy · Process', title: 'Process: Why Every Lasting Success Is Built from Small, Repeated Actions', desc: 'Why process matters more than outcome — lessons in patience and mastery from Chinese, Greek, Arab, Persian, and Japanese traditions, and modern science, arranged by era.', href: '/articles/article_proses_keberhasilan_en' },

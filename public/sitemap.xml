@@ -8,6 +8,22 @@
     <priority>1.0</priority>
   </url>
   <url>
+    <loc>https://sobatinvestor.com/articles/article_gelombang_2026_2040</loc>
+    <lastmod>2026-08-30</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="id" href="https://sobatinvestor.com/articles/article_gelombang_2026_2040"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://sobatinvestor.com/articles/article_gelombang_2026_2040_en"/>
+  </url>
+  <url>
+    <loc>https://sobatinvestor.com/articles/article_gelombang_2026_2040_en</loc>
+    <lastmod>2026-08-30</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="id" href="https://sobatinvestor.com/articles/article_gelombang_2026_2040"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://sobatinvestor.com/articles/article_gelombang_2026_2040_en"/>
+  </url>
+  <url>
     <loc>https://sobatinvestor.com/articles/article_financial_freedom</loc>
     <lastmod>2026-08-29</lastmod>
     <changefreq>monthly</changefreq>
