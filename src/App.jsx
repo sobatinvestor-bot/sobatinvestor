@@ -2678,8 +2678,8 @@ function DeleteAllPortfolio({ count, onDeleteAll }) {
 // di HP (bersama minWidth 794 di bawah), sedangkan satuan fr membuat kolom
 // memuai mengisi lebar layar desktop. Header & baris WAJIB memakai konstanta
 // yang sama supaya tidak pernah melenceng.
-const KOLOM_TABEL = 'minmax(90px,1.5fr) minmax(56px,1fr) minmax(72px,1fr) minmax(72px,1fr) minmax(92px,1.3fr) minmax(96px,1.1fr)'
-  + ' minmax(52px,0.7fr) minmax(52px,0.7fr) minmax(56px,0.75fr) minmax(56px,0.75fr) minmax(64px,0.85fr)'; // + PER PBV ROA NPM P/L30H
+const KOLOM_TABEL = 'minmax(90px,1.5fr) minmax(56px,1fr) minmax(72px,1fr) minmax(72px,1fr) minmax(62px,0.8fr) minmax(92px,1.3fr) minmax(96px,1.1fr)'
+  + ' minmax(52px,0.7fr) minmax(52px,0.7fr) minmax(56px,0.75fr) minmax(56px,0.75fr) minmax(64px,0.85fr)'; // + BOBOT PER PBV ROA NPM P/L30H
 
 // Satu sel metrik fundamental di Daftar Saham. Sumbernya tabel `fundamentals` —
 // SAMA dengan tab Analisis, jadi angkanya pasti konsisten dengan kartu analisis.
@@ -2822,6 +2822,20 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
     else { setSortKey(k); setSortDir(k === 'symbol' ? 'asc' : 'desc'); }
   };
 
+  // Bobot alokasi memakai harga yang SAMA dengan yang tampil di kolom SAAT INI.
+  // Konsekuensinya harus dipegang konsisten: kalau kolom SAAT INI menampilkan "—"
+  // karena kuotasi live tidak ada, kolom BOBOT juga "—". Menyajikan persentase dari
+  // harga beli yang diam-diam menggantikan berarti mengaku tidak tahu harganya di satu
+  // kolom lalu berlagak tahu di kolom sebelahnya.
+  //
+  // Penyebutnya tetap mencakup SELURUH posisi (s.price sudah berisi harga beli sebagai
+  // pengganti bagi baris tanpa kuotasi), supaya bobot emiten lain tidak menggelembung.
+  // Akibatnya jumlah bobot yang tampil bisa kurang dari 100% ketika ada baris "—" —
+  // dan selisih itu memang jujur menggambarkan bagian portofolio yang belum terharga.
+  const nilaiPos = (s) => s.price * s.qty;
+  const totalNilai = useMemo(() => stocks.reduce((a, s) => a + (nilaiPos(s) || 0), 0), [stocks]);
+  const bobot = (s) => (s.hasLive && totalNilai > 0 ? nilaiPos(s) / totalNilai * 100 : null);
+
   const baris = useMemo(() => {
     const nilai = (s, k) => {
       const f = funds[s.symbol] || {};
@@ -2830,6 +2844,7 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
       if (k === 'avg') return s.avg;
       if (k === 'price') return s.hasLive ? s.price : null;
       if (k === 'pl') return (s.hasLive && s.avg) ? (s.price - s.avg) / s.avg * 100 : null;
+      if (k === 'bobot') return (s.hasLive && totalNilai > 0) ? nilaiPos(s) : null;
       if (k === 'pl30') { const v = pl30[s.symbol]; return (v == null || isNaN(Number(v))) ? null : Number(v); }
       const v = f[k];
       return (v == null || isNaN(Number(v))) ? null : Number(v);
@@ -2847,7 +2862,7 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
       if (typeof va === 'string') return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
       return sortDir === 'asc' ? va - vb : vb - va;
     });
-  }, [stocks, sortKey, sortDir, funds, pl30]);
+  }, [stocks, sortKey, sortDir, funds, pl30, totalNilai]);
 
   return (
     <div className="fade-up" style={{ padding: '24px 20px', maxWidth: 1100, margin: '0 auto' }}>
@@ -2883,9 +2898,9 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
       ) : (
         <div style={{ background: C.cream2, borderRadius: 20, overflow: 'hidden' }}>
           <div style={{ overflow: 'auto', maxHeight: 460 }}>
-          {/* minWidth = total lebar minimum 11 kolom (758) + padding (36). Di HP tabel
+          {/* minWidth = total lebar minimum 12 kolom (820) + padding (36). Di HP tabel
               digeser horizontal; di desktop satuan fr memuai mengisi layar. */}
-          <div style={{ minWidth: 794 }}>
+          <div style={{ minWidth: 856 }}>
           {/* Header dulu berlatar C.cream2 — SAMA PERSIS dgn latar kartu, jadi tak ada
               pemisahan dan judul kolom terlihat mengambang. Sekarang pita forest
               (warna yang sama dengan tombol "Beli Saham"), teks krem, kolom yang
@@ -2898,6 +2913,7 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
             <Th label="QTY" k="qty" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
             <Th label="BELI" k="avg" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
             <Th label="SAAT INI" k="price" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+            <Th label="BOBOT" k="bobot" sortKey={sortKey} sortDir={sortDir} onSort={onSort} title="Porsi emiten ini terhadap total nilai portofolio" />
             <Th label="P/L" k="pl" sortKey={sortKey} sortDir={sortDir} onSort={onSort} title="Urutkan menurut untung/rugi (persen)" />
             <span></span>
             <Th label="PER" k="per" sortKey={sortKey} sortDir={sortDir} onSort={onSort} title="Price to Earning Ratio" />
@@ -2910,6 +2926,7 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
           {baris.map((s) => {
             const plPct = (s.hasLive && s.avg) ? (s.price - s.avg) / s.avg * 100 : null;
             const plRp = s.hasLive ? (s.price - s.avg) * s.qty : null;
+            const bobotPct = bobot(s);
             const f = funds[s.symbol] || {};
             return (
               <div key={s.id || s.symbol} style={{ display: 'grid', gridTemplateColumns: KOLOM_TABEL, padding: '14px 16px', borderBottom: `1px solid rgba(26,42,32,0.06)`, alignItems: 'center' }}>
@@ -2920,6 +2937,16 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
                 <div className="mono" style={{ fontSize: 13, textAlign: 'right' }}>{Math.round(s.avg).toLocaleString('id-ID')}</div>
                 <div className="mono" style={{ fontSize: 13, textAlign: 'right', fontWeight: 600 }}>
                   {s.hasLive ? Math.round(s.price).toLocaleString('id-ID') : <span style={{ color: C.inkSoft }} title="harga live tak tersedia">—</span>}
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  {bobotPct != null ? (
+                    <>
+                      <div className="mono" style={{ fontSize: 13, fontWeight: 600 }}>{bobotPct.toFixed(1)}%</div>
+                      <div style={{ height: 3, borderRadius: 100, background: 'rgba(26,42,32,0.10)', marginTop: 3, overflow: 'hidden' }}>
+                        <div style={{ width: `${Math.min(100, bobotPct).toFixed(1)}%`, height: '100%', background: C.cuan, borderRadius: 100, marginLeft: 'auto' }} />
+                      </div>
+                    </>
+                  ) : <span className="mono" style={{ fontSize: 13, color: C.inkSoft }} title="harga live tak tersedia, bobot tidak dihitung">—</span>}
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   {plPct != null ? (
