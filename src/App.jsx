@@ -775,7 +775,14 @@ function PrivateArea({ tab, userId, ihsgQuote, goAnalisis, onPortfolioTotal, onP
           />
         </div>
         <div id="sec-ff" style={{ scrollMarginTop: 70, maxWidth: 1100, margin: '0 auto', padding: '0 20px' }}>
-          <FreedomCard equity={totalEquity} divTotal12={divTotal12} ffTarget={ffTarget} hideBalance={hideBalance} />
+          {/* Sengaja pfTotalValue (nilai holdings), BUKAN totalEquity. totalEquity =
+              holdings + kas RDN, dan RDN bisa NEGATIF bila pembelian dicatat tanpa
+              setoran kas lebih dulu — kasus yang lazim pada pengguna baru. Akibatnya
+              totalEquity bisa mendekati nol atau minus meski portofolionya berisi,
+              lalu kartu ini salah melapor "portofolio kosong". Dividen juga berasal
+              dari holdings, bukan dari kas, jadi holdings memang penyebut yang benar
+              untuk yield on cost. */}
+          <FreedomCard equity={pfTotalValue} costBasis={costBasis} divTotal12={divTotal12} ffTarget={ffTarget} hideBalance={hideBalance} />
         </div>
         <div id="sec-rdn" style={{ scrollMarginTop: 70, maxWidth: 1100, margin: '0 auto', padding: '0 20px' }}><RdnCard settings={settings} onAdjust={adjustRdn} onSaveFees={saveFees} userId={userId} hideBalance={hideBalance} /></div>
         <div style={{ maxWidth: 1100, margin: '16px auto 0', padding: '0 20px' }}>
@@ -3406,7 +3413,7 @@ function DividendAdmin({ userId }) {
 // memang tak bisa diketahui: setoran ke depan, pertumbuhan DPS, dan reinvestasi
 // — ketiganya dikendalikan pengguna lewat slider, jadi tidak ada angka ajaib.
 // Capital gain sengaja diabaikan (konservatif).
-function FreedomCard({ equity, divTotal12, ffTarget, hideBalance }) {
+function FreedomCard({ equity, costBasis, divTotal12, ffTarget, hideBalance }) {
   const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : Number(v); } catch { return d; } };
   const [setoran, setSetoran] = useState(() => lsGet('si_ff_setoran', 0));
   const [growth, setGrowth] = useState(() => lsGet('si_ff_growth', 5));
@@ -3416,7 +3423,19 @@ function FreedomCard({ equity, divTotal12, ffTarget, hideBalance }) {
   useEffect(() => { try { localStorage.setItem('si_ff_reinvest', reinvest ? '1' : '0'); } catch { /* abaikan */ } }, [reinvest]);
 
   // Yield on cost bruto: dari dividen & ekuitas nyata. null bila salah satu belum tegak.
-  const yoc = (equity > 0 && divTotal12 > 0) ? divTotal12 / equity : null;
+  // DUA yield yang berbeda, dan bedanya penting:
+  //  - yieldPasar  = dividen / NILAI PASAR sekarang. Menjawab "kalau beli hari ini,
+  //                  berapa imbal hasil dividennya". Ini yang dipakai proyeksi,
+  //                  karena portofolio tumbuh dari nilai pasar, bukan dari modal lama.
+  //  - yieldOnCost = dividen / MODAL BELI. Menjawab "seberapa bagus harga belikku".
+  //                  Naik sendirinya seiring waktu bila DPS tumbuh, dan tidak bisa
+  //                  dipakai membandingkan dengan peluang baru — biaya kesempatan
+  //                  hari ini memakai harga hari ini, bukan harga beli dulu.
+  // Keduanya BRUTO, sebelum PPh final dividen 10%. Faktor neto hanya dipakai di
+  // perhitungan FF, bukan di angka yield yang lazim dikutip pasar.
+  const yieldPasar = (equity > 0 && divTotal12 > 0) ? divTotal12 / equity : null;
+  const yieldOnCost = (costBasis > 0 && divTotal12 > 0) ? divTotal12 / costBasis : null;
+  const yoc = yieldPasar;
   const ffNow = (ffTarget > 0 && divTotal12 > 0) ? (divTotal12 * FF_DIV_NET / FF_MONTHS) / ffTarget * 100 : null;
   const equityNeeded = (yoc && ffTarget > 0) ? (ffTarget * FF_MONTHS) / (FF_DIV_NET * yoc) : null;
 
@@ -3468,7 +3487,9 @@ function FreedomCard({ equity, divTotal12, ffTarget, hideBalance }) {
       <div style={wrap}>
         {head}
         <p style={{ fontSize: 13, color: C.inkSoft, lineHeight: 1.6, margin: 0 }}>
-          Proyeksi belum bisa dihitung: belum ada perkiraan dividen 12 bulan ke depan dari emiten yang kamu pegang{equity > 0 ? '' : ', atau nilai portofolio masih kosong'}. Angka menyusul setelah ada riwayat dividen yang bisa diproyeksikan.
+          {!(equity > 0)
+            ? 'Proyeksi belum bisa dihitung karena nilai portofolio masih kosong. Tambahkan holdings lebih dulu, lalu angka ini muncul sendiri.'
+            : 'Proyeksi belum bisa dihitung: belum ada perkiraan dividen 12 bulan ke depan dari emiten yang kamu pegang. Emiten yang belum punya riwayat dividen tidak bisa diproyeksikan — angka menyusul setelah ada riwayat yang bisa dipakai.'}
         </p>
       </div>
     );
@@ -3521,9 +3542,14 @@ function FreedomCard({ equity, divTotal12, ffTarget, hideBalance }) {
         <div style={{ width: `${Math.min(100, ffNow).toFixed(1)}%`, height: '100%', background: ffNow >= 100 ? C.green : C.cuan, borderRadius: 100 }} />
       </div>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginBottom: 18 }}>
-        {stat('YIELD ON COST', `${(yoc * 100).toFixed(2)}%`, 'dividen ÷ nilai portofolio')}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginBottom: 14 }}>
+        {stat('YIELD SAAT INI', `${(yieldPasar * 100).toFixed(2)}%`, 'dividen ÷ nilai pasar')}
+        {stat('YIELD ON COST', yieldOnCost != null ? `${(yieldOnCost * 100).toFixed(2)}%` : '—', 'dividen ÷ modal beli')}
         {stat('PORTOFOLIO DIBUTUHKAN', hideBalance ? 'Rp ••••••' : fmtRp(equityNeeded), `${(equityNeeded / equity).toFixed(1)}× dari sekarang`)}
+      </div>
+
+      <div style={{ fontSize: 11, color: C.inkSoft, lineHeight: 1.5, marginBottom: 16 }}>
+        Kedua yield di atas bruto, sebelum PPh final dividen 10%. Selisih antara keduanya menunjukkan arah harga sejak kamu membeli: yield on cost lebih tinggi berarti harga rata-rata belimu di bawah harga sekarang.
       </div>
 
       {/* ---- Tuas yang bisa kamu kendalikan ---- */}
