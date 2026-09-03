@@ -3416,7 +3416,10 @@ function DividendAdmin({ userId }) {
 function FreedomCard({ equity, costBasis, divTotal12, ffTarget, hideBalance }) {
   const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : Number(v); } catch { return d; } };
   const [setoran, setSetoran] = useState(() => lsGet('si_ff_setoran', 0));
-  const [growth, setGrowth] = useState(() => lsGet('si_ff_growth', 5));
+  // Dibulatkan ke 1 desimal: step pecahan pada input range bisa menghasilkan sisa
+  // floating point (mis. 7.500000000000001) yang ikut tersimpan ke localStorage.
+  // Nilai lama yang terlanjur tersimpan ikut dirapikan saat dibaca.
+  const [growth, setGrowth] = useState(() => Math.round(lsGet('si_ff_growth', 5) * 10) / 10);
   const [reinvest, setReinvest] = useState(() => lsGet('si_ff_reinvest', 1) === 1);
   useEffect(() => { try { localStorage.setItem('si_ff_setoran', String(setoran)); } catch { /* abaikan */ } }, [setoran]);
   useEffect(() => { try { localStorage.setItem('si_ff_growth', String(growth)); } catch { /* abaikan */ } }, [growth]);
@@ -3566,10 +3569,10 @@ function FreedomCard({ equity, costBasis, divTotal12, ffTarget, hideBalance }) {
         <div style={{ marginBottom: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
             <span style={{ fontSize: 12, color: C.inkSoft }}>Pertumbuhan dividen per tahun</span>
-            <span className="mono" style={{ fontSize: 13, fontWeight: 700, color: C.ink }}>{growth}%</span>
+            <span className="mono" style={{ fontSize: 13, fontWeight: 700, color: C.ink }}>{growth.toFixed(1)}%</span>
           </div>
-          <input type="range" min={0} max={15} step={1} value={growth}
-            onChange={(e) => setGrowth(Number(e.target.value))} style={sliderStyle} aria-label="Pertumbuhan dividen per tahun" />
+          <input type="range" min={0} max={15} step={0.5} value={growth}
+            onChange={(e) => setGrowth(Math.round(Number(e.target.value) * 10) / 10)} style={sliderStyle} aria-label="Pertumbuhan dividen per tahun" />
         </div>
 
         <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: C.inkSoft, cursor: 'pointer', marginBottom: 18 }}>
