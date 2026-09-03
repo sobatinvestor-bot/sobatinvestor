@@ -636,7 +636,21 @@ function AnalisisDetail({ a, funds, onBack, userId, userName, onRequireLogin }) 
 
 function Body({ text }) {
   if (!text) return null;
-  const blocks = text.split(/\n{2,}/);
+  // Pemisah blok harus tahan CRLF. Regex lama /\n{2,}/ GAGAL pada teks ber-\r\n
+  // (urutannya \r \n \r \n — tidak pernah ada dua \n berurutan), sehingga seluruh
+  // artikel menyatu jadi satu paragraf raksasa berisi "##" dan pipa tabel mentah.
+  const blocks = text.split(/\r?\n\s*\r?\n/);
+
+  // Tebal **...** dirender inline. Tanpa ini bintangnya ikut tercetak.
+  const inline = (str) => str.split(/(\*\*[^*]+\*\*)/g).map((part, k) =>
+    part.startsWith('**') && part.endsWith('**') && part.length > 4
+      ? <strong key={k} style={{ color: C.ink, fontWeight: 700 }}>{part.slice(2, -2)}</strong>
+      : part
+  );
+
+  const cells = (row) => row.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim());
+  const isSep = (row) => /^\s*\|?[\s:|-]+\|?\s*$/.test(row) && row.includes('-');
+
   return (
     <div>
       {blocks.map((blk, i) => {
@@ -645,19 +659,50 @@ function Body({ text }) {
         if (t.startsWith('## ')) {
           return <h3 key={i} className="serif" style={{ fontSize: 17, fontWeight: 600, margin: '18px 0 6px' }}>{t.slice(3)}</h3>;
         }
-        const lines = t.split('\n');
+        const lines = t.split(/\r?\n/);
+
+        // Tabel markdown: minimal header + baris pemisah. Di layar sempit dibungkus
+        // wadah yang bisa digeser mendatar supaya kolom tidak saling tindih.
+        if (lines.length >= 2 && lines[0].trim().startsWith('|') && isSep(lines[1])) {
+          const head = cells(lines[0]);
+          const body = lines.slice(2).filter((l) => l.trim().startsWith('|')).map(cells);
+          const alignOf = (j) => (head[j] || '').length && body.some((r) => /^[\d(]/.test((r[j] || '').replace(/\*/g, ''))) ? 'right' : 'left';
+          return (
+            <div key={i} style={{ overflowX: 'auto', margin: '10px 0 16px', background: C.cream2, borderRadius: 12, padding: '4px 14px 10px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 300 }}>
+                <thead>
+                  <tr style={{ borderBottom: `2px solid rgba(31,59,45,0.22)` }}>
+                    {head.map((h, j) => (
+                      <th key={j} style={{ textAlign: alignOf(j), padding: '10px 8px 8px', color: C.forest, fontSize: 11, letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{inline(h)}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {body.map((row, r) => (
+                    <tr key={r} style={{ borderBottom: `1px solid rgba(31,59,45,0.09)` }}>
+                      {row.map((c, j) => (
+                        <td key={j} style={{ textAlign: alignOf(j), padding: '9px 8px', color: C.inkSoft, lineHeight: 1.45, whiteSpace: j === 0 ? 'nowrap' : 'normal' }}>{inline(c)}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        }
+
         if (lines.every((l) => l.trim().startsWith('- '))) {
           return (
             <ul key={i} style={{ listStyle: 'none', display: 'grid', gap: 6, margin: '4px 0' }}>
               {lines.map((l, j) => (
                 <li key={j} style={{ display: 'flex', gap: 8, fontSize: 14, color: C.inkSoft, lineHeight: 1.55 }}>
-                  <span style={{ color: C.cuan, flexShrink: 0 }}>&bull;</span> {l.trim().slice(2)}
+                  <span style={{ color: C.cuan, flexShrink: 0 }}>&bull;</span> {inline(l.trim().slice(2))}
                 </li>
               ))}
             </ul>
           );
         }
-        return <p key={i} style={{ fontSize: 14, color: C.inkSoft, lineHeight: 1.65, marginBottom: 10 }}>{t}</p>;
+        return <p key={i} style={{ fontSize: 14, color: C.inkSoft, lineHeight: 1.65, marginBottom: 10 }}>{inline(t)}</p>;
       })}
     </div>
   );
