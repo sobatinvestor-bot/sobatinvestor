@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from 'react';
-// SOBAT BUILD MARKER: 2026-07-19-y  — ubah string ini (mis. -b, -c) tiap kali ingin
+// SOBAT BUILD MARKER: 2026-09-04-a  — ubah string ini (mis. -b, -c) tiap kali ingin
 // MEMAKSA build baru saat GitHub/Cloudflare mengira tidak ada perubahan.
 import { Send, Home, Sparkles, Briefcase, Download, Upload, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus, Globe, ArrowDown, Linkedin, Instagram, Eye, EyeOff, BookOpen } from 'lucide-react';
 import { supabase } from './lib/supabase';
@@ -164,8 +164,8 @@ function Footer({ onOpenLegal, loggedIn, setTab }) {
       <div style={{ maxWidth: 680, margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginBottom: 14 }}>
           <a href="https://www.linkedin.com/in/sobat-investor-665a01419" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" style={socialBadge}><Linkedin size={18} /></a>
-          {/* tautan sosial disembunyikan sementara: node scripts/hide-socials.mjs --restore */}
-          {/* tautan sosial disembunyikan sementara: node scripts/hide-socials.mjs --restore */}
+          <a href="https://www.instagram.com/sobatinvestor.indonesia" target="_blank" rel="noopener noreferrer" aria-label="Instagram" style={socialBadge}><Instagram size={18} /></a>
+          <a href="https://www.tiktok.com/@sobatinvestor.indonesia" target="_blank" rel="noopener noreferrer" aria-label="TikTok" style={socialBadge}><TikTokIcon size={18} /></a>
         </div>
         <div style={{ marginBottom: 8 }}>
           {/* "Lihat Portofolio" di Footer HANYA untuk pengunjung anonim.
@@ -1105,6 +1105,26 @@ function flattenBody(body, max) {
   return clean.slice(0, max).replace(/\s+\S*$/, '') + '…';
 }
 
+// Bagi anggaran karakter secara "water-filling": tiap item mula-mula mendapat porsi
+// yang sama; item yang kebutuhannya lebih kecil dari porsi itu MELEPAS sisanya untuk
+// dibagi ulang kepada item yang masih kurang. Konsekuensinya: selama total kebutuhan
+// masih muat dalam anggaran, TIDAK ADA yang dipotong sama sekali — pemotongan baru
+// terjadi saat memang tidak muat, dan itu pun merata, bukan mengorbankan satu emiten.
+function bagiRataAnggaran(butuh, anggaran) {
+  const jatah = butuh.map(() => 0);
+  let sisa = Math.max(0, anggaran);
+  let aktif = butuh.map((_, i) => i).filter((i) => butuh[i] > 0);
+  while (aktif.length > 0 && sisa > 0) {
+    const porsi = Math.floor(sisa / aktif.length);
+    if (porsi <= 0) break;
+    const puas = aktif.filter((i) => butuh[i] - jatah[i] <= porsi);
+    if (puas.length === 0) { aktif.forEach((i) => { jatah[i] += porsi; sisa -= porsi; }); break; }
+    puas.forEach((i) => { const tambah = butuh[i] - jatah[i]; jatah[i] += tambah; sisa -= tambah; });
+    aktif = aktif.filter((i) => jatah[i] < butuh[i]);
+  }
+  return jatah;
+}
+
 function PortfolioMacroAnalysis({ userId, onRequireLogin, marketSummary, marketReady }) {
   const [holdings, setHoldings] = useState(null); // null = belum dimuat
   const [quota, setQuota] = useState(null);
@@ -1143,17 +1163,50 @@ function PortfolioMacroAnalysis({ userId, onRequireLogin, marketSummary, marketR
       const token = session?.access_token;
       if (!token) { setErr('Harus login untuk memakai analisis ini.'); setLoading(false); return; }
 
-      const port = holdings.map((h) => ({
-        sym: h.symbol, name: h.name || h.symbol, sector: h.sector || 'Lainnya',
-        val: Number(h.qty) * Number(h.avg_price),
-      }));
+      // ===== Bobot: SUMBER & RUMUS DISAMAKAN dgn kolom BOBOT di tab Portofolio =====
+      // Sebelumnya bobot di sini dihitung dari MODAL (qty × harga rata-rata), sementara
+      // tabel portofolio memakai NILAI PASAR (qty × harga live). Dua tempat memakai kata
+      // "bobot" untuk dua angka berbeda — user melihat 18% di tabel lalu AI menyebut 24%.
+      // Sekarang keduanya memakai dasar yang sama: harga live, dgn harga beli hanya
+      // sebagai pengganti bagi baris yang tidak punya kuotasi (persis Account.jsx),
+      // supaya bobot emiten lain tidak menggelembung. Baris pengganti DITANDAI eksplisit
+      // agar AI tahu angka mana yang basisnya berbeda — blank/ditandai lebih baik
+      // daripada angka yang terlihat setara padahal tidak.
+      const liveMap = {};
+      try {
+        const symQ = [...new Set(holdings.map((h) => h.symbol))].join(',');
+        if (symQ) {
+          const rq = await fetch(`/api/quotes?symbols=${encodeURIComponent(symQ)}`);
+          if (rq.ok) {
+            const dq = await rq.json();
+            (dq.quotes || []).forEach((q) => { if (q && q.symbol) liveMap[q.symbol] = q; });
+          }
+        }
+      } catch { /* abaikan; jatuh ke harga beli dan ditandai di prompt */ }
+
+      const port = holdings.map((h) => {
+        const live = liveMap[h.symbol];
+        const adaLive = !!(live && Number(live.price) > 0);
+        const px = adaLive ? Number(live.price) : Number(h.avg_price);
+        return {
+          sym: h.symbol, name: h.name || h.symbol, sector: h.sector || 'Lainnya',
+          val: (Number(h.qty) || 0) * (Number(px) || 0), hasLive: adaLive,
+        };
+      });
       const total = port.reduce((s, p) => s + (p.val || 0), 0) || 1;
+      const nLive = port.filter((p) => p.hasLive).length;
+      const basisBobot = nLive === port.length
+        ? 'nilai pasar terkini, qty × harga live — ANGKA YANG SAMA dengan kolom BOBOT di tab Portofolio'
+        : nLive === 0
+          ? 'perkiraan dari modal, qty × harga rata-rata, karena kuotasi live tidak tersedia sama sekali'
+          : `nilai pasar terkini (qty × harga live); ${port.length - nLive} emiten tanpa kuotasi live memakai harga beli sebagai pengganti dan ditandai "(basis harga beli)"`;
+
       const bySector = {};
       port.forEach((p) => { bySector[p.sector] = (bySector[p.sector] || 0) + (p.val || 0); });
       const sectorLines = Object.entries(bySector).sort((a, b) => b[1] - a[1])
         .map(([s, v]) => `${s}: ~${Math.round((v / total) * 100)}%`).join(', ');
       const portLines = port.slice().sort((a, b) => b.val - a.val)
-        .map((p) => `${p.sym} (${p.name}) — sektor ${p.sector}, bobot ~${Math.round((p.val / total) * 100)}%`).join('\n');
+        .map((p) => `${p.sym} (${p.name}) — sektor ${p.sector}, bobot ~${Math.round((p.val / total) * 100)}%${p.hasLive ? '' : ' (basis harga beli — kuotasi live tak tersedia)'}`).join('\n');
 
       // ===== Diversifikasi sektoral =====
       // Daftar sektor DIAMBIL DARI stock_directory (sumber resmi IDX-IC di DB), BUKAN
@@ -1178,7 +1231,7 @@ function PortfolioMacroAnalysis({ userId, onRequireLogin, marketSummary, marketR
           sektorBelumAda = semuaSektor.filter((s) => !dimiliki.has(s));
         }
 
-        diversifikasiBlock = `\n\nSTRUKTUR DIVERSIFIKASI SEKTORAL (dihitung dari bobot modal portofolio):
+        diversifikasiBlock = `\n\nSTRUKTUR DIVERSIFIKASI SEKTORAL (dihitung dari bobot ${basisBobot}):
 Jumlah sektor dimiliki: ${sectorPairs.length}. Sektor terbesar: ${topSektor.s} (~${Math.round(topSektor.w * 100)}% portofolio).
 Jumlah sektor EFEKTIF: ${nEfektif.toFixed(1)} (1,0 = praktis bertumpu pada satu sektor; makin besar makin tersebar).${
   sektorBelumAda && sektorBelumAda.length
@@ -1189,7 +1242,11 @@ Jumlah sektor EFEKTIF: ${nEfektif.toFixed(1)} (1,0 = praktis bertumpu pada satu 
 
       // Analisis terkurasi (published) untuk emiten portofolio — sama sumbernya dengan tab Analisis.
       // Hanya pakai data terkurasi manual, BUKAN fundamentals mentah Yahoo (blank > salah).
-      let curatedBlock = '';
+      // Dikumpulkan UTUH di sini; pemangkasan (kalau memang perlu) ditunda sampai
+      // anggaran karakter yang tersisa diketahui — lihat blok "ANGGARAN" di bawah.
+      // "kepala" = bagian yang selalu dipertahankan (ringkasan + angka + bull/bear),
+      // "badan"  = uraian rinci yang boleh dipangkas terakhir bila anggaran mepet.
+      let curatedItems = null;
       try {
         const syms = [...new Set(port.map((p) => p.sym))];
         if (syms.length > 0) {
@@ -1198,24 +1255,20 @@ Jumlah sektor EFEKTIF: ${nEfektif.toFixed(1)} (1,0 = praktis bertumpu pada satu 
             .in('symbol', syms).eq('published', true);
           const anaMap = {};
           (ana || []).forEach((a) => { anaMap[a.symbol] = a; });
-          const lines = syms.map((sym) => {
+          curatedItems = syms.map((sym) => {
             const a = anaMap[sym];
-            if (!a) return `${sym}: (belum ada analisis terkurasi di aplikasi)`;
+            if (!a) return { sym, kepala: `${sym}: (belum ada analisis terkurasi di aplikasi)`, badan: '' };
             const angka = a.chart && a.chart.data
               ? `${a.chart.title || 'Data'}: ` + a.chart.data.map((p) => `${p.label} ${p.value}`).join(', ')
               : '';
-            // Analisis makro dipicu manual & jarang -> boleh detail penuh (1400 char).
-            const rinci = flattenBody(a.body, 1400);
             const bull = Array.isArray(a.bull) ? a.bull.join('; ') : '';
             const bear = Array.isArray(a.bear) ? a.bear.join('; ') : '';
-            let s = `${sym} (analisis per ${(a.updated_at || '').slice(0, 10)}): ${a.ringkasan || ''}`;
-            if (rinci) s += ` Rincian: ${rinci}`;
-            if (angka) s += ` Angka kunci: ${angka}.`;
-            if (bull) s += ` Positif: ${bull}.`;
-            if (bear) s += ` Risiko: ${bear}.`;
-            return s;
+            let kepala = `${sym} (analisis per ${(a.updated_at || '').slice(0, 10)}): ${a.ringkasan || ''}`;
+            if (angka) kepala += ` Angka kunci: ${angka}.`;
+            if (bull) kepala += ` Positif: ${bull}.`;
+            if (bear) kepala += ` Risiko: ${bear}.`;
+            return { sym, kepala, badan: flattenBody(a.body, 0) };
           });
-          curatedBlock = `\n\nANALISIS TERKURASI APLIKASI (sumber resmi & kurasi manual — pakai HANYA angka di sini untuk fakta fundamental; JANGAN mengarang atau menebak angka laporan keuangan untuk emiten yang ditandai "belum ada analisis terkurasi"):\n${lines.join('\n')}`;
         }
       } catch { /* abaikan; AI jalan tanpa blok terkurasi */ }
 
@@ -1313,13 +1366,13 @@ Pakai angka ini untuk menopang bagian "Per Sektor" dan "Emiten Kunci": sebutkan 
         }
       } catch { /* abaikan; analisis tetap jalan tanpa blok performa */ }
 
-      const dataBlock = `KONDISI MAKRO/GLOBAL TERKINI (dari halaman Global, data delayed):
+      const dataBlockInti = `KONDISI MAKRO/GLOBAL TERKINI (dari halaman Global, data delayed):
 ${marketSummary}${perfBlock}${stockPerfBlock}${diversifikasiBlock}
 
-PORTOFOLIO SAYA (bobot = perkiraan dari modal: qty × harga rata-rata):
+PORTOFOLIO SAYA (bobot = ${basisBobot}):
 Komposisi sektor: ${sectorLines}
 Rincian emiten:
-${portLines}${curatedBlock}`;
+${portLines}`;
 
       const isAdmin = userId === 'fb34e91b-dde7-42ce-83e9-ff70a2eaf52f';
 
@@ -1339,7 +1392,40 @@ Gunakan **tebal**, *miring*, <u>garis bawah</u> (secukupnya), dan poin (-) agar 
 - Tutup dengan "## Yang Perlu Dipantau" — 2–3 poin singkat.
 Gunakan format agar enak dibaca: **tebal** untuk penekanan, *miring* untuk istilah/nuansa, <u>garis bawah</u> untuk menandai hal paling penting (secukupnya), serta poin (-) untuk daftar. Jangan berlebihan. Blok "ANALISIS TERKURASI APLIKASI" di atas ADALAH sumber angka fundamental resmi — pakai angka dari sana saat membahas emiten terkait, dan JANGAN katakan "belum punya angka terkurasi" untuk emiten yang datanya sudah ada di blok itu. Hanya untuk emiten yang eksplisit ditandai "belum ada analisis terkurasi" kamu boleh arahkan ke tab Analisis/IDX. Jangan mengarang angka yang tidak ada di data yang diberikan. PENTING: buat SANGAT RINGKAS, target maksimal 450 kata. Lebih baik pendek tapi tuntas daripada panjang lalu terputus. WAJIB menyelesaikan seluruh struktur (Gambaran, Per Sektor, Ide Diversifikasi Sektoral, Yang Perlu Dipantau) sampai bagian penutup, dan JANGAN PERNAH berhenti di tengah kalimat atau di tengah daftar — selalu akhiri dengan kalimat yang utuh. Akhiri dengan satu kalimat singkat bahwa ini bukan rekomendasi investasi.`;
 
-      const userMsg = `${dataBlock}
+      // ===== ANGGARAN: kirim analisis terkurasi SELENGKAP yang kuota izinkan =====
+      // Batas keras ada di server (functions/api/chat.js): 150.000 karakter untuk admin,
+      // 40.000 untuk user biasa; melewati itu request ditolak 413. Dulu tiap emiten
+      // dipangkas mati di 1.400 karakter — pada portofolio kecil itu membuang ruang yang
+      // sudah dibayar, pada portofolio besar tetap bisa jebol. Sekarang angkanya dihitung:
+      // sisa anggaran setelah blok lain dibagi water-filling antar emiten.
+      // CATATAN PEMELIHARAAN: bila MAX_CHARS di functions/api/chat.js diubah, angka di
+      // bawah HARUS ikut diubah — kalau tidak, request akan ditolak 413 di server.
+      const MAX_CHAR_SERVER = isAdmin ? 150000 : 40000;
+      const MARGIN_AMAN = 3000;   // ruang untuk label, pembulatan, dan perubahan prompt server
+      const AWALAN_RINCI = ' Rincian: ';
+      let curatedBlock = '';
+      if (curatedItems && curatedItems.length) {
+        const judul = 'ANALISIS TERKURASI APLIKASI (sumber resmi & kurasi manual — pakai HANYA angka di sini untuk fakta fundamental; JANGAN mengarang atau menebak angka laporan keuangan untuk emiten yang ditandai "belum ada analisis terkurasi"):';
+        const panjangKepala = curatedItems.reduce((n, it) => n + it.kepala.length + 1, 0);
+        const tetap = dataBlockInti.length + instr.length + judul.length + panjangKepala + MARGIN_AMAN;
+        const anggaran = Math.max(0, MAX_CHAR_SERVER - tetap);
+        const butuh = curatedItems.map((it) => (it.badan ? it.badan.length + AWALAN_RINCI.length : 0));
+        const jatah = bagiRataAnggaran(butuh, anggaran);
+        const lines = curatedItems.map((it, i) => {
+          if (!it.badan) return it.kepala;
+          const ruang = jatah[i] - AWALAN_RINCI.length;
+          // Potongan yang terlalu pendek tidak menjelaskan apa pun dan justru berisiko
+          // disalahartikan sebagai keseluruhan analisis. Lebih baik tidak dikirim.
+          if (ruang < 200) return it.kepala;
+          const badan = it.badan.length <= ruang
+            ? it.badan
+            : it.badan.slice(0, ruang).replace(/\s+\S*$/, '') + '…';
+          return `${it.kepala}${AWALAN_RINCI}${badan}`;
+        });
+        curatedBlock = `\n\n${judul}\n${lines.join('\n')}`;
+      }
+
+      const userMsg = `${dataBlockInti}${curatedBlock}
 
 ${instr}`;
 
