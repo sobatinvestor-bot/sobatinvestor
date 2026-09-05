@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from 'react';
-// SOBAT BUILD MARKER: 2026-09-04-a  — ubah string ini (mis. -b, -c) tiap kali ingin
+// SOBAT BUILD MARKER: 2026-09-05-d  — ubah string ini (mis. -b, -c) tiap kali ingin
 // MEMAKSA build baru saat GitHub/Cloudflare mengira tidak ada perubahan.
 import { Send, Home, Sparkles, Briefcase, Download, Upload, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus, Globe, ArrowDown, Linkedin, Instagram, Eye, EyeOff, BookOpen } from 'lucide-react';
 import { supabase } from './lib/supabase';
@@ -772,6 +772,7 @@ function PrivateArea({ tab, userId, ihsgQuote, goAnalisis, onPortfolioTotal, onP
             onSymbol={goAnalisis}
             onDivTotalHist={setDivTotalHist}
             onDivTotal12={setDivTotal12}
+            userId={userId}
           />
         </div>
         <div id="sec-ff" style={{ scrollMarginTop: 70, maxWidth: 1100, margin: '0 auto', padding: '0 20px' }}>
@@ -1105,26 +1106,6 @@ function flattenBody(body, max) {
   return clean.slice(0, max).replace(/\s+\S*$/, '') + '…';
 }
 
-// Bagi anggaran karakter secara "water-filling": tiap item mula-mula mendapat porsi
-// yang sama; item yang kebutuhannya lebih kecil dari porsi itu MELEPAS sisanya untuk
-// dibagi ulang kepada item yang masih kurang. Konsekuensinya: selama total kebutuhan
-// masih muat dalam anggaran, TIDAK ADA yang dipotong sama sekali — pemotongan baru
-// terjadi saat memang tidak muat, dan itu pun merata, bukan mengorbankan satu emiten.
-function bagiRataAnggaran(butuh, anggaran) {
-  const jatah = butuh.map(() => 0);
-  let sisa = Math.max(0, anggaran);
-  let aktif = butuh.map((_, i) => i).filter((i) => butuh[i] > 0);
-  while (aktif.length > 0 && sisa > 0) {
-    const porsi = Math.floor(sisa / aktif.length);
-    if (porsi <= 0) break;
-    const puas = aktif.filter((i) => butuh[i] - jatah[i] <= porsi);
-    if (puas.length === 0) { aktif.forEach((i) => { jatah[i] += porsi; sisa -= porsi; }); break; }
-    puas.forEach((i) => { const tambah = butuh[i] - jatah[i]; jatah[i] += tambah; sisa -= tambah; });
-    aktif = aktif.filter((i) => jatah[i] < butuh[i]);
-  }
-  return jatah;
-}
-
 function PortfolioMacroAnalysis({ userId, onRequireLogin, marketSummary, marketReady }) {
   const [holdings, setHoldings] = useState(null); // null = belum dimuat
   const [quota, setQuota] = useState(null);
@@ -1163,50 +1144,17 @@ function PortfolioMacroAnalysis({ userId, onRequireLogin, marketSummary, marketR
       const token = session?.access_token;
       if (!token) { setErr('Harus login untuk memakai analisis ini.'); setLoading(false); return; }
 
-      // ===== Bobot: SUMBER & RUMUS DISAMAKAN dgn kolom BOBOT di tab Portofolio =====
-      // Sebelumnya bobot di sini dihitung dari MODAL (qty × harga rata-rata), sementara
-      // tabel portofolio memakai NILAI PASAR (qty × harga live). Dua tempat memakai kata
-      // "bobot" untuk dua angka berbeda — user melihat 18% di tabel lalu AI menyebut 24%.
-      // Sekarang keduanya memakai dasar yang sama: harga live, dgn harga beli hanya
-      // sebagai pengganti bagi baris yang tidak punya kuotasi (persis Account.jsx),
-      // supaya bobot emiten lain tidak menggelembung. Baris pengganti DITANDAI eksplisit
-      // agar AI tahu angka mana yang basisnya berbeda — blank/ditandai lebih baik
-      // daripada angka yang terlihat setara padahal tidak.
-      const liveMap = {};
-      try {
-        const symQ = [...new Set(holdings.map((h) => h.symbol))].join(',');
-        if (symQ) {
-          const rq = await fetch(`/api/quotes?symbols=${encodeURIComponent(symQ)}`);
-          if (rq.ok) {
-            const dq = await rq.json();
-            (dq.quotes || []).forEach((q) => { if (q && q.symbol) liveMap[q.symbol] = q; });
-          }
-        }
-      } catch { /* abaikan; jatuh ke harga beli dan ditandai di prompt */ }
-
-      const port = holdings.map((h) => {
-        const live = liveMap[h.symbol];
-        const adaLive = !!(live && Number(live.price) > 0);
-        const px = adaLive ? Number(live.price) : Number(h.avg_price);
-        return {
-          sym: h.symbol, name: h.name || h.symbol, sector: h.sector || 'Lainnya',
-          val: (Number(h.qty) || 0) * (Number(px) || 0), hasLive: adaLive,
-        };
-      });
+      const port = holdings.map((h) => ({
+        sym: h.symbol, name: h.name || h.symbol, sector: h.sector || 'Lainnya',
+        val: Number(h.qty) * Number(h.avg_price),
+      }));
       const total = port.reduce((s, p) => s + (p.val || 0), 0) || 1;
-      const nLive = port.filter((p) => p.hasLive).length;
-      const basisBobot = nLive === port.length
-        ? 'nilai pasar terkini, qty × harga live — ANGKA YANG SAMA dengan kolom BOBOT di tab Portofolio'
-        : nLive === 0
-          ? 'perkiraan dari modal, qty × harga rata-rata, karena kuotasi live tidak tersedia sama sekali'
-          : `nilai pasar terkini (qty × harga live); ${port.length - nLive} emiten tanpa kuotasi live memakai harga beli sebagai pengganti dan ditandai "(basis harga beli)"`;
-
       const bySector = {};
       port.forEach((p) => { bySector[p.sector] = (bySector[p.sector] || 0) + (p.val || 0); });
       const sectorLines = Object.entries(bySector).sort((a, b) => b[1] - a[1])
         .map(([s, v]) => `${s}: ~${Math.round((v / total) * 100)}%`).join(', ');
       const portLines = port.slice().sort((a, b) => b.val - a.val)
-        .map((p) => `${p.sym} (${p.name}) — sektor ${p.sector}, bobot ~${Math.round((p.val / total) * 100)}%${p.hasLive ? '' : ' (basis harga beli — kuotasi live tak tersedia)'}`).join('\n');
+        .map((p) => `${p.sym} (${p.name}) — sektor ${p.sector}, bobot ~${Math.round((p.val / total) * 100)}%`).join('\n');
 
       // ===== Diversifikasi sektoral =====
       // Daftar sektor DIAMBIL DARI stock_directory (sumber resmi IDX-IC di DB), BUKAN
@@ -1231,7 +1179,7 @@ function PortfolioMacroAnalysis({ userId, onRequireLogin, marketSummary, marketR
           sektorBelumAda = semuaSektor.filter((s) => !dimiliki.has(s));
         }
 
-        diversifikasiBlock = `\n\nSTRUKTUR DIVERSIFIKASI SEKTORAL (dihitung dari bobot ${basisBobot}):
+        diversifikasiBlock = `\n\nSTRUKTUR DIVERSIFIKASI SEKTORAL (dihitung dari bobot modal portofolio):
 Jumlah sektor dimiliki: ${sectorPairs.length}. Sektor terbesar: ${topSektor.s} (~${Math.round(topSektor.w * 100)}% portofolio).
 Jumlah sektor EFEKTIF: ${nEfektif.toFixed(1)} (1,0 = praktis bertumpu pada satu sektor; makin besar makin tersebar).${
   sektorBelumAda && sektorBelumAda.length
@@ -1242,11 +1190,7 @@ Jumlah sektor EFEKTIF: ${nEfektif.toFixed(1)} (1,0 = praktis bertumpu pada satu 
 
       // Analisis terkurasi (published) untuk emiten portofolio — sama sumbernya dengan tab Analisis.
       // Hanya pakai data terkurasi manual, BUKAN fundamentals mentah Yahoo (blank > salah).
-      // Dikumpulkan UTUH di sini; pemangkasan (kalau memang perlu) ditunda sampai
-      // anggaran karakter yang tersisa diketahui — lihat blok "ANGGARAN" di bawah.
-      // "kepala" = bagian yang selalu dipertahankan (ringkasan + angka + bull/bear),
-      // "badan"  = uraian rinci yang boleh dipangkas terakhir bila anggaran mepet.
-      let curatedItems = null;
+      let curatedBlock = '';
       try {
         const syms = [...new Set(port.map((p) => p.sym))];
         if (syms.length > 0) {
@@ -1255,20 +1199,24 @@ Jumlah sektor EFEKTIF: ${nEfektif.toFixed(1)} (1,0 = praktis bertumpu pada satu 
             .in('symbol', syms).eq('published', true);
           const anaMap = {};
           (ana || []).forEach((a) => { anaMap[a.symbol] = a; });
-          curatedItems = syms.map((sym) => {
+          const lines = syms.map((sym) => {
             const a = anaMap[sym];
-            if (!a) return { sym, kepala: `${sym}: (belum ada analisis terkurasi di aplikasi)`, badan: '' };
+            if (!a) return `${sym}: (belum ada analisis terkurasi di aplikasi)`;
             const angka = a.chart && a.chart.data
               ? `${a.chart.title || 'Data'}: ` + a.chart.data.map((p) => `${p.label} ${p.value}`).join(', ')
               : '';
+            // Analisis makro dipicu manual & jarang -> boleh detail penuh (1400 char).
+            const rinci = flattenBody(a.body, 1400);
             const bull = Array.isArray(a.bull) ? a.bull.join('; ') : '';
             const bear = Array.isArray(a.bear) ? a.bear.join('; ') : '';
-            let kepala = `${sym} (analisis per ${(a.updated_at || '').slice(0, 10)}): ${a.ringkasan || ''}`;
-            if (angka) kepala += ` Angka kunci: ${angka}.`;
-            if (bull) kepala += ` Positif: ${bull}.`;
-            if (bear) kepala += ` Risiko: ${bear}.`;
-            return { sym, kepala, badan: flattenBody(a.body, 0) };
+            let s = `${sym} (analisis per ${(a.updated_at || '').slice(0, 10)}): ${a.ringkasan || ''}`;
+            if (rinci) s += ` Rincian: ${rinci}`;
+            if (angka) s += ` Angka kunci: ${angka}.`;
+            if (bull) s += ` Positif: ${bull}.`;
+            if (bear) s += ` Risiko: ${bear}.`;
+            return s;
           });
+          curatedBlock = `\n\nANALISIS TERKURASI APLIKASI (sumber resmi & kurasi manual — pakai HANYA angka di sini untuk fakta fundamental; JANGAN mengarang atau menebak angka laporan keuangan untuk emiten yang ditandai "belum ada analisis terkurasi"):\n${lines.join('\n')}`;
         }
       } catch { /* abaikan; AI jalan tanpa blok terkurasi */ }
 
@@ -1366,13 +1314,13 @@ Pakai angka ini untuk menopang bagian "Per Sektor" dan "Emiten Kunci": sebutkan 
         }
       } catch { /* abaikan; analisis tetap jalan tanpa blok performa */ }
 
-      const dataBlockInti = `KONDISI MAKRO/GLOBAL TERKINI (dari halaman Global, data delayed):
+      const dataBlock = `KONDISI MAKRO/GLOBAL TERKINI (dari halaman Global, data delayed):
 ${marketSummary}${perfBlock}${stockPerfBlock}${diversifikasiBlock}
 
-PORTOFOLIO SAYA (bobot = ${basisBobot}):
+PORTOFOLIO SAYA (bobot = perkiraan dari modal: qty × harga rata-rata):
 Komposisi sektor: ${sectorLines}
 Rincian emiten:
-${portLines}`;
+${portLines}${curatedBlock}`;
 
       const isAdmin = userId === 'fb34e91b-dde7-42ce-83e9-ff70a2eaf52f';
 
@@ -1392,40 +1340,7 @@ Gunakan **tebal**, *miring*, <u>garis bawah</u> (secukupnya), dan poin (-) agar 
 - Tutup dengan "## Yang Perlu Dipantau" — 2–3 poin singkat.
 Gunakan format agar enak dibaca: **tebal** untuk penekanan, *miring* untuk istilah/nuansa, <u>garis bawah</u> untuk menandai hal paling penting (secukupnya), serta poin (-) untuk daftar. Jangan berlebihan. Blok "ANALISIS TERKURASI APLIKASI" di atas ADALAH sumber angka fundamental resmi — pakai angka dari sana saat membahas emiten terkait, dan JANGAN katakan "belum punya angka terkurasi" untuk emiten yang datanya sudah ada di blok itu. Hanya untuk emiten yang eksplisit ditandai "belum ada analisis terkurasi" kamu boleh arahkan ke tab Analisis/IDX. Jangan mengarang angka yang tidak ada di data yang diberikan. PENTING: buat SANGAT RINGKAS, target maksimal 450 kata. Lebih baik pendek tapi tuntas daripada panjang lalu terputus. WAJIB menyelesaikan seluruh struktur (Gambaran, Per Sektor, Ide Diversifikasi Sektoral, Yang Perlu Dipantau) sampai bagian penutup, dan JANGAN PERNAH berhenti di tengah kalimat atau di tengah daftar — selalu akhiri dengan kalimat yang utuh. Akhiri dengan satu kalimat singkat bahwa ini bukan rekomendasi investasi.`;
 
-      // ===== ANGGARAN: kirim analisis terkurasi SELENGKAP yang kuota izinkan =====
-      // Batas keras ada di server (functions/api/chat.js): 150.000 karakter untuk admin,
-      // 40.000 untuk user biasa; melewati itu request ditolak 413. Dulu tiap emiten
-      // dipangkas mati di 1.400 karakter — pada portofolio kecil itu membuang ruang yang
-      // sudah dibayar, pada portofolio besar tetap bisa jebol. Sekarang angkanya dihitung:
-      // sisa anggaran setelah blok lain dibagi water-filling antar emiten.
-      // CATATAN PEMELIHARAAN: bila MAX_CHARS di functions/api/chat.js diubah, angka di
-      // bawah HARUS ikut diubah — kalau tidak, request akan ditolak 413 di server.
-      const MAX_CHAR_SERVER = isAdmin ? 150000 : 40000;
-      const MARGIN_AMAN = 3000;   // ruang untuk label, pembulatan, dan perubahan prompt server
-      const AWALAN_RINCI = ' Rincian: ';
-      let curatedBlock = '';
-      if (curatedItems && curatedItems.length) {
-        const judul = 'ANALISIS TERKURASI APLIKASI (sumber resmi & kurasi manual — pakai HANYA angka di sini untuk fakta fundamental; JANGAN mengarang atau menebak angka laporan keuangan untuk emiten yang ditandai "belum ada analisis terkurasi"):';
-        const panjangKepala = curatedItems.reduce((n, it) => n + it.kepala.length + 1, 0);
-        const tetap = dataBlockInti.length + instr.length + judul.length + panjangKepala + MARGIN_AMAN;
-        const anggaran = Math.max(0, MAX_CHAR_SERVER - tetap);
-        const butuh = curatedItems.map((it) => (it.badan ? it.badan.length + AWALAN_RINCI.length : 0));
-        const jatah = bagiRataAnggaran(butuh, anggaran);
-        const lines = curatedItems.map((it, i) => {
-          if (!it.badan) return it.kepala;
-          const ruang = jatah[i] - AWALAN_RINCI.length;
-          // Potongan yang terlalu pendek tidak menjelaskan apa pun dan justru berisiko
-          // disalahartikan sebagai keseluruhan analisis. Lebih baik tidak dikirim.
-          if (ruang < 200) return it.kepala;
-          const badan = it.badan.length <= ruang
-            ? it.badan
-            : it.badan.slice(0, ruang).replace(/\s+\S*$/, '') + '…';
-          return `${it.kepala}${AWALAN_RINCI}${badan}`;
-        });
-        curatedBlock = `\n\n${judul}\n${lines.join('\n')}`;
-      }
-
-      const userMsg = `${dataBlockInti}${curatedBlock}
+      const userMsg = `${dataBlock}
 
 ${instr}`;
 
@@ -2772,7 +2687,7 @@ function DeleteAllPortfolio({ count, onDeleteAll }) {
 // memuai mengisi lebar layar desktop. Header & baris WAJIB memakai konstanta
 // yang sama supaya tidak pernah melenceng.
 const KOLOM_TABEL = 'minmax(90px,1.5fr) minmax(56px,1fr) minmax(72px,1fr) minmax(72px,1fr) minmax(62px,0.8fr) minmax(92px,1.3fr) minmax(96px,1.1fr)'
-  + ' minmax(52px,0.7fr) minmax(52px,0.7fr) minmax(56px,0.75fr) minmax(56px,0.75fr) minmax(64px,0.85fr)'; // + BOBOT PER PBV ROA NPM P/L30H
+  + ' minmax(52px,0.7fr) minmax(52px,0.7fr) minmax(56px,0.75fr) minmax(56px,0.75fr) minmax(56px,0.75fr) minmax(64px,0.85fr)'; // + BOBOT PER PBV ROA NPM DY P/L30H
 
 // Satu sel metrik fundamental di Daftar Saham. Sumbernya tabel `fundamentals` —
 // SAMA dengan tab Analisis, jadi angkanya pasti konsisten dengan kartu analisis.
@@ -2855,14 +2770,611 @@ function BiRateReminder() {
   );
 }
 
-function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImport, onSymbol, onDivTotalHist, onDivTotal12 }) {
+// ============================================================
+// ANALISIS GABUNGAN PORTOFOLIO
+// Merangkum analisis terkurasi tab Analisis untuk SELURUH emiten yang dimiliki
+// menjadi satu pandangan tingkat portofolio, tepat di bawah Daftar Saham.
+//
+// Empat prinsip yang dipegang di sini:
+// 1. SUMBER SAMA. Angka diambil dari `analyses` (published) + `fundamentals` —
+//    tabel yang persis dipakai tab Analisis dan kolom fundamental Daftar Saham.
+//    Tidak boleh ada dua versi angka yang berbeda di dalam satu aplikasi.
+// 2. TANPA AI. Semua agregat dihitung deterministik di klien: tidak memotong kuota
+//    Sobat AI, tidak ada kalimat yang dikarang, dan tiap angka bisa ditelusuri balik
+//    ke baris tabel di atasnya. Narasi makro tetap tinggal di tab Global.
+// 3. BOBOT SELALU IKUT. Portofolio bukan kumpulan saham yang setara. Tiap indikator
+//    ditampilkan DUA kali: versi tertimbang bobot (yang benar-benar dirasakan
+//    pemiliknya) dan rata-rata sederhana antar-emiten. Selisih keduanya adalah
+//    informasi tersendiri — kalau versi tertimbang jauh lebih mahal daripada rata-rata
+//    sederhana, artinya justru emiten mahal yang porsinya besar.
+// 4. CAKUPAN SELALU DINYATAKAN. Kalau agregat hanya menutup 4 dari 6 emiten, itu
+//    ditulis terbuka berikut porsi bobotnya. Blank lebih baik daripada salah — dan
+//    setengah data yang mengaku utuh lebih buruk daripada keduanya.
+// ============================================================
+
+// Baca satu sel fundamental dengan penjagaan yang SAMA seperti komponen <Fund>:
+// string kosong bukan nol. Number('') === 0 dan lolos isNaN, jadi tanpa ini satu
+// sel yang salah ketik bisa menyeret seluruh agregat portofolio ke bawah.
+function angkaFund(v) {
+  if (v == null) return null;
+  if (typeof v === 'string' && v.trim() === '') return null;
+  const n = Number(v);
+  return isNaN(n) ? null : n;
+}
+
+const fmtAngka = (n, unit) => `${n.toLocaleString('id-ID', { maximumFractionDigits: 2 })}${unit || ''}`;
+
+// Agregasi satu metrik ke tingkat portofolio. Mengembalikan angka TERTIMBANG dan
+// rata-rata SEDERHANA sekaligus, dari subset emiten yang persis sama — supaya
+// kedua angka itu benar-benar bisa dibandingkan, bukan dua populasi berbeda.
+//
+// harmonik=true (PER, PBV): rata-rata HARMONIK tertimbang, bukan aritmatik.
+//   PER portofolio yang benar = total nilai pasar / total laba. Karena laba_i =
+//   nilai_i / PER_i, maka PER_porto = Σnilai / Σ(nilai/PER_i). Rata-rata aritmatik
+//   akan digelembungkan oleh satu emiten ber-PER tinggi walau bobotnya kecil.
+//   Nilai ≤ 0 (rugi / ekuitas negatif) DIKECUALIKAN dan dihitung terpisah: laba
+//   negatif membuat agregat kehilangan arti, menampilkannya seolah wajar itu bohong.
+//
+// harmonik=false (ROA, NPM, DY): rata-rata aritmatik tertimbang bobot.
+//   Untuk DY angka ini EKSAK, bukan proksi: yield portofolio memang = total dividen /
+//   total nilai pasar, dan karena dividen_i = nilai_i x DY_i, hasilnya persis
+//   Sigma(nilai x DY) / Sigma(nilai). Untuk ROA & NPM ini PROKSI — ROA portofolio yang
+//   benar ditimbang total aset, NPM ditimbang pendapatan, dan kedua angka itu tidak ada
+//   di `fundamentals`. Karena itu label keduanya wajib "proksi".
+//   Nilai negatif TIDAK dikecualikan di sini: ROA/NPM minus adalah fakta yang harus
+//   ikut menyeret rata-rata ke bawah, bukan dibuang agar hasilnya terlihat bagus.
+function agregat(rows, key, { harmonik }) {
+  let wSum = 0, acc = 0, jumlah = 0, nDipakai = 0, nDikecualikan = 0;
+  let min = null, max = null, symMin = null, symMax = null;
+  rows.forEach((r) => {
+    const v = angkaFund(r.f[key]);
+    if (v == null) return;
+    if (harmonik && v <= 0) { nDikecualikan += 1; return; }
+    wSum += r.nilai;
+    acc += harmonik ? r.nilai / v : r.nilai * v;
+    jumlah += v;
+    nDipakai += 1;
+    if (min == null || v < min) { min = v; symMin = r.sym; }
+    if (max == null || v > max) { max = v; symMax = r.sym; }
+  });
+  if (nDipakai === 0 || wSum <= 0) return null;
+  if (harmonik && acc <= 0) return null;
+  return {
+    tertimbang: harmonik ? wSum / acc : acc / wSum,
+    sederhana: jumlah / nDipakai,
+    min, max, symMin, symMax,
+    wSum, nDipakai, nDikecualikan,
+  };
+}
+
+// Satu kartu metrik. Angka besar = versi tertimbang bobot, karena itulah yang
+// benar-benar dialami pemilik portofolio. Rata-rata sederhana ditaruh persis di
+// bawahnya sebagai pembanding, bukan disembunyikan — dua angka yang berjauhan
+// adalah sinyal bahwa alokasi bobot sedang menarik portofolio ke satu arah.
+function MetrikGabungan({ label, hasil, unit, totalNilai, catatan }) {
+  const cakupan = hasil && totalNilai > 0 ? (hasil.wSum / totalNilai) * 100 : null;
+  const selisih = hasil && hasil.sederhana !== 0 ? (hasil.tertimbang - hasil.sederhana) : null;
+  return (
+    <div style={{ background: C.cream, borderRadius: 14, padding: '12px 14px' }}>
+      <div className="mono" style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: C.inkSoft }}>{label}</div>
+      <div className="mono" style={{ fontSize: 20, fontWeight: 700, color: hasil ? C.ink : C.inkSoft, marginTop: 4 }}>
+        {hasil ? fmtAngka(hasil.tertimbang, unit) : '—'}
+      </div>
+      <div className="mono" style={{ fontSize: 9.5, letterSpacing: '0.08em', textTransform: 'uppercase', color: C.inkSoft, marginTop: 1 }}>
+        tertimbang bobot
+      </div>
+      {hasil && (
+        <div style={{ marginTop: 7, paddingTop: 7, borderTop: '1px solid rgba(26,42,32,0.08)', fontSize: 11.5, color: C.inkSoft, lineHeight: 1.5 }}>
+          <div>
+            Rata-rata sederhana <span className="mono" style={{ fontWeight: 700, color: C.ink }}>{fmtAngka(hasil.sederhana, unit)}</span>
+            {selisih != null && Math.abs(selisih) >= 0.005 && (
+              <span className="mono" style={{ color: C.rust }}> ({selisih > 0 ? '+' : '−'}{fmtAngka(Math.abs(selisih), unit)} krn bobot)</span>
+            )}
+          </div>
+          {hasil.min != null && hasil.nDipakai > 1 && (
+            <div>Rentang <span className="mono">{fmtAngka(hasil.min, unit)}</span> ({hasil.symMin}) – <span className="mono">{fmtAngka(hasil.max, unit)}</span> ({hasil.symMax})</div>
+          )}
+        </div>
+      )}
+      <div style={{ fontSize: 10.5, color: C.inkSoft, lineHeight: 1.45, marginTop: 6 }}>
+        {hasil
+          ? <>menutup {cakupan.toFixed(0)}% bobot · {hasil.nDipakai} emiten{hasil.nDikecualikan > 0 ? ` · ${hasil.nDikecualikan} dikecualikan (nilai ≤ 0)` : ''}{catatan ? ` · ${catatan}` : ''}</>
+          : 'data belum tersedia'}
+      </div>
+    </div>
+  );
+}
+
+// Peta bobot: satu baris per emiten, diurut dari porsi terbesar. Ini yang membuat
+// seluruh panel bisa dibaca — poin katalis dari emiten 3% tidak boleh terbaca sama
+// beratnya dengan poin dari emiten 53%. Emiten tanpa analisis tetap ditampilkan,
+// justru supaya kelihatan berapa besar bagian portofolio yang belum terliput.
+function PetaBobot({ rows, totalNilai, onSymbol }) {
+  if (!rows.length || totalNilai <= 0) return null;
+  return (
+    <div style={{ marginTop: 16 }}>
+      <div className="mono" style={{ fontSize: 10.5, letterSpacing: '0.12em', textTransform: 'uppercase', color: C.inkSoft, fontWeight: 700, marginBottom: 8 }}>
+        Bobot &amp; kontribusi per emiten
+      </div>
+      {rows.map((r) => {
+        const w = (r.nilai / totalNilai) * 100;
+        const per = angkaFund(r.f.per), pbv = angkaFund(r.f.pbv), roa = angkaFund(r.f.roa), npm = angkaFund(r.f.npm), dy = angkaFund(r.f.div_yield);
+        return (
+          <div key={r.sym} style={{ display: 'grid', gridTemplateColumns: 'minmax(96px,1.1fr) minmax(52px,0.5fr) minmax(150px,1.6fr)', gap: 8, alignItems: 'center', padding: '7px 0', borderBottom: '1px solid rgba(26,42,32,0.06)' }}>
+            <div>
+              <span
+                onClick={onSymbol ? () => onSymbol(r.sym) : undefined}
+                title={onSymbol ? `Lihat analisis ${r.sym}` : undefined}
+                className="mono"
+                style={{ fontSize: 12.5, fontWeight: 700, color: C.ink, cursor: onSymbol ? 'pointer' : 'default' }}
+              >
+                {r.sym}
+              </span>
+              {!r.a && <span style={{ fontSize: 10, color: C.inkSoft, marginLeft: 6 }}>belum dianalisis</span>}
+              <div style={{ height: 3, borderRadius: 100, background: 'rgba(26,42,32,0.10)', marginTop: 4, overflow: 'hidden' }}>
+                <div style={{ width: `${Math.min(100, w).toFixed(1)}%`, height: '100%', background: r.a ? C.cuan : 'rgba(26,42,32,0.25)', borderRadius: 100 }} />
+              </div>
+            </div>
+            <div className="mono" style={{ fontSize: 12.5, fontWeight: 700, textAlign: 'right', color: C.ink }}>{w.toFixed(1)}%</div>
+            <div className="mono" style={{ fontSize: 10.5, color: C.inkSoft, textAlign: 'right', lineHeight: 1.4 }}>
+              PER {per == null ? '—' : fmtAngka(per, 'x')} · PBV {pbv == null ? '—' : fmtAngka(pbv, 'x')} · ROA {roa == null ? '—' : fmtAngka(roa, '%')} · NPM {npm == null ? '—' : fmtAngka(npm, '%')} · DY {dy == null ? '—' : fmtAngka(dy, '%')}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Daftar katalis / risiko gabungan. Tiap butir tetap membawa kode emiten DAN
+// bobotnya — poin yang dilepas dari asalnya berhenti bisa diverifikasi, dan poin
+// tanpa bobot menyesatkan soal seberapa besar taruhannya. Urutan mengikuti bobot
+// posisi, jadi yang paling banyak dipegang selalu terbaca lebih dulu.
+function PoinGabungan({ judul, poin, warna, onSymbol, totalBobot, batas = 6 }) {
+  if (!poin.length) return null;
+  const utama = poin.slice(0, batas);
+  const sisa = poin.slice(batas);
+  const baris = (p, i) => (
+    <li key={i} style={{ margin: '6px 0', fontSize: 13, lineHeight: 1.55, color: C.ink }}>
+      <span
+        onClick={onSymbol ? () => onSymbol(p.sym) : undefined}
+        title={onSymbol ? `Lihat analisis ${p.sym}` : undefined}
+        className="mono"
+        style={{ fontSize: 10.5, fontWeight: 700, color: warna, background: 'rgba(26,42,32,0.05)', borderRadius: 100, padding: '2px 7px', marginRight: 7, cursor: onSymbol ? 'pointer' : 'default', whiteSpace: 'nowrap' }}
+      >
+        {p.sym}{p.w != null ? ` · ${(p.w * 100).toFixed(1)}%` : ''}
+      </span>
+      {p.t}
+    </li>
+  );
+  return (
+    <div style={{ marginTop: 16 }}>
+      <div className="mono" style={{ fontSize: 10.5, letterSpacing: '0.12em', textTransform: 'uppercase', color: warna, fontWeight: 700 }}>{judul}</div>
+      <div style={{ fontSize: 11, color: C.inkSoft, margin: '2px 0 4px' }}>
+        {poin.length} poin dari {new Set(poin.map((p) => p.sym)).size} emiten
+        {totalBobot != null && <> · mewakili {(totalBobot * 100).toFixed(0)}% bobot portofolio</>} · diurut bobot terbesar
+      </div>
+      <ul style={{ margin: 0, paddingLeft: 18 }}>{utama.map(baris)}</ul>
+      {sisa.length > 0 && (
+        <details style={{ marginTop: 4 }}>
+          <summary style={{ cursor: 'pointer', fontSize: 12, color: C.inkSoft, userSelect: 'none' }}>{sisa.length} poin lainnya</summary>
+          <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>{sisa.map(baris)}</ul>
+        </details>
+      )}
+    </div>
+  );
+}
+
+function PortfolioCombinedAnalysis({ stocks, funds, onSymbol, userId }) {
+  const [ana, setAna] = useState(null); // null = belum dimuat, {} = tidak ada
+  // Lapisan narasi (opsional, dipicu manual). Angka di atas TIDAK bergantung pada ini —
+  // kalau Sobat AI gagal atau kuota habis, seluruh panel deterministik tetap utuh.
+  const [narasi, setNarasi] = useState('');
+  const [snapshot, setSnapshot] = useState('');
+  const [narasiAt, setNarasiAt] = useState(null);
+  const [quota, setQuota] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState('');
+
+  const symKey = useMemo(
+    () => [...new Set(stocks.map((s) => (s.symbol || '').toUpperCase()))].sort().join(','),
+    [stocks]
+  );
+
+  // Ambil HANYA analisis published untuk emiten yang benar-benar dipegang.
+  // Gagal ambil = biarkan kosong; Daftar Saham di atas tidak boleh ikut jatuh.
+  useEffect(() => {
+    let active = true;
+    if (!symKey) { setAna({}); return undefined; }
+    supabase
+      .from('analyses')
+      .select('symbol,ringkasan,bull,bear,updated_at')
+      .in('symbol', symKey.split(','))
+      .eq('published', true)
+      .then(({ data, error }) => {
+        if (!active) return;
+        const m = {};
+        if (!error && Array.isArray(data)) data.forEach((r) => { m[(r.symbol || '').toUpperCase()] = r; });
+        setAna(m);
+      });
+    return () => { active = false; };
+  }, [symKey]);
+
+  // Semua perhitungan di useMemo dan SEBELUM early return apa pun — hook yang
+  // dipanggil setelah return dini pernah membuat halaman blank di sini.
+  const R = useMemo(() => {
+    const map = ana || {};
+    // Bobot memakai nilai pasar. Baris tanpa kuotasi live memakai harga beli sebagai
+    // pengganti (s.price sudah begitu) supaya bobot emiten lain tidak menggelembung;
+    // faktanya dinyatakan di catatan kaki, tidak dibiarkan diam-diam.
+    const rows = stocks.map((s) => ({
+      sym: s.symbol,
+      nilai: (Number(s.price) * Number(s.qty)) || 0,
+      hasLive: !!s.hasLive,
+      f: (funds || {})[s.symbol] || {},
+      a: map[(s.symbol || '').toUpperCase()] || null,
+    })).sort((a, b) => b.nilai - a.nilai);
+
+    const totalNilai = rows.reduce((a, r) => a + r.nilai, 0);
+    const denganAnalisis = rows.filter((r) => r.a);
+    const tanpaAnalisis = rows.filter((r) => !r.a);
+    const bobotTerliput = totalNilai > 0
+      ? denganAnalisis.reduce((a, r) => a + r.nilai, 0) / totalNilai
+      : 0;
+    const tanpaHarga = rows.filter((r) => !r.hasLive).map((r) => r.sym);
+
+    // Konsentrasi bobot. Jumlah emiten EFEKTIF = 1 / Σ(bobot²) — lebih mudah dibaca
+    // daripada indeks konsentrasi mentah: 1,0 berarti praktis bertumpu pada satu
+    // emiten, 6,0 berarti setara tersebar merata ke enam emiten. Cara hitung yang
+    // sama sudah dipakai untuk konsentrasi sektor di tab Global, jadi konsisten.
+    let nEfektif = null, wTeratas = null, symTeratas = null, wTiga = null;
+    if (totalNilai > 0 && rows.length) {
+      const w = rows.map((r) => r.nilai / totalNilai);
+      const sq = w.reduce((a, x) => a + x * x, 0);
+      nEfektif = sq > 0 ? 1 / sq : null;
+      wTeratas = w[0]; symTeratas = rows[0].sym;
+      wTiga = w.slice(0, 3).reduce((a, x) => a + x, 0);
+    }
+
+    const katalis = [];
+    const risiko = [];
+    denganAnalisis.forEach((r) => {
+      const w = totalNilai > 0 ? r.nilai / totalNilai : null;
+      (Array.isArray(r.a.bull) ? r.a.bull : []).forEach((t) => { if (t) katalis.push({ sym: r.sym, t: String(t), w }); });
+      (Array.isArray(r.a.bear) ? r.a.bear : []).forEach((t) => { if (t) risiko.push({ sym: r.sym, t: String(t), w }); });
+    });
+    const bobotPoin = (arr) => {
+      const uniq = new Set(arr.map((p) => p.sym));
+      return totalNilai > 0 ? rows.filter((r) => uniq.has(r.sym)).reduce((a, r) => a + r.nilai, 0) / totalNilai : null;
+    };
+
+    // Rentang tanggal analisis: yang terbaru DAN yang terlama. Menyebut yang terbaru
+    // saja membuat kumpulan ini terkesan lebih segar daripada kenyataannya.
+    const tgl = denganAnalisis.map((r) => (r.a.updated_at || '').slice(0, 10)).filter(Boolean).sort();
+    const fmtTgl = (t) => {
+      try { return new Date(t + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }); }
+      catch { return t; }
+    };
+
+    return {
+      rows, totalNilai, denganAnalisis, tanpaAnalisis, bobotTerliput, tanpaHarga,
+      nEfektif, wTeratas, symTeratas, wTiga,
+      katalis, risiko,
+      bobotKatalis: bobotPoin(katalis), bobotRisiko: bobotPoin(risiko),
+      per: agregat(rows, 'per', { harmonik: true }),
+      pbv: agregat(rows, 'pbv', { harmonik: true }),
+      roa: agregat(rows, 'roa', { harmonik: false }),
+      npm: agregat(rows, 'npm', { harmonik: false }),
+      dy: agregat(rows, 'div_yield', { harmonik: false }),
+      tglLama: tgl.length ? fmtTgl(tgl[0]) : null,
+      tglBaru: tgl.length ? fmtTgl(tgl[tgl.length - 1]) : null,
+    };
+  }, [stocks, funds, ana]);
+
+  // Muat narasi tersimpan + status kuota. Narasi disimpan di DB (bukan localStorage)
+  // supaya ikut ke perangkat mana pun user login, sama seperti analisis makro.
+  useEffect(() => {
+    if (!userId) { setNarasi(''); setNarasiAt(null); setSnapshot(''); return undefined; }
+    let alive = true;
+    (async () => {
+      try {
+        const { data: saved } = await supabase.from('portfolio_analyses')
+          .select('content,data_snapshot,created_at').eq('user_id', userId).maybeSingle();
+        if (alive && saved && saved.content) {
+          setNarasi(saved.content);
+          setSnapshot(saved.data_snapshot || '');
+          setNarasiAt(saved.created_at ? new Date(saved.created_at).getTime() : null);
+        }
+      } catch { /* tabel belum ada / gagal baca — panel angka tetap jalan */ }
+      try {
+        const { data: q } = await supabase.rpc('ai_quota_status');
+        if (alive && q) setQuota(q);
+      } catch { /* abaikan */ }
+    })();
+    return () => { alive = false; };
+  }, [userId]);
+
+  // Susun blok data untuk Sobat AI DARI OBJEK R YANG SAMA yang merender kartu di atas.
+  // Ini disengaja: narasi tidak boleh punya sumber angka sendiri, supaya mustahil ada
+  // kalimat yang menyebut angka berbeda dari yang sedang dilihat pembaca di layar.
+  function susunDataBlock(rinci) {
+    const pct = (x) => (x == null ? '—' : `${(x * 100).toFixed(1)}%`);
+    const num = (x, u) => (x == null ? '—' : `${x.toLocaleString('id-ID', { maximumFractionDigits: 2 })}${u || ''}`);
+    const barisEmiten = R.rows.map((r) => {
+      const f = r.f || {};
+      const m = ['per', 'pbv', 'roa', 'npm', 'div_yield'].map((k) => {
+        const v = angkaFund(f[k]);
+        const label = { per: 'PER', pbv: 'PBV', roa: 'ROA', npm: 'NPM', div_yield: 'DY' }[k];
+        const unit = (k === 'per' || k === 'pbv') ? 'x' : '%';
+        return `${label} ${v == null ? '—' : num(v, unit)}`;
+      }).join(', ');
+      return `${r.sym}: bobot ${pct(R.totalNilai > 0 ? r.nilai / R.totalNilai : null)} | ${m}${r.a ? '' : ' | BELUM ada analisis terkurasi'}`;
+    }).join('\n');
+
+    const barisMetrik = [
+      ['PER', R.per, 'x', 'harmonik tertimbang (eksak)'],
+      ['PBV', R.pbv, 'x', 'harmonik tertimbang (eksak)'],
+      ['ROA', R.roa, '%', 'aritmatik tertimbang (PROKSI — bukan agregasi neraca)'],
+      ['NPM', R.npm, '%', 'aritmatik tertimbang (PROKSI — bukan agregasi neraca)'],
+      ['DY', R.dy, '%', 'aritmatik tertimbang (EKSAK — setara total dividen / total nilai pasar)'],
+    ].map(([label, h, unit, sifat]) => {
+      if (!h) return `${label}: data belum tersedia untuk emiten mana pun — JANGAN membahas indikator ini.`;
+      const cak = R.totalNilai > 0 ? (h.wSum / R.totalNilai) * 100 : null;
+      return `${label}: tertimbang ${num(h.tertimbang, unit)} | rata-rata sederhana ${num(h.sederhana, unit)} | rentang ${num(h.min, unit)} (${h.symMin}) s/d ${num(h.max, unit)} (${h.symMax}) | menutup ${cak == null ? '—' : cak.toFixed(0)}% bobot dari ${h.nDipakai} emiten${h.nDikecualikan > 0 ? ` | ${h.nDikecualikan} emiten dikecualikan karena nilainya <= 0` : ''} | sifat: ${sifat}`;
+    }).join('\n');
+
+    const konsentrasi = R.nEfektif == null ? '' : `\n\nKONSENTRASI BOBOT:
+Emiten terberat: ${R.symTeratas} ${pct(R.wTeratas)}. Tiga terbesar: ${pct(R.wTiga)}. Jumlah emiten EFEKTIF: ${R.nEfektif.toFixed(1)} dari ${R.rows.length} (1,0 = praktis bertumpu pada satu emiten; makin besar makin tersebar).`;
+
+    const poin = (arr, judul) => (arr.length
+      ? `\n${judul} (tiap poin dengan bobot emitennya — poin dari emiten berbobot besar jauh lebih material):\n${arr.map((x) => `- [${x.sym}, bobot ${pct(x.w)}] ${x.t}`).join('\n')}`
+      : '');
+
+    return `PORTOFOLIO SAYA — angka di bawah ini SUDAH DIHITUNG dan sedang ditampilkan di layar pengguna. Pakai HANYA angka ini; jangan menghitung ulang, membulatkan berbeda, atau menambah angka dari ingatan.
+
+BOBOT & FUNDAMENTAL PER EMITEN (bobot = nilai pasar posisi / total nilai portofolio):
+${barisEmiten}
+
+INDIKATOR GABUNGAN:
+${barisMetrik}
+
+Cakupan analisis terkurasi: ${R.denganAnalisis.length} dari ${R.rows.length} emiten, setara ${pct(R.bobotTerliput)} bobot portofolio.${konsentrasi}
+${poin(R.katalis, 'KATALIS TERKURASI')}${poin(R.risiko, 'RISIKO TERKURASI')}${rinci ? `\n\nRINGKASAN ANALISIS TERKURASI PER EMITEN (sumber resmi & kurasi manual — satu-satunya sumber fakta fundamental yang boleh dipakai):\n${rinci}` : ''}`;
+  }
+
+  async function buatNarasi() {
+    if (loading || !userId || R.denganAnalisis.length === 0) return;
+    setErr(''); setLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) { setErr('Harus login untuk memakai analisis ini.'); setLoading(false); return; }
+
+      const isAdmin = userId === ADMIN_UID;
+
+      // Isi analisis diambil terpisah di sini, BUKAN ikut di query panel. Kolom `body`
+      // besar dan hanya dibutuhkan saat tombol ditekan — memuatnya di awal akan
+      // memperlambat tab Portofolio untuk fitur yang mungkin tidak pernah dipakai.
+      let rinci = '';
+      try {
+        const syms = R.denganAnalisis.map((r) => r.sym);
+        if (syms.length) {
+          const { data: full } = await supabase.from('analyses')
+            .select('symbol,ringkasan,body,updated_at').in('symbol', syms).eq('published', true);
+          const peta = {};
+          (full || []).forEach((a) => { peta[(a.symbol || '').toUpperCase()] = a; });
+          rinci = R.denganAnalisis.map((r) => {
+            const a = peta[r.sym.toUpperCase()];
+            if (!a) return '';
+            const isi = flattenBody(a.body, isAdmin ? 1200 : 600);
+            return `${r.sym} (analisis per ${(a.updated_at || '').slice(0, 10)}): ${a.ringkasan || ''}${isi ? ` Rincian: ${isi}` : ''}`;
+          }).filter(Boolean).join('\n');
+        }
+      } catch { /* narasi tetap jalan dengan katalis/risiko saja */ }
+
+      const dataBlock = susunDataBlock(rinci);
+
+      // Aturan keras yang berlaku untuk kedua tingkat kedalaman. Ditulis sekali supaya
+      // versi admin dan versi pengguna biasa tidak pernah berbeda soal batas etisnya.
+      const aturan = `ATURAN KERAS:
+- Angka HANYA dari blok data di atas. Jangan mengarang, menghitung ulang, atau menambahkan angka laporan keuangan dari ingatan.
+- Hormati cakupan. Kalau suatu indikator hanya menutup sebagian bobot, katakan itu; jangan memperlakukannya seolah mewakili seluruh portofolio. Data kosong berarti BELUM ADA DATA, bukan nol dan bukan buruk.
+- Bedakan tegas mana yang eksak dan mana yang proksi sesuai keterangan "sifat" tiap indikator.
+- JANGAN menyarankan beli, jual, tambah, atau kurangi posisi. JANGAN menyebut kode saham di luar portofolio ini sebagai kandidat. JANGAN memberi bobot atau target harga.
+- Tugasmu MENJELASKAN struktur portofolio yang ada, bukan menilai bagus/jelek atau memberi arahan tindakan.
+- Akhiri dengan satu kalimat bahwa ini edukatif dan bukan rekomendasi investasi.`;
+
+      const instr = isAdmin
+        ? `Buat narasi MENDALAM dalam Bahasa Indonesia dengan format markdown:
+- "## Gambaran" — karakter portofolio ini dalam beberapa kalimat: seberapa terkonsentrasi, condong ke profil seperti apa (murah/mahal, marjin tebal/tipis, yield tinggi/rendah), dan seberapa besar bagian yang benar-benar terliput analisis.
+- "## Membaca Angka Gabungan" — bahas SETIAP indikator yang datanya ada. Untuk masing-masing, jelaskan arti selisih antara versi tertimbang dan rata-rata sederhana: emiten mana yang menarik angka itu ke atas atau ke bawah, dan apa konsekuensinya bagi pemilik portofolio. Sebut juga rentangnya bila lebar.
+- "## Emiten Penentu" — emiten dengan bobot terbesar dan mengapa agregat portofolio pada dasarnya mengikuti mereka. Jelaskan jalur sebab-akibatnya, bukan sekadar mengulang angka.
+- "## Katalis & Risiko Tertimbang" — susun ulang katalis dan risiko terkurasi berdasarkan MATERIALITAS, yaitu bobot emiten asalnya. Nyatakan eksplisit mana yang menggerakkan portofolio secara berarti dan mana yang efeknya kecil karena bobotnya kecil. Kalau beberapa emiten berbagi risiko sejenis, gabungkan dan jumlahkan bobotnya.
+- "## Yang Perlu Dipantau" — hal konkret yang mengubah kesimpulan di atas bila berubah.
+Gunakan **tebal**, *miring*, dan poin (-) agar enak dibaca. Boleh panjang dan detail.
+
+${aturan}`
+        : `Buat narasi SINGKAT dan mudah dibaca dalam Bahasa Indonesia dengan format markdown:
+- "## Gambaran" — 2–3 kalimat: seberapa terkonsentrasi portofolio ini dan condong ke profil seperti apa.
+- "## Membaca Angka Gabungan" — bahas 2–3 indikator dengan selisih tertimbang vs rata-rata sederhana PALING MENCOLOK saja. Untuk tiap indikator, satu poin singkat: emiten mana yang menariknya dan apa artinya.
+- "## Katalis & Risiko Tertimbang" — maksimal 3 poin katalis dan 3 poin risiko, diurut materialitas (bobot emiten asalnya), sebutkan bobotnya.
+- "## Yang Perlu Dipantau" — 2–3 poin singkat.
+Gunakan **tebal** untuk penekanan dan poin (-) untuk daftar. PENTING: target maksimal 400 kata, dan WAJIB menyelesaikan seluruh struktur sampai kalimat penutup — jangan pernah berhenti di tengah kalimat atau di tengah daftar.
+
+${aturan}`;
+
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ messages: [{ role: 'user', content: `${dataBlock}\n\n${instr}` }], max_tokens: 8000, markdown: true }),
+      });
+      const data = await res.json();
+      if (res.status === 429 || data.quota_exceeded) {
+        setErr(data.error || 'Kuota Sobat AI habis. Coba lagi besok.');
+      } else if (!res.ok) {
+        setErr(data.error || 'Gagal memuat narasi.');
+      } else {
+        const reply = (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim();
+        const finalText = reply || '(kosong)';
+        const nowIso = new Date().toISOString();
+        setNarasi(finalText); setSnapshot(dataBlock); setNarasiAt(Date.now());
+        try {
+          await supabase.from('portfolio_analyses').upsert(
+            { user_id: userId, content: finalText, data_snapshot: dataBlock, created_at: nowIso },
+            { onConflict: 'user_id' }
+          );
+        } catch { /* tetap tampil sesi ini meski gagal simpan */ }
+      }
+      try { const { data: q } = await supabase.rpc('ai_quota_status'); if (q) setQuota(q); } catch { /* abaikan */ }
+    } catch (e) {
+      setErr(e.message || 'Terjadi kesalahan.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const memuat = ana === null;
+  const noQuota = quota && quota.login && !quota.admin && quota.sisa_harian === 0;
+  const tombolMati = loading || !userId || R.denganAnalisis.length === 0 || noQuota;
+
+  return (
+    <div id="sec-analisis-gabungan" style={{ marginTop: 24, scrollMarginTop: 70 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+        <FileText size={15} color={C.cuan} />
+        <h3 className="serif" style={{ fontSize: 22, fontWeight: 500, letterSpacing: '-0.01em', color: C.ink, margin: 0 }}>
+          Analisis Gabungan Portofolio
+        </h3>
+      </div>
+      <p style={{ fontSize: 13, color: C.inkSoft, lineHeight: 1.55, margin: '0 0 14px' }}>
+        Rangkuman analisis terkurasi dari tab Analisis untuk seluruh emiten yang kamu pegang — tiap indikator disajikan tertimbang bobot posisi sekaligus rata-rata sederhananya.
+      </p>
+
+      <div style={{ background: C.cream2, borderRadius: 20, padding: '18px 18px 20px' }}>
+        {memuat ? (
+          <div style={{ fontSize: 13, color: C.inkSoft }}>Memuat analisis…</div>
+        ) : R.denganAnalisis.length === 0 ? (
+          <div style={{ fontSize: 13.5, color: C.inkSoft, lineHeight: 1.6 }}>
+            Belum ada analisis terkurasi untuk emiten di portofoliomu. Begitu analisisnya terbit di tab Analisis, rangkuman gabungan akan muncul di sini.
+          </div>
+        ) : (
+          <>
+            {/* Cakupan lebih dulu, sebelum angka apa pun. Pembaca perlu tahu seberapa
+                besar bagian portofolionya yang benar-benar diwakili rangkuman ini. */}
+            <div className="mono" style={{ fontSize: 11, letterSpacing: '0.06em', color: C.inkSoft, marginBottom: 6, lineHeight: 1.6 }}>
+              {R.denganAnalisis.length} dari {R.rows.length} emiten teranalisis
+              {R.totalNilai > 0 && <> · {(R.bobotTerliput * 100).toFixed(0)}% bobot portofolio</>}
+              {R.tglBaru && <> · analisis {R.tglLama === R.tglBaru ? R.tglBaru : `${R.tglLama} – ${R.tglBaru}`}</>}
+            </div>
+
+            {/* Konsentrasi bobot — konteks yang harus dibaca SEBELUM angka agregat.
+                Agregat portofolio yang sangat terkonsentrasi pada dasarnya adalah
+                angka satu emiten yang menyamar sebagai angka portofolio. */}
+            {R.nEfektif != null && (
+              <div style={{ fontSize: 12.5, color: C.inkSoft, lineHeight: 1.6, marginBottom: 12 }}>
+                Terberat <span className="mono" style={{ fontWeight: 700, color: C.ink }}>{R.symTeratas} {(R.wTeratas * 100).toFixed(1)}%</span>
+                {R.rows.length >= 3 && <> · tiga terbesar <span className="mono" style={{ fontWeight: 700, color: C.ink }}>{(R.wTiga * 100).toFixed(0)}%</span></>}
+                {' '}· jumlah emiten <i>efektif</i> <span className="mono" style={{ fontWeight: 700, color: C.ink }}>{R.nEfektif.toFixed(1)}</span> dari {R.rows.length}
+                {R.wTeratas >= 0.4 && <> — agregat di bawah ini sebagian besar mencerminkan {R.symTeratas}.</>}
+              </div>
+            )}
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 10 }}>
+              <MetrikGabungan label="PER" hasil={R.per} unit="x" totalNilai={R.totalNilai} catatan="harmonik" />
+              <MetrikGabungan label="PBV" hasil={R.pbv} unit="x" totalNilai={R.totalNilai} catatan="harmonik" />
+              <MetrikGabungan label="ROA" hasil={R.roa} unit="%" totalNilai={R.totalNilai} catatan="proksi" />
+              <MetrikGabungan label="NPM" hasil={R.npm} unit="%" totalNilai={R.totalNilai} catatan="proksi" />
+              <MetrikGabungan label="DY" hasil={R.dy} unit="%" totalNilai={R.totalNilai} catatan="eksak" />
+            </div>
+
+            <PetaBobot rows={R.rows} totalNilai={R.totalNilai} onSymbol={onSymbol} />
+
+            <PoinGabungan judul="Katalis gabungan" poin={R.katalis} warna={C.green} onSymbol={onSymbol} totalBobot={R.bobotKatalis} />
+            <PoinGabungan judul="Risiko gabungan" poin={R.risiko} warna={C.red} onSymbol={onSymbol} totalBobot={R.bobotRisiko} />
+
+            {R.tanpaAnalisis.length > 0 && (
+              <div style={{ fontSize: 12.5, color: C.inkSoft, lineHeight: 1.6, marginTop: 16, paddingTop: 12, borderTop: '1px solid rgba(26,42,32,0.08)' }}>
+                Belum masuk rangkuman (belum ada analisis terkurasi):{' '}
+                {R.tanpaAnalisis.map((r, i) => (
+                  <span key={r.sym}>
+                    {i > 0 && ', '}
+                    <span className="mono" style={{ fontWeight: 700, color: C.ink }}>{r.sym}</span>
+                    {R.totalNilai > 0 && <span className="mono"> ({((r.nilai / R.totalNilai) * 100).toFixed(1)}%)</span>}
+                  </span>
+                ))}.
+              </div>
+            )}
+
+            <div style={{ fontSize: 11.5, color: C.inkSoft, lineHeight: 1.6, marginTop: 10 }}>
+              Angka besar tiap indikator adalah versi <b>tertimbang bobot posisi</b>; rata-rata sederhana di bawahnya memperlakukan semua emiten setara, jadi selisih keduanya menunjukkan seberapa jauh alokasimu menarik portofolio dari rata-rata.
+              PER &amp; PBV tertimbang memakai rata-rata harmonik (setara total nilai pasar ÷ total laba/ekuitas) dan mengecualikan emiten dengan nilai ≤ 0.
+              DY tertimbang bersifat eksak (setara total dividen ÷ total nilai pasar), tetapi hanya menghitung emiten yang punya angka — kolom kosong berarti datanya belum ada, bukan berarti nol.
+              ROA &amp; NPM adalah rata-rata tertimbang bobot — proksi, bukan agregasi neraca.
+              {R.tanpaHarga.length > 0 && <> Bobot {R.tanpaHarga.join(', ')} memakai harga beli karena kuotasi live tidak tersedia.</>}
+              {' '}Rangkuman ini bersifat edukatif, bukan rekomendasi beli/jual.
+            </div>
+
+            {/* Lapisan narasi. Ditaruh PALING BAWAH dan di balik satu tombol dengan sengaja:
+                angka di atas adalah tulang punggung panel ini dan selalu ada tanpa biaya,
+                sedangkan narasi memakai kuota dan sifatnya interpretasi. Urutan ini menjaga
+                supaya pembaca melihat datanya lebih dulu, baru tafsirannya. */}
+            <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid rgba(26,42,32,0.10)' }}>
+              <div className="mono" style={{ fontSize: 10.5, letterSpacing: '0.12em', textTransform: 'uppercase', color: C.cuan, fontWeight: 700, marginBottom: 6 }}>
+                Narasi analisis
+              </div>
+              <p style={{ fontSize: 12.5, color: C.inkSoft, lineHeight: 1.55, margin: '0 0 10px' }}>
+                Sobat AI merangkai angka dan poin di atas menjadi penjelasan naratif. Sumbernya persis data yang sedang kamu lihat — tidak ada angka tambahan dari luar panel ini.
+              </p>
+              <button
+                onClick={buatNarasi}
+                disabled={tombolMati}
+                style={{ background: tombolMati ? 'rgba(26,42,32,0.25)' : C.forest, color: C.cream, border: 'none', padding: '11px 20px', borderRadius: 100, fontSize: 13.5, fontWeight: 600, cursor: tombolMati ? 'default' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 }}
+              >
+                {loading
+                  ? <><Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> Menyusun narasi…</>
+                  : <><Sparkles size={15} /> {narasi ? 'Perbarui narasi' : 'Buat narasi analisis'}</>}
+              </button>
+              <div style={{ fontSize: 11.5, color: noQuota ? C.rust : C.inkSoft, marginTop: 8 }}>
+                {noQuota ? 'Kuota Sobat AI hari ini sudah habis.' : (quota && quota.login
+                  ? (quota.admin ? 'Memakai Sobat AI · admin tanpa batas' : `Memakai jatah Sobat AI · sisa ${quota.sisa_harian}/${quota.limit_harian} hari ini`)
+                  : 'Memakai jatah Sobat AI harian.')}
+              </div>
+
+              {err && <div style={{ fontSize: 12.5, color: C.rust, marginTop: 10 }}>{err}</div>}
+
+              {narasi && (
+                <div style={{ marginTop: 14 }}>
+                  {narasiAt && (
+                    <div style={{ fontSize: 11.5, color: C.inkSoft, marginBottom: 6 }}>
+                      Disusun {fmtWIB(narasiAt)} · berdasarkan bobot dan harga saat itu. Kalau posisi atau harga sudah berubah, perbarui agar narasinya ikut menyesuaikan.
+                    </div>
+                  )}
+                  {snapshot && (
+                    <details style={{ marginBottom: 10 }}>
+                      <summary style={{ cursor: 'pointer', fontSize: 11.5, color: C.inkSoft, userSelect: 'none' }}>Lihat data yang dipakai narasi ini</summary>
+                      <pre style={{ marginTop: 8, whiteSpace: 'pre-wrap', fontFamily: "'JetBrains Mono', monospace", fontSize: 11, lineHeight: 1.5, color: C.inkSoft, background: C.cream, borderRadius: 12, padding: '12px 14px', overflowX: 'auto' }}>{snapshot}</pre>
+                    </details>
+                  )}
+                  <div style={{ background: C.cream, borderRadius: 16, padding: '14px 16px' }}>
+                    <RichText text={narasi} />
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImport, onSymbol, onDivTotalHist, onDivTotal12, userId }) {
   const [hideBalance] = useHideBalance();   // sinkron otomatis via HIDEBAL_EVENT
   // Fundamental dari tabel yang SAMA dengan tab Analisis. Gagal ambil = biarkan
   // kosong; jangan bikin Daftar Saham ikut gagal.
   const [funds, setFunds] = useState({});
   useEffect(() => {
     let active = true;
-    supabase.from('fundamentals').select('symbol,per,pbv,roa,npm').then(({ data, error }) => {
+    supabase.from('fundamentals').select('symbol,per,pbv,roa,npm,div_yield').then(({ data, error }) => {
       if (!active) return;
       const m = {};
       if (!error && Array.isArray(data)) data.forEach((r) => { m[(r.symbol || '').toUpperCase()] = r; });
@@ -2991,9 +3503,9 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
       ) : (
         <div style={{ background: C.cream2, borderRadius: 20, overflow: 'hidden' }}>
           <div style={{ overflow: 'auto', maxHeight: 460 }}>
-          {/* minWidth = total lebar minimum 12 kolom (820) + padding (36). Di HP tabel
+          {/* minWidth = total lebar minimum 13 kolom (876) + padding (36). Di HP tabel
               digeser horizontal; di desktop satuan fr memuai mengisi layar. */}
-          <div style={{ minWidth: 856 }}>
+          <div style={{ minWidth: 912 }}>
           {/* Header dulu berlatar C.cream2 — SAMA PERSIS dgn latar kartu, jadi tak ada
               pemisahan dan judul kolom terlihat mengambang. Sekarang pita forest
               (warna yang sama dengan tombol "Beli Saham"), teks krem, kolom yang
@@ -3013,6 +3525,7 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
             <Th label="PBV" k="pbv" sortKey={sortKey} sortDir={sortDir} onSort={onSort} title="Price to Book Value" />
             <Th label="ROA" k="roa" sortKey={sortKey} sortDir={sortDir} onSort={onSort} title="Return on Assets" />
             <Th label="NPM" k="npm" sortKey={sortKey} sortDir={sortDir} onSort={onSort} title="Net Profit Margin" />
+            <Th label="DY" k="div_yield" sortKey={sortKey} sortDir={sortDir} onSort={onSort} title="Dividend Yield — total dividen 12 bulan terakhir terhadap harga" />
             <Th label="P/L 30H" k="pl30" sortKey={sortKey} sortDir={sortDir} onSort={onSort} title="Perubahan harga saham 30 hari terakhir (bukan P/L posisi)" />
           </div>
           <div>
@@ -3058,6 +3571,7 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
                 <Fund v={f.pbv} unit="x" />
                 <Fund v={f.roa} unit="%" warnaMinus />
                 <Fund v={f.npm} unit="%" warnaMinus />
+                <Fund v={f.div_yield} unit="%" />
                 <div style={{ textAlign: 'right' }}>
                   {(pl30[s.symbol] != null && !isNaN(pl30[s.symbol])) ? (
                     <div className="mono" style={{ fontSize: 12, fontWeight: 600, color: pl30[s.symbol] >= 0 ? C.green : C.red }}>{fmtPct(pl30[s.symbol])}</div>
@@ -3071,6 +3585,8 @@ function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImp
           </div>
         </div>
       )}
+
+      {stocks.length > 0 && <PortfolioCombinedAnalysis stocks={stocks} funds={funds} onSymbol={onSymbol} userId={userId} />}
 
       {stocks.length > 0 && <div id="sec-dividen" style={{ scrollMarginTop: 70 }}><DividendCard stocks={stocks} onSymbol={onSymbol} onTotalHist={onDivTotalHist} onTotal12={onDivTotal12} /></div>}
 
