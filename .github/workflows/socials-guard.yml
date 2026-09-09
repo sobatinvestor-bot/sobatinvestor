@@ -1,0 +1,42 @@
+name: socials-guard
+
+# Menggagalkan build bila tautan Instagram/TikTok muncul kembali di kode sumber.
+#
+# Kenapa ini ada: tautan tersebut sudah beberapa kali dihapus lalu kembali
+# sendiri, karena ia hidup di dalam berkas sumber — begitu sebuah berkas
+# diganti versi baru, isinya ikut terbawa tanpa ada yang menyadari. Penjaga ini
+# membuat kejadian itu ketahuan saat push, bukan berbulan-bulan kemudian.
+#
+# Penjaga ini hanya MEMERIKSA. Ia sengaja tidak memperbaiki sendiri: perbaikan
+# yang dilakukan CI diam-diam akan menyembunyikan penyebabnya, dan yang perlu
+# kelihatan justru berkas mana yang membawanya kembali.
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  periksa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Periksa tautan sosial
+        run: node scripts/hapus-socials.mjs --check
+
+      - name: Pastikan skrip penyembunyi lama sudah tiada
+        run: |
+          for f in scripts/hide-socials.mjs scripts/.social-backup.json; do
+            if [ -e "$f" ]; then
+              echo "GAGAL: $f masih ada."
+              echo "Berkas itu bisa mengembalikan tautan yang sudah dihapus."
+              exit 1
+            fi
+          done
+          echo "Bersih."

@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App.jsx';
+import App from './App.tsx';
 import './index.css';
 
 // Auto-recovery deploy: bila shell yang sedang jalan menunjuk chunk lama yang
