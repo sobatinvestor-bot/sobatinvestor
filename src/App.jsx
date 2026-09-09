@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from 'react';
 // SOBAT BUILD MARKER: 2026-09-05-e  — ubah string ini (mis. -b, -c) tiap kali ingin
 // MEMAKSA build baru saat GitHub/Cloudflare mengira tidak ada perubahan.
-import { Send, Home, Sparkles, Briefcase, Download, Upload, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus, Globe, ArrowDown, Linkedin, Instagram, Eye, EyeOff, BookOpen } from 'lucide-react';
+import { Send, Home, Sparkles, Briefcase, Download, Upload, Loader2, Lock, LogOut, Plus, Pencil, Trash2, FileText, Minus, Globe, ArrowDown, Linkedin, Eye, EyeOff, BookOpen } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import useBackGuard from './useBackGuard.js';
 import { Auth, usePortfolio, Editor, logout, SellEditor, RdnCard, StockNews, parseSobatCSV, ChangePassword, SetNewPassword } from './Account.jsx';
+import { deriveFund } from './fundamentals-live';
 // Bila chunk lama hilang setelah deploy (browser pakai index.html basi), ambil
 // versi terbaru dengan reload sekali — mencegah layar blank "Failed to fetch module".
 function lazyReload(factory) {
@@ -147,14 +148,6 @@ const LEGAL_DOCS = {
 // ============================================================
 // Footer
 // ============================================================
-function TikTokIcon({ size = 18 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M16.5 3c.32 2.06 1.47 3.62 3.5 3.86v2.49c-1.27.12-2.49-.27-3.5-.99v6.04c0 3.18-2.39 5.6-5.45 5.6-2.92 0-5.05-2.16-5.05-5.06 0-3.02 2.42-5.22 5.6-4.94v2.59c-.39-.12-.81-.16-1.23-.1-1.16.15-1.96.96-1.92 2.13.04 1.27 1.02 2.15 2.32 2.1 1.27-.05 2.08-1.01 2.08-2.39V3h3.55z" />
-    </svg>
-  );
-}
-
 function Footer({ onOpenLegal, loggedIn, setTab }) {
   const year = new Date().getFullYear();
   const linkStyle = { color: C.forest, textDecoration: 'underline', cursor: 'pointer', background: 'none', border: 'none', padding: 0, font: 'inherit' };
@@ -164,8 +157,6 @@ function Footer({ onOpenLegal, loggedIn, setTab }) {
       <div style={{ maxWidth: 680, margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginBottom: 14 }}>
           <a href="https://www.linkedin.com/in/sobat-investor-665a01419" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" style={socialBadge}><Linkedin size={18} /></a>
-          <a href="https://www.instagram.com/sobatinvestor.indonesia" target="_blank" rel="noopener noreferrer" aria-label="Instagram" style={socialBadge}><Instagram size={18} /></a>
-          <a href="https://www.tiktok.com/@sobatinvestor.indonesia" target="_blank" rel="noopener noreferrer" aria-label="TikTok" style={socialBadge}><TikTokIcon size={18} /></a>
         </div>
         <div style={{ marginBottom: 8 }}>
           {/* "Lihat Portofolio" di Footer HANYA untuk pengunjung anonim.
@@ -665,11 +656,20 @@ export default function App() {
           </div>
         )}
         <div style={{ display: tab === 'baca' ? 'block' : 'none' }}>
-          <BacaTab />
+          <ErrorBoundary>
+            <BacaTab />
+          </ErrorBoundary>
         </div>
         {session && (
           <div style={{ display: tab === 'global' ? 'block' : 'none' }}>
-            <MarketsTab active={tab === 'global'} userId={session.user.id} onRequireLogin={() => setTab('portfolio')} />
+            {/* MarketsTab sebelumnya berada DI LUAR ErrorBoundary, sementara PrivateArea
+                di dalam. Akibatnya satu galat render di tab Global — mis. saat
+                PortfolioMacroAnalysis menampilkan hasil AI — menjatuhkan seluruh pohon
+                React dan layar jadi putih polos tanpa petunjuk apa pun. Dibungkus supaya
+                galatnya tampil sebagai pesan yang bisa dibaca, bukan layar kosong. */}
+            <ErrorBoundary>
+              <MarketsTab active={tab === 'global'} userId={session.user.id} onRequireLogin={() => setTab('portfolio')} />
+            </ErrorBoundary>
           </div>
         )}
         {isPrivateTab && tab !== 'chat' && !session && <Auth inline />}
@@ -3110,7 +3110,7 @@ function PortfolioCombinedAnalysis({ stocks, funds, onSymbol }) {
               <MetrikGabungan label="PBV" hasil={R.pbv} unit="x" totalNilai={R.totalNilai} catatan="harmonik" />
               <MetrikGabungan label="ROA" hasil={R.roa} unit="%" totalNilai={R.totalNilai} catatan="proksi" />
               <MetrikGabungan label="NPM" hasil={R.npm} unit="%" totalNilai={R.totalNilai} catatan="proksi" />
-              <MetrikGabungan label="DY" hasil={R.dy} unit="%" totalNilai={R.totalNilai} catatan="eksak" />
+              <MetrikGabungan label="DY 12 BLN LALU" hasil={R.dy} unit="%" totalNilai={R.totalNilai} catatan="eksak" />
             </div>
 
             <PetaBobot rows={R.rows} totalNilai={R.totalNilai} onSymbol={onSymbol} />
@@ -3135,8 +3135,10 @@ function PortfolioCombinedAnalysis({ stocks, funds, onSymbol }) {
               Angka besar tiap indikator adalah versi <b>tertimbang bobot posisi</b>; rata-rata sederhana di bawahnya memperlakukan semua emiten setara, jadi selisih keduanya menunjukkan seberapa jauh alokasimu menarik portofolio dari rata-rata.
               PER &amp; PBV tertimbang memakai rata-rata harmonik (setara total nilai pasar ÷ total laba/ekuitas) dan mengecualikan emiten dengan nilai ≤ 0.
               DY tertimbang bersifat eksak (setara total dividen ÷ total nilai pasar), tetapi hanya menghitung emiten yang punya angka — kolom kosong berarti datanya belum ada, bukan berarti nol.
+              {' '}DY di sini memakai dividen yang SUDAH dibagikan 12 bulan terakhir menurut keterbukaan BEI, jadi setiap rupiahnya bisa ditelusuri. Angka "yield saat ini" di kartu Financial Freedom menghitung hal lain — perkiraan dividen 12 bulan KE DEPAN, termasuk siklus yang belum diumumkan — sehingga wajar bila keduanya berbeda beberapa persepuluh poin. Yang satu mencatat yang sudah terjadi, yang satu memperkirakan yang akan datang.
               ROA &amp; NPM adalah rata-rata tertimbang bobot — proksi, bukan agregasi neraca.
-              {R.tanpaHarga.length > 0 && <> Bobot {R.tanpaHarga.join(', ')} memakai harga beli karena kuotasi live tidak tersedia.</>}
+              {' '}PER, PBV, dan DY dihitung dari harga pasar terakhir dibagi EPS, ekuitas per saham, dan total dividen 12 bulan dari laporan keuangan resmi emiten, jadi ketiganya ikut bergerak bersama harga. ROA, NPM, dan DER berasal dari laporan yang sama dan hanya berubah saat laporan kuartalan baru terbit.
+              {R.tanpaHarga.length > 0 && <> Bobot {R.tanpaHarga.join(', ')} memakai harga beli karena kuotasi live tidak tersedia — PER/PBV/DY emiten itu memakai nilai kurasi terakhir, bukan harga hari ini.</>}
               {' '}Rangkuman ini bersifat edukatif, bukan rekomendasi beli/jual.
             </div>
           </>
@@ -3148,19 +3150,44 @@ function PortfolioCombinedAnalysis({ stocks, funds, onSymbol }) {
 
 function PortfolioTab({ stocks, onAdd, onEdit, onDelete, onSell, onExport, onImport, onSymbol, onDivTotalHist, onDivTotal12 }) {
   const [hideBalance] = useHideBalance();   // sinkron otomatis via HIDEBAL_EVENT
-  // Fundamental dari tabel yang SAMA dengan tab Analisis. Gagal ambil = biarkan
+  // Fundamental dari sumber yang SAMA dengan tab Analisis. Gagal ambil = biarkan
   // kosong; jangan bikin Daftar Saham ikut gagal.
-  const [funds, setFunds] = useState({});
+  //
+  // Yang diambil di sini adalah baris MENTAH dari view `fundamentals_live`:
+  // fakta laporan keuangan (eps_ttm, bvps, roa, npm, der) plus DPS 12 bulan
+  // terakhir yang dihitung view dari `dividend_schedule`. PER/PBV/DY sengaja
+  // tidak dipakai apa adanya — lihat hidrasi di bawah.
+  const [fundsRaw, setFundsRaw] = useState({});
   useEffect(() => {
     let active = true;
-    supabase.from('fundamentals').select('symbol,per,pbv,roa,npm,div_yield').then(({ data, error }) => {
-      if (!active) return;
-      const m = {};
-      if (!error && Array.isArray(data)) data.forEach((r) => { m[(r.symbol || '').toUpperCase()] = r; });
-      setFunds(m);
-    });
+    supabase.from('fundamentals_live')
+      .select('symbol,per,pbv,roa,npm,der,div_yield,eps_growth,eps_ttm,bvps,basis_per,basis_date,dps12,dps_lengkap,updated_at')
+      .then(({ data, error }) => {
+        if (!active) return;
+        const m = {};
+        if (!error && Array.isArray(data)) data.forEach((r) => { m[(r.symbol || '').toUpperCase()] = r; });
+        setFundsRaw(m);
+      });
     return () => { active = false; };
   }, []);
+
+  // Hidrasi: PER/PBV/DY dibagi dengan HARGA YANG SAMA dengan yang tampil di
+  // kolom "SAAT INI". Sebelumnya ketiganya nilai tersimpan yang dibekukan pada
+  // harga saat analisis ditulis, jadi bisa tertinggal berbulan-bulan tanpa
+  // tanda apa pun di layar — DY portofolio sempat meleset 0,4 poin persen
+  // terhadap yield yang dihitung FreedomCard dari harga live.
+  //
+  // Baris tanpa kuotasi live sengaja TIDAK dihitung ulang: di situ s.price
+  // berisi harga BELI, dan PER terhadap harga beli sendiri tidak berarti
+  // apa-apa. Baris itu jatuh ke nilai tersimpan lewat fallback di deriveFund,
+  // dan faktanya dinyatakan di catatan kaki Analisis Gabungan.
+  const funds = useMemo(() => {
+    const px = {};
+    stocks.forEach((s) => { if (s.hasLive && Number(s.price) > 0) px[s.symbol] = Number(s.price); });
+    const out = {};
+    Object.entries(fundsRaw).forEach(([sym, row]) => { out[sym] = deriveFund(row, px[sym] ?? null); });
+    return out;
+  }, [fundsRaw, stocks]);
   const [confirmDel, setConfirmDel] = useState(null); // stock yang mau dihapus
   const [sortKey, setSortKey] = useState(null);   // null = urutan bawaan (nilai pasar)
   const [sortDir, setSortDir] = useState('desc');
@@ -3927,13 +3954,13 @@ function FreedomCard({ equity, costBasis, divTotal12, ffTarget, hideBalance }) {
       </div>
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginBottom: 14 }}>
-        {stat('YIELD SAAT INI', `${(yieldPasar * 100).toFixed(2)}%`, 'dividen ÷ nilai pasar')}
-        {stat('YIELD ON COST', yieldOnCost != null ? `${(yieldOnCost * 100).toFixed(2)}%` : '—', 'dividen ÷ modal beli')}
+        {stat('YIELD 12 BLN DEPAN', `${(yieldPasar * 100).toFixed(2)}%`, 'perkiraan dividen ÷ nilai pasar')}
+        {stat('YIELD ON COST', yieldOnCost != null ? `${(yieldOnCost * 100).toFixed(2)}%` : '—', 'perkiraan dividen ÷ modal beli')}
         {stat('PORTOFOLIO DIBUTUHKAN', hideBalance ? 'Rp ••••••' : fmtRp(equityNeeded), `${(equityNeeded / equity).toFixed(1)}× dari sekarang`)}
       </div>
 
       <div style={{ fontSize: 11, color: C.inkSoft, lineHeight: 1.5, marginBottom: 16 }}>
-        Kedua yield di atas bruto, sebelum PPh final dividen 10%. Selisih antara keduanya menunjukkan arah harga sejak kamu membeli: yield on cost lebih tinggi berarti harga rata-rata belimu di bawah harga sekarang.
+        Kedua yield di atas bruto, sebelum PPh final dividen 10%. Keduanya memakai perkiraan dividen 12 bulan ke depan: dividen yang tanggalnya sudah diumumkan dipakai apa adanya, sisanya diproyeksikan dari siklus setahun terakhir. Karena itu angkanya berbeda dari "DY 12 bln lalu" di Daftar Saham, yang hanya mencatat dividen yang sudah dibagikan. Selisih antara kedua kotak di atas menunjukkan arah harga sejak kamu membeli: yield on cost lebih tinggi berarti harga rata-rata belimu di bawah harga sekarang.
       </div>
 
       {/* ---- Tuas yang bisa kamu kendalikan ---- */}
