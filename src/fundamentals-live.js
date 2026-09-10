@@ -74,8 +74,15 @@ export function deriveFund(row, price) {
  */
 export function hydrateFunds(rows, priceOf) {
   const m = {};
-  if (!Array.isArray(rows)) return m;
-  for (const row of rows) {
+  if (!rows) return m;
+  // Menerima array baris MAUPUN peta simbol -> baris. Versi pertama hanya
+  // menerima array dan diam-diam mengembalikan objek kosong untuk peta — di
+  // tab Analisis itu membuat seluruh strip fundamental lenyap tanpa satu pun
+  // pesan galat, jenis kegagalan yang paling sulit dilacak. Gagal diam-diam
+  // lebih buruk daripada menerima dua bentuk masukan.
+  const daftar = Array.isArray(rows) ? rows : Object.values(rows);
+  for (const row of daftar) {
+    if (!row) continue;
     const sym = String(row.symbol || '').toUpperCase();
     if (!sym) continue;
     m[sym] = deriveFund(row, priceOf ? priceOf(sym) : null);

@@ -1,5 +1,5 @@
 // ============================================================
-// VERSI: fundamentals-live-3  ·  11 September 2026
+// VERSI: fundamentals-live-4  ·  11 September 2026
 //
 // Penanda versi. Kalau ragu berkas mana yang sedang live, cari string
 // "fundamentals-live-3" di bundel yang ter-deploy, atau lihat catatan kaki di
@@ -21,7 +21,7 @@ import { ChevronLeft, Send, Trash2, Loader2, TrendingUp, TrendingDown, MessageCi
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell, LineChart, Line, CartesianGrid, ReferenceLine } from 'recharts';
 import { supabase } from './lib/supabase';
 import useBackGuard from './useBackGuard.js';
-import { hydrateFunds } from './fundamentals-live';
+import { deriveFund } from './fundamentals-live';
 const Backtest = lazy(() => import('./Backtest.jsx'));
 const DividendCalendar = lazy(() => import('./DividendCalendar.jsx'));
 
@@ -296,7 +296,15 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
     return () => { active = false; };
   }, [fundsRaw]);
 
-  const funds = useMemo(() => hydrateFunds(fundsRaw, (sym) => prices[sym] ?? null), [fundsRaw, prices]);
+  // CATATAN: fundsRaw berbentuk PETA simbol -> baris, bukan array. hydrateFunds
+  // menuntut array dan diam-diam mengembalikan objek kosong bila diberi peta —
+  // itu sempat membuat seluruh strip fundamental lenyap tanpa satu pun pesan
+  // galat. Di sini dipetakan sendiri lewat deriveFund, sama seperti di App.
+  const funds = useMemo(() => {
+    const out = {};
+    Object.entries(fundsRaw).forEach(([sym, row]) => { out[sym] = deriveFund(row, prices[sym] ?? null); });
+    return out;
+  }, [fundsRaw, prices]);
 
   // Performa harga — tabel terpisah, kadensi harian. Gagal ambil = biarkan kosong
   // (chip menampilkan "—"), jangan bikin daftar ikut gagal.
