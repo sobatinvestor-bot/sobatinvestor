@@ -640,7 +640,7 @@ export function FundamentalStrip({ symbol, funds }) {
         })}
       </div>
       <p className="mono" style={{ fontSize: 9.5, color: C.inkSoft, marginTop: 8, lineHeight: 1.5 }}>
-        PER/PBV/ROA/NPM dikurasi manual dari laporan keuangan resmi emiten (sinkron otomatis dihentikan Juli 2026), dapat berbeda dari perhitungan lain; DER/Yield/Growth EPS juga dari laporan keuangan resmi emiten{f.updated_at ? ` · per ${fmtDate(f.updated_at)}` : ''}. Overall = skor relatif 0–100 (rata-rata peringkat 4 metrik inti dibanding emiten lain), bukan nilai absolut. Metrik yang kosong dihitung netral, bukan diabaikan, agar data bolong tidak menguntungkan. Emiten yang merugi tidak diberi skor karena PER tidak bermakna dan PBV terdistorsi. Edukatif, bukan rekomendasi.
+        ROA, NPM, DER, dan Growth EPS diisi manual dari laporan keuangan resmi emiten{f.basis_date ? ` (LK ${fmtDate(f.basis_date)})` : ''}. PER, PBV, dan Yield dihitung dari harga pasar terakhir dibagi EPS, ekuitas per saham, dan total dividen 12 bulan terakhir — ketiganya bergerak mengikuti harga, jadi bisa berbeda dari sumber lain yang memakai harga atau periode berbeda. Overall = skor relatif 0–100 (rata-rata peringkat 4 metrik inti dibanding emiten lain), bukan nilai absolut. Metrik yang kosong dihitung netral, bukan diabaikan, agar data bolong tidak menguntungkan. Emiten yang merugi tidak diberi skor karena PER tidak bermakna dan PBV terdistorsi. Edukatif, bukan rekomendasi.
       </p>
     </div>
   );
