@@ -25,7 +25,25 @@ const env = {
 };
 
 const OFFSET_DAYS = 21;
-const WINDOW_PAST_DAYS = 100;
+
+// Jendela mundur. DULU 100 hari, dan itu sumber lubang yang diam-diam merusak
+// perhitungan dividend yield selama berbulan-bulan.
+//
+// Cakupan worker ini (analyses + held) dievaluasi SAAT DIJALANKAN, sementara
+// jendelanya cuma 100 hari ke belakang. Akibatnya, begitu sebuah emiten masuk
+// cakupan — user baru membelinya, atau analisisnya baru ditulis — semua dividen
+// yang jatuh lebih dari 100 hari sebelumnya TIDAK PERNAH terdeteksi, dan tidak
+// akan pernah terdeteksi di run berikutnya karena umurnya makin tua.
+//
+// Contoh nyatanya: interim MSTI (ex 11 Des 2025) dan interim POWR (ex 25 Nov
+// 2025) hilang dari `dividend_schedule`, sehingga DY MSTI terbaca 7,60% alih-alih
+// 8,75%, dan POWR 4,93% alih-alih 7,34%. Tidak ada satu pun tanda peringatan —
+// jumlahnya sekadar kurang, dan hasilnya tampak seperti angka yang wajar.
+//
+// 400 hari menutup satu tahun penuh plus margin, jadi emiten yang baru masuk
+// cakupan langsung terisi mundur satu siklus dividen. API-nya sudah menarik
+// range=2y, jadi datanya memang sudah ada — sebelumnya dibuang percuma.
+const WINDOW_PAST_DAYS = 400;
 const CHUNK = 20;
 const CHUNK_DELAY_MS = 300; // jeda sopan antar-chunk ke Yahoo (bukan batasan teknis, sekadar hati-hati)
 
@@ -120,11 +138,28 @@ async function main() {
     if (isNaN(exTime) || exTime < minEx) continue;
     seen.add(key);
     const payEst = new Date(exTime + OFFSET_DAYS * DAY).toISOString().slice(0, 10);
-    pending.push({ symbol, ex_date: exDate, pay_date: payEst, source: 'auto-detect (perlu tanggal resmi)', confirmed: false });
+
+    // amount DULU tidak pernah ditulis, padahal feed menyediakannya. Setiap baris
+    // buatan worker lahir dengan amount NULL, dan view fundamentals_live menolak
+    // menghitung DY bila ada satu saja NULL — jadi yield emiten itu diam-diam
+    // jatuh ke nilai kurasi lama yang membeku. Nominal dari feed adalah fakta;
+    // yang masih perlu konfirmasi manual hanya TANGGAL BAYAR, dan itulah arti
+    // confirmed=false di sini.
+    const amount = Number(d.amount);
+    pending.push({
+      symbol,
+      ex_date: exDate,
+      pay_date: payEst,
+      amount: Number.isFinite(amount) && amount > 0 ? amount : null,
+      source: 'auto-detect (perlu tanggal resmi)',
+      confirmed: false,
+    });
   }
 
   const n = await insertPending(pending);
+  const tanpaNominal = pending.filter((x) => x.amount == null).length;
   console.log(`dividend-sync: ${symbols.length} simbol, ${divs.length} dividen, ${n} pending baru ditambahkan`);
+  if (tanpaNominal) console.warn(`dividend-sync: ${tanpaNominal} baris tanpa nominal dari feed — DY emiten itu tidak akan dihitung sampai diisi manual`);
 }
 
 main().catch((e) => { console.error('dividend-sync gagal:', e.message); process.exit(1); });
