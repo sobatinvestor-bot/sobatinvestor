@@ -238,22 +238,40 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
   // boleh ikut mati karenanya.
   const [prices, setPrices] = useState({});
   useEffect(() => {
-    const syms = Object.keys(fundsRaw);
+    // HANYA emiten yang punya basis per saham. Baris tanpa eps_ttm/bvps tidak
+    // bisa dihitung apa pun dari harga, jadi memintanya sia-sia.
+    //
+    // Versi pertama kode ini menarik harga untuk SELURUH isi fundamentals —
+    // ratusan emiten, belasan permintaan berurutan ke Yahoo, dan sebagian besar
+    // ditolak. Akibatnya kolom PER/PBV/DY di tab Analisis kosong semua. Sekarang
+    // daftarnya tinggal segelintir dan cukup satu permintaan.
+    const syms = Object.keys(fundsRaw).filter((k) => {
+      const r = fundsRaw[k];
+      return r && (Number(r.eps_ttm) > 0 || Number(r.bvps) > 0 || Number(r.dps12) > 0);
+    });
     if (!syms.length) return;
     let active = true;
     const CHUNK = 60; // batas MAX_SYMBOLS di /api/quotes
     (async () => {
       const m = {};
       for (let i = 0; i < syms.length; i += CHUNK) {
-        try {
-          const r = await fetch(`/api/quotes?symbols=${encodeURIComponent(syms.slice(i, i + CHUNK).join(','))}`);
-          if (!r.ok) continue;
-          const d = await r.json();
-          for (const q of (d.quotes || [])) {
-            const px = Number(q.price);
-            if (q.symbol && Number.isFinite(px) && px > 0) m[String(q.symbol).toUpperCase()] = px;
+        const url = `/api/quotes?symbols=${encodeURIComponent(syms.slice(i, i + CHUNK).join(','))}`;
+        // Satu kali ulang. Kolom per/pbv/div_yield lama sudah dikosongkan, jadi
+        // tidak ada lagi cadangan: gagal ambil harga = kolom kosong di layar.
+        for (let coba = 0; coba < 2; coba++) {
+          try {
+            const r = await fetch(url);
+            if (!r.ok) { if (coba === 0) await new Promise((z) => setTimeout(z, 700)); continue; }
+            const d = await r.json();
+            for (const q of (d.quotes || [])) {
+              const px = Number(q.price);
+              if (q.symbol && Number.isFinite(px) && px > 0) m[String(q.symbol).toUpperCase()] = px;
+            }
+            break;
+          } catch {
+            if (coba === 0) await new Promise((z) => setTimeout(z, 700));
           }
-        } catch { /* biarkan — cadangan tersimpan yang dipakai */ }
+        }
       }
       if (active) setPrices(m);
     })();
