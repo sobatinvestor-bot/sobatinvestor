@@ -1,8 +1,27 @@
+// ============================================================
+// VERSI: fundamentals-live-3  ·  11 September 2026
+//
+// Penanda versi. Kalau ragu berkas mana yang sedang live, cari string
+// "fundamentals-live-3" di bundel yang ter-deploy, atau lihat catatan kaki di
+// bawah strip fundamental — versi ini berbunyi "ROA, NPM, DER, dan Growth EPS
+// diisi manual...", bukan "PER/PBV/ROA/NPM dikurasi manual...".
+//
+// Isi perubahan versi ini:
+//   1. Sumber data pindah dari tabel `fundamentals` ke view `fundamentals_live`
+//   2. Harga ditarik dari /api/quotes HANYA untuk emiten yang punya eps_ttm/
+//      bvps/dps12 — versi sebelumnya meminta harga untuk seluruh isi tabel,
+//      belasan permintaan berurutan ke Yahoo, dan sebagian besar ditolak
+//      sehingga PER/PBV/Yield kosong di layar
+//   3. Satu kali percobaan ulang bila permintaan harga gagal
+//   4. Catatan kaki dan label sumber disesuaikan: PER/PBV/Yield kini ikut harga
+// ============================================================
+
 import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, lazy, Suspense } from 'react';
 import { ChevronLeft, Send, Trash2, Loader2, TrendingUp, TrendingDown, MessageCircle, Search, X } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell, LineChart, Line, CartesianGrid, ReferenceLine } from 'recharts';
 import { supabase } from './lib/supabase';
 import useBackGuard from './useBackGuard.js';
+import { hydrateFunds } from './fundamentals-live';
 const Backtest = lazy(() => import('./Backtest.jsx'));
 const DividendCalendar = lazy(() => import('./DividendCalendar.jsx'));
 
@@ -119,7 +138,7 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
   const [filter, setFilter] = useState('Semua'); // 'Semua' | 'Syariah'
   const [ambang, setAmbang] = useState({ per: '', pbv: '', roa: '', npm: '' }); // saringan angka (kosong = tak dipakai)
   const [sortBy, setSortBy] = useState(null); // null = kode A-Z; atau salah satu key fundamental
-  const [funds, setFunds] = useState({}); // peta simbol -> baris fundamentals
+  // `funds` bukan lagi state — ia turunan dari fundsRaw + prices (lihat di bawah).
   const [perf, setPerf] = useState({});   // peta simbol -> baris performance (imbal hasil harga)
   const [periode, setPeriode] = useState('pct_ytd'); // periode yg ditampilkan di samping Overall
   // Tanggal sinkron performa — dipakai label "per <tgl>". Beda dari updated_at
@@ -208,17 +227,76 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
     return () => { active = false; };
   }, [userId]);
 
-  // Muat data fundamental (publik, read-only) untuk pengurutan & nilai di chip
+  // Muat data fundamental (publik, read-only) untuk pengurutan & nilai di chip.
+  // Sumbernya view `fundamentals_live`: fakta laporan keuangan (eps_ttm, bvps,
+  // roa, npm, der) plus DPS 12 bulan dari dividend_schedule. PER/PBV/DY-nya
+  // dihitung belakangan bersama harga — lihat hidrasi di bawah.
+  const [fundsRaw, setFundsRaw] = useState({});
   useEffect(() => {
     let active = true;
-    supabase.from('fundamentals').select('*').then(({ data, error }) => {
+    supabase.from('fundamentals_live').select('*').then(({ data, error }) => {
       if (!active) return;
       const m = {};
       if (!error && Array.isArray(data)) data.forEach((r) => { m[(r.symbol || '').toUpperCase()] = r; });
-      setFunds(m);
+      setFundsRaw(m);
     });
     return () => { active = false; };
   }, []);
+
+  // Harga pasar untuk emiten yang punya baris fundamental.
+  //
+  // Tab ini sebelumnya tidak memegang harga sama sekali, jadi PER/PBV/DY-nya
+  // memakai nilai tersimpan yang membeku pada harga saat analisis ditulis.
+  // Setelah tab Portofolio beralih ke perhitungan live, dua tab akan
+  // menampilkan PER berbeda untuk emiten yang sama, dan keduanya tampak sama
+  // sahnya. Karena itu harga ditarik di sini juga.
+  //
+  // Gagal ambil BUKAN kondisi fatal: deriveFund jatuh ke nilai tersimpan, dan
+  // daftar tetap bisa diurutkan. Yahoo kadang memblokir, dan tab bacaan tidak
+  // boleh ikut mati karenanya.
+  const [prices, setPrices] = useState({});
+  useEffect(() => {
+    // HANYA emiten yang punya basis per saham. Baris tanpa eps_ttm/bvps tidak
+    // bisa dihitung apa pun dari harga, jadi memintanya sia-sia.
+    //
+    // Versi pertama kode ini menarik harga untuk SELURUH isi fundamentals —
+    // ratusan emiten, belasan permintaan berurutan ke Yahoo, dan sebagian besar
+    // ditolak. Akibatnya kolom PER/PBV/DY di tab Analisis kosong semua. Sekarang
+    // daftarnya tinggal segelintir dan cukup satu permintaan.
+    const syms = Object.keys(fundsRaw).filter((k) => {
+      const r = fundsRaw[k];
+      return r && (Number(r.eps_ttm) > 0 || Number(r.bvps) > 0 || Number(r.dps12) > 0);
+    });
+    if (!syms.length) return;
+    let active = true;
+    const CHUNK = 60; // batas MAX_SYMBOLS di /api/quotes
+    (async () => {
+      const m = {};
+      for (let i = 0; i < syms.length; i += CHUNK) {
+        const url = `/api/quotes?symbols=${encodeURIComponent(syms.slice(i, i + CHUNK).join(','))}`;
+        // Satu kali ulang. Kolom per/pbv/div_yield lama sudah dikosongkan, jadi
+        // tidak ada lagi cadangan: gagal ambil harga = kolom kosong di layar.
+        for (let coba = 0; coba < 2; coba++) {
+          try {
+            const r = await fetch(url);
+            if (!r.ok) { if (coba === 0) await new Promise((z) => setTimeout(z, 700)); continue; }
+            const d = await r.json();
+            for (const q of (d.quotes || [])) {
+              const px = Number(q.price);
+              if (q.symbol && Number.isFinite(px) && px > 0) m[String(q.symbol).toUpperCase()] = px;
+            }
+            break;
+          } catch {
+            if (coba === 0) await new Promise((z) => setTimeout(z, 700));
+          }
+        }
+      }
+      if (active) setPrices(m);
+    })();
+    return () => { active = false; };
+  }, [fundsRaw]);
+
+  const funds = useMemo(() => hydrateFunds(fundsRaw, (sym) => prices[sym] ?? null), [fundsRaw, prices]);
 
   // Performa harga — tabel terpisah, kadensi harian. Gagal ambil = biarkan kosong
   // (chip menampilkan "—"), jangan bikin daftar ikut gagal.
@@ -354,7 +432,7 @@ export default function AnalisisTab({ userId, userName, onRequireLogin, initialP
           <div style={{ marginTop: 12 }}>
             <div className="mono" style={{ fontSize: 9, color: C.inkSoft, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 7, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
               <span>Urutkan · indikator fundamental</span>
-              <span style={{ padding: '2px 7px', borderRadius: 100, background: C.cream2, color: C.inkSoft, fontSize: 8.5, letterSpacing: '0.05em', fontWeight: 700 }} title="Sinkron otomatis dihentikan Juli 2026. Angka diperbarui manual dari laporan keuangan resmi emiten di keterbukaan BEI.">KURASI MANUAL · LK RESMI BEI{fundsUpdated ? ` · PER ${fmtDate(fundsUpdated).toUpperCase()}` : ''}</span>
+              <span style={{ padding: '2px 7px', borderRadius: 100, background: C.cream2, color: C.inkSoft, fontSize: 8.5, letterSpacing: '0.05em', fontWeight: 700 }} title="EPS, ekuitas per saham, ROA, NPM, dan DER diisi manual dari laporan keuangan resmi emiten di keterbukaan BEI. PER, PBV, dan yield dihitung dari angka itu dibagi harga pasar terakhir, jadi ketiganya bergerak mengikuti harga.">LK RESMI BEI · PER/PBV/YIELD IKUT HARGA{fundsUpdated ? ` · LK ${fmtDate(fundsUpdated).toUpperCase()}` : ''}</span>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {[...FUND_METRICS, OVERALL_METRIC].map((m) => (
@@ -580,7 +658,7 @@ export function FundamentalStrip({ symbol, funds }) {
         })}
       </div>
       <p className="mono" style={{ fontSize: 9.5, color: C.inkSoft, marginTop: 8, lineHeight: 1.5 }}>
-        PER/PBV/ROA/NPM dikurasi manual dari laporan keuangan resmi emiten (sinkron otomatis dihentikan Juli 2026), dapat berbeda dari perhitungan lain; DER/Yield/Growth EPS juga dari laporan keuangan resmi emiten{f.updated_at ? ` · per ${fmtDate(f.updated_at)}` : ''}. Overall = skor relatif 0–100 (rata-rata peringkat 4 metrik inti dibanding emiten lain), bukan nilai absolut. Metrik yang kosong dihitung netral, bukan diabaikan, agar data bolong tidak menguntungkan. Emiten yang merugi tidak diberi skor karena PER tidak bermakna dan PBV terdistorsi. Edukatif, bukan rekomendasi.
+        ROA, NPM, DER, dan Growth EPS diisi manual dari laporan keuangan resmi emiten{f.basis_date ? ` (LK ${fmtDate(f.basis_date)})` : ''}. PER, PBV, dan Yield dihitung dari harga pasar terakhir dibagi EPS, ekuitas per saham, dan total dividen 12 bulan terakhir — ketiganya bergerak mengikuti harga, jadi bisa berbeda dari sumber lain yang memakai harga atau periode berbeda. Overall = skor relatif 0–100 (rata-rata peringkat 4 metrik inti dibanding emiten lain), bukan nilai absolut. Metrik yang kosong dihitung netral, bukan diabaikan, agar data bolong tidak menguntungkan. Emiten yang merugi tidak diberi skor karena PER tidak bermakna dan PBV terdistorsi. Edukatif, bukan rekomendasi.
       </p>
     </div>
   );
