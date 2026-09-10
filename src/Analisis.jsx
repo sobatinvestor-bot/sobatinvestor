@@ -1,3 +1,21 @@
+// ============================================================
+// VERSI: fundamentals-live-3  ·  11 September 2026
+//
+// Penanda versi. Kalau ragu berkas mana yang sedang live, cari string
+// "fundamentals-live-3" di bundel yang ter-deploy, atau lihat catatan kaki di
+// bawah strip fundamental — versi ini berbunyi "ROA, NPM, DER, dan Growth EPS
+// diisi manual...", bukan "PER/PBV/ROA/NPM dikurasi manual...".
+//
+// Isi perubahan versi ini:
+//   1. Sumber data pindah dari tabel `fundamentals` ke view `fundamentals_live`
+//   2. Harga ditarik dari /api/quotes HANYA untuk emiten yang punya eps_ttm/
+//      bvps/dps12 — versi sebelumnya meminta harga untuk seluruh isi tabel,
+//      belasan permintaan berurutan ke Yahoo, dan sebagian besar ditolak
+//      sehingga PER/PBV/Yield kosong di layar
+//   3. Satu kali percobaan ulang bila permintaan harga gagal
+//   4. Catatan kaki dan label sumber disesuaikan: PER/PBV/Yield kini ikut harga
+// ============================================================
+
 import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, lazy, Suspense } from 'react';
 import { ChevronLeft, Send, Trash2, Loader2, TrendingUp, TrendingDown, MessageCircle, Search, X } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell, LineChart, Line, CartesianGrid, ReferenceLine } from 'recharts';
